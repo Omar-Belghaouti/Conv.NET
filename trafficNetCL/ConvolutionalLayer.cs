@@ -6,14 +6,17 @@ using System.Threading.Tasks;
 
 namespace trafficNetCL
 {
-    class ConvolutionalLayer : Layer
+    class ConvolutionalLayer : Layer, ILayer
     {
-        public ConvolutionalLayer(int inputW, int inputH, int inputD, int outputW, int outputH, int outputD) 
-                                : base(inputW, inputH, inputD, outputW, outputH, outputD)
+        int FilterSize;
+
+        // TO-DO: implement constructor
+        public ConvolutionalLayer(int filterSize, int numFilters)
         {
-            // inherited constructor
+
         }
 
+        // TO-DO: implement convolutional layer methods
 
     }
 }

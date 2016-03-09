@@ -41,6 +41,8 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="FullyConnectedLayer.cs" />
+    <Compile Include="SoftMaxLayer.cs" />
     <Compile Include="ConvolutionalLayer.cs" />
     <Compile Include="ILayer.cs" />
     <Compile Include="Layer.cs" />

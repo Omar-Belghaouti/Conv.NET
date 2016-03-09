@@ -8,10 +8,18 @@ namespace trafficNetCL
 {
     interface ILayer
     {
+        void InitializeWeightsAndBiases();
+
         void ForwardOne();
 
         void ForwardBatch();
 
         void BackProp();
+
+        void UpdateWeights();
+
+        // Properties
+        float[, ,] Input { get; set; }
+        float[, ,] Output { get; set; }
     }
 }

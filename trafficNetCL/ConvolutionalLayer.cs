@@ -4,9 +4,9 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace trafficNetCL
+namespace TrafficNetCL
 {
-    class ConvolutionalLayer : Layer, ILayer
+    class ConvolutionalLayer : Layer
     {
         int FilterSize;
 
@@ -17,6 +17,22 @@ namespace trafficNetCL
         }
 
         // TO-DO: implement convolutional layer methods
+
+
+        /// <summary>
+        /// Method to setup the first layer of the network.
+        /// </summary>
+        public override void Setup(int InputImageWidth, int InputImageHeight, int InputImageDepth)
+        {
+        }
+
+        /// <summary>
+        /// Method to setup any layer in the network EXCEPT the first one.
+        /// </summary>
+        public override void Setup()
+        {
+        }
+
 
     }
 }

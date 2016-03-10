@@ -6,34 +6,41 @@ using System.Threading.Tasks;
 using System.Data;
 using System.Diagnostics;
 
-namespace trafficNetCL
+namespace TrafficNetCL
 {
     class NeuralNetwork
     {
-        // Private fields
-        public List<Layer> Layers; // Layers of the network
-        DataTable TrainingSet; // setting datasets as class fields could be pointless...think about it
-        DataTable ValidationSet;
-        DataTable TestSet;
+        // Fields
+        List<Layer> layers;
+        int nLayers = 0;
 
-        public double trainingError;
+        // Properties
+        public List<Layer> Layers
+        {
+            get { return layers; }
+        }
+        public int Depth
+        {
+            get { return nLayers; }
+        }
 
-        // Constructor
+        /// <summary>
+        /// NeuralNetwork class constructor.
+        /// </summary>
         public NeuralNetwork()
         {
             Console.WriteLine("--- New empty network created ---");
-            this.Layers = new List<Layer>(); // empty list of Layers
+            this.layers = new List<Layer>(); // empty list of layers
         }
 
-        // Add Layers to the network, in a linked fashion (...really needed??)
+        /// <summary>
+        /// Add layer to NeuralNetwork object.
+        /// </summary>
+        /// <param name="layer"></param>
         public void AddLayer(Layer layer)
         {
-            bool isNotEmpty = Layers.Any();
-            if (isNotEmpty)
-            {
-                Layers.Last().NextLayer = layer;
-            }
-            Layers.Add(layer);
+            layers.Add(layer);
+            nLayers++;
         }
 
         /// <summary>
@@ -41,108 +48,57 @@ namespace trafficNetCL
         /// </summary>
         /// <param name="inputDimensions"></param>
         /// <param name="nOutputClasses"></param>
-        public void Setup(int[] inputDimensions, int nOutputClasses)
+        public void Setup(int inputImgWidth, int inputImgHeight, int inputImgDepth, int nOutputClasses)
         {
-            Console.WriteLine("--- Network setup started ---");
+            Console.WriteLine("--- Network setup and initialization started ---");
 
-            Console.WriteLine("Setting up layer 0...");
-            Layers[0].SetupInput(inputDimensions[0], inputDimensions[1], inputDimensions[2]);
-            Layers[0].SetupOutput();
-            Layers[0].InitializeWeightsAndBiases();
+            Console.WriteLine("Setting up layer 0 (input layer)...");
+            layers[0].Setup(inputImgWidth, inputImgHeight, inputImgDepth); // should AUTOMATICALLY setup both input AND output AND initialize weights and biases
 
-            for (int i = 1; i < Layers.Count; i++ ) // all other layers
+            Console.WriteLine("Is input of layer 0 instantiated OUTSIDE? {0}", layers[0].Input != null);
+            //Console.WriteLine("Does output of layer 0 exist? {0}", layers[0].Output != null);
+
+            for (int i = 1; i < layers.Count; i++ ) // all other layers
             {
                 Console.WriteLine("Setting up layer {0}...", i);
-                Layers[i].SetupInput(Layers[i-1].OutputWidth, Layers[i-1].OutputHeight, Layers[i-1].OutputDepth);
-                Layers[i].SetupOutput();
-                Layers[i].InitializeWeightsAndBiases();
+                //Console.WriteLine("Does output of layer {0} exist? {1}", i-1, layers[i - 1].Output != null);
+                //Console.WriteLine("Does input of layer {0} exist? {1}", i, layers[i].Input != null);
+                layers[i].Input.ConnectTo(layers[i - 1].Output);
+                layers[i].Setup();
             }
 
-            Console.WriteLine("--- Network setup complete ---");
+            Console.WriteLine("--- Network setup and initialization complete ---");
         }
 
-
-
-
-
-        
-        void train( DataTable trainingSet, 
-                    DataTable validationSet, 
-                    double learningRate, 
-                    double momentumMultiplier, 
-                    int maxTrainingEpochs, 
-                    int miniBatchSize,
-                    double errorTolerance) // returns training error
-        {   
-            this.TrainingSet = trainingSet;
-            int sizeTrainingSet = trainingSet.Rows.Count;
-            Debug.Assert(sizeTrainingSet % miniBatchSize == 0);
-            int nMiniBatches = sizeTrainingSet / miniBatchSize;
-
-            this.ValidationSet = validationSet;
-
-            bool stopFlag = false;
-            int epoch = 0;
-            while (epoch < maxTrainingEpochs && !stopFlag) 
-            {
-         
-                // TO-DO: split training set into mini-batches
-
-                // TO-DO: implement training
-                // At the end of the epoch we should get a training error and a validation error
-
-
-                if (trainingError < errorTolerance)
-                    stopFlag = true;
-                // TO-DO: also implement early stopping (stop if validation error starts increasing)
-         
-            }
-        }
-
-        double test(DataTable testSet)
+        public int RunForward(float[, ,] inputImage, out float[] outputClassScores)
         {
-            int nCorrectClassifications = 0;
-            float[] outputScores;
-            int assignedClass;
+            int errorCode = 0;
 
-            // TO-DO: transform this to parallelized GPU code
-            foreach (DataRow dataRow in testSet.Rows)
+            layers[0].Input.Set(inputImage);
+            for (int iLayer = 0; iLayer < nLayers - 1; iLayer++) // all layers but last
             {
-                float[, ,] inputImage = dataRow.Field<float[, ,]>(0);
-                int targetClass = dataRow.Field<int>(1);
-
-                Layers[0].Input = inputImage;
-                for (int i = 0; i < Layers.Count; i++)
-                {
-                    Layers[i].ForwardOne(); // run layer forward
-                    if (i < Layers.Count - 1) // if it is not the last layer
-                        Layers[i + 1].Input = Layers[i].Output; // then set output as input of next layer
-                }
-
-                outputScores = Layers[Layers.Count - 1].Output.Cast<float>().ToArray(); // cast output of last layer to 1D array
-                assignedClass = indexMaxScore(outputScores);
-
-                if (assignedClass == targetClass)
-                    nCorrectClassifications += 1;
+                layers[iLayer].ForwardOne();
+                layers[iLayer + 1].Input = layers[iLayer].Output; // set input of next layer equals to output of this layer
             }
+            layers[nLayers-1].ForwardOne(); // run output (softmax) layer
+            outputClassScores = (float[])layers[nLayers - 1].Output.Get();
 
-            return (double)nCorrectClassifications / (double)testSet.Rows.Count;
+            return errorCode;
         }
 
+
+
+
+
         
-		int indexMaxScore(float[] outputScores){
-            int iMax = 0;
-            float max = outputScores[0];
-            for (int j = 1; j < outputScores.Length; j++)
-            {
-                if (outputScores[j] > max)
-                {
-                    max = outputScores[j];
-					iMax = j;
-				}
-			}
-			return iMax;
-		}
+        
+
+
+
+        
+
+        
+		
     }
 
     

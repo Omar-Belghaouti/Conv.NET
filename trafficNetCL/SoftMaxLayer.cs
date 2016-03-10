@@ -5,9 +5,9 @@ using System.Text;
 using System.Threading.Tasks;
 
 
-namespace trafficNetCL
+namespace TrafficNetCL
 {
-    class SoftMaxLayer : Layer, ILayer
+    class SoftMaxLayer : Layer
     {
         int NumberOfClasses;
 
@@ -18,12 +18,18 @@ namespace trafficNetCL
             this.NumberOfClasses = nClasses;
         }
 
-        public override void SetupOutput()
+        /// <summary>
+        /// Method to setup the first layer of the network.
+        /// </summary>
+        public override void Setup(int InputImageWidth, int InputImageHeight, int InputImageDepth)
         {
-            this.OutputWidth = 1;
-            this.OutputHeight = this.NumberOfClasses;
-            this.OutputDepth = 1;
-            this.Output = new float[1, this.NumberOfClasses, 1];
+        }
+
+        /// <summary>
+        /// Method to setup any layer in the network EXCEPT the first one.
+        /// </summary>
+        public override void Setup()
+        {
         }
 
     }

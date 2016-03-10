@@ -18,11 +18,15 @@ namespace TrafficNetCL
 
         // TO-DO: implement convolutional layer methods
 
+        public override void ConnectTo(Layer PreviousLayer)
+        {
+
+        }
 
         /// <summary>
         /// Method to setup the first layer of the network.
         /// </summary>
-        public override void Setup(int InputImageWidth, int InputImageHeight, int InputImageDepth)
+        public override void SetupAsFirstLayer(int InputImageWidth, int InputImageHeight, int InputImageDepth)
         {
         }
 

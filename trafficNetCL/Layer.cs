@@ -41,10 +41,15 @@ namespace TrafficNetCL
         // Q: But is this better, or even useful?
         // A: No, but we are going to NEED to use something like this if we want to create a multiscale network
 
+
+        public abstract void ConnectTo(Layer PreviousLayer);
+
+
         /// <summary>
         /// Method to setup the first layer of the network.
         /// </summary>
-        public abstract void Setup(int InputImageWidth, int InputImageHeight, int InputImageDepth);
+        /// 
+        public abstract void SetupAsFirstLayer(int InputImageWidth, int InputImageHeight, int InputImageDepth);
 
         /// <summary>
         /// Method to setup any layer in the network EXCEPT the first one.

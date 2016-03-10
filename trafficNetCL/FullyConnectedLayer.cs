@@ -25,13 +25,13 @@ namespace TrafficNetCL
         
         #region Properties (public)
 
-        public Neurons Input
+        public override Neurons Input
         {
             get { return input; }
             set { input = value; }
         }
 
-        public Neurons Output
+        public override Neurons Output
         {
             get { return output; }
         }
@@ -48,17 +48,19 @@ namespace TrafficNetCL
             this.biases = new float[nUnits];
             this.deltas = new float[nUnits];
             this.input = new Neurons();
-            this.output = new Neurons();
-
-            Console.WriteLine("CONSTRUCTOR: is input instantiated? {0}", input != null);
-            //Console.WriteLine("Is output instantiated? {0}", output != null);
+            this.output = new Neurons(nUnits);
         }
 
-        public override void Setup(int InputImageWidth, int InputImageHeight, int InputImageDepth) // in case this is the first layer
+        public override void ConnectTo(Layer PreviousLayer)
         {
-            this.input.Setup(InputImageWidth * InputImageHeight * InputImageDepth);
+            this.input.ConnectTo(PreviousLayer.Output);
+        }
 
-            Console.WriteLine("SETUP: Does input of layer 0 exist INSIDE the setup function? {0}", Input != null);
+        public override void SetupAsFirstLayer(int InputImageWidth, int InputImageHeight, int InputImageDepth) // in case this is the first layer
+        {
+            this.input = new Neurons(InputImageWidth * InputImageHeight * InputImageDepth);
+
+            // also initialize weights and biases
         }
 
         public override void Setup() // after being connected to another layer

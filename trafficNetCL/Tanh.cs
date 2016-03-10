@@ -4,24 +4,10 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-
 namespace TrafficNetCL
 {
-    class SoftMaxLayer : Layer
+    class Tanh : Layer
     {
-        int NumberOfClasses;
-
-        // Constructor
-        public SoftMaxLayer(int nClasses)
-        {
-            Console.WriteLine("Adding a softmax layer with {0} output units...", nClasses);
-            this.NumberOfClasses = nClasses;
-        }
-
-        public override void ConnectTo(Layer PreviousLayer)
-        {
-
-        }
 
         /// <summary>
         /// Method to setup the first layer of the network.
@@ -35,6 +21,11 @@ namespace TrafficNetCL
         /// </summary>
         public override void Setup()
         {
+        }
+
+        public override void ConnectTo(Layer PreviousLayer)
+        {
+
         }
 
     }

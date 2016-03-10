@@ -53,16 +53,16 @@ namespace TrafficNetCL
             Console.WriteLine("--- Network setup and initialization started ---");
 
             Console.WriteLine("Setting up layer 0 (input layer)...");
-            layers[0].Setup(inputImgWidth, inputImgHeight, inputImgDepth); // should AUTOMATICALLY setup both input AND output AND initialize weights and biases
+            layers[0].SetupAsFirstLayer(inputImgWidth, inputImgHeight, inputImgDepth); // should AUTOMATICALLY setup both input AND output AND initialize weights and biases
 
-            Console.WriteLine("Is input of layer 0 instantiated OUTSIDE? {0}", layers[0].Input != null);
-            //Console.WriteLine("Does output of layer 0 exist? {0}", layers[0].Output != null);
+            Console.WriteLine("Does input of layer 0 exist? {0}", layers[0].Input != null);
+            Console.WriteLine("Does output of layer 0 exist? {0}", layers[0].Output != null);
 
             for (int i = 1; i < layers.Count; i++ ) // all other layers
             {
                 Console.WriteLine("Setting up layer {0}...", i);
-                //Console.WriteLine("Does output of layer {0} exist? {1}", i-1, layers[i - 1].Output != null);
-                //Console.WriteLine("Does input of layer {0} exist? {1}", i, layers[i].Input != null);
+                Console.WriteLine("Does output of layer {0} exist? {1}", i-1, layers[i - 1].Output != null);
+                Console.WriteLine("Does input of layer {0} exist? {1}", i, layers[i].Input != null);
                 layers[i].Input.ConnectTo(layers[i - 1].Output);
                 layers[i].Setup();
             }

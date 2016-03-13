@@ -10,11 +10,11 @@ namespace TrafficNetCL
     {
         // TO-DO: create custom data structure
 
-        private List<float[, ,]> trafficSigns;
+        private List<float[]> trafficSigns;
         private List<int> labels;
         private int length;
 
-        public List<float[, ,]> TrafficSigns
+        public List<float[]> TrafficSigns
         {
             get { return trafficSigns; }
         }

@@ -39,8 +39,8 @@ namespace TrafficNetCL
         /// <param name="layer"></param>
         public void AddLayer(Layer layer)
         {
-            if (nLayers > 1)
-                layers[layers.Count].NextLayer = layer; // set this layer as layer field of previous one
+            if (this.layers.Any()) // if layer list is not empty
+                this.layers.Last().NextLayer = layer; // set this layer as layer field of previous one
 
             this.layers.Add(layer);
             this.nLayers++;
@@ -51,12 +51,12 @@ namespace TrafficNetCL
         /// </summary>
         /// <param name="inputDimensions"></param>
         /// <param name="nOutputClasses"></param>
-        public void Setup(int inputImgWidth, int inputImgHeight, int inputImgDepth, int nOutputClasses)
+        public void Setup(int[] inputDimensions, int nOutputClasses)
         {
             Console.WriteLine("--- Network setup and initialization started ---");
 
             Console.WriteLine("Setting up layer 0 (input layer)...");
-            layers[0].SetAsFirstLayer(inputImgWidth, inputImgHeight, inputImgDepth); // should AUTOMATICALLY setup both input AND output AND initialize weights and biases
+            layers[0].SetAsFirstLayer(inputDimensions); // should AUTOMATICALLY setup both input AND output AND initialize weights and biases
             
             /*
             Console.WriteLine("\tLayer 0: {1} input neurons arranged as {2}",

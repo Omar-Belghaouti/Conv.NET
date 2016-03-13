@@ -29,8 +29,8 @@ namespace TrafficNetCL
             NeuralNetwork net = new NeuralNetwork();
             // neuralNet.AddLayer(new ConvolutionalLayer(7,40));
             //net.AddLayer(new FullyConnectedLayer(100));
-            //net.AddLayer(new FullyConnectedLayer(50));
-            //net.AddLayer(new FullyConnectedLayer(150));
+            net.AddLayer(new FullyConnectedLayer(50));
+            net.AddLayer(new FullyConnectedLayer(150));
             net.AddLayer(new FullyConnectedLayer(10));
             //net.AddLayer(new SoftMaxLayer(43));
 

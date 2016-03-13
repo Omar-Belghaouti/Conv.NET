@@ -21,30 +21,43 @@ namespace TrafficNetCL
         public override void ConnectTo(Layer PreviousLayer)
         {
 
+
+        }
+
+        public override void InitializeParameters()
+        {
         }
 
         /// <summary>
         /// Method to setup the first layer of the network.
         /// </summary>
-        public override void SetAsFirstLayer(int InputImageWidth, int InputImageHeight, int InputImageDepth)
-        {
-        }
-
-        /// <summary>
-        /// Method to setup any layer in the network EXCEPT the first one.
-        /// </summary>
-        public override void InitializeParameters()
+        public override void SetAsFirstLayer(int[] InputDimensions)
         {
         }
 
         public override void ForwardOneCPU()
         {
+        }
 
+        public override void ForwardBatchCPU()
+        {
+        }
+
+        public override void ForwardGPU()
+        {
         }
 
         public override void BackPropOneCPU()
         {
 
+        }
+
+        public override void BackPropBatchCPU()
+        {
+        }
+
+        public override void UpdateParameters()
+        {
         }
 
 

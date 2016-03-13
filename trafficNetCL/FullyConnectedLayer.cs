@@ -15,16 +15,17 @@ namespace TrafficNetCL
 
         private float[,] weights;
         private float[] biases;
-        private float[] deltas;
+        
+        private new float[] delta;
 
         #endregion
 
         
         #region Properties (public)
 
-        public float[] Delta
+        public override float[] Delta
         {
-            get { return deltas; }
+            get { return delta; }
         }
 
         #endregion
@@ -32,27 +33,31 @@ namespace TrafficNetCL
 
         #region Setup methods (to be called once)
 
-        // Constructor
+        /// <summary>
+        /// Constructor of fully connected layer type. Specify number of units as argument.
+        /// </summary>
+        /// <param name="nUnits"></param>
         public FullyConnectedLayer(int nUnits)
         {
             Console.WriteLine("Adding a fully connected layer with {0} units...", nUnits);
             this.numberOfUnits = nUnits;
             this.biases = new float[nUnits];
-            this.deltas = new float[nUnits];
+            this.delta = new float[nUnits];
             this.input = new Neurons();
             this.output = new Neurons(nUnits);
+            this.layerType = "FullyConnected";
         }
 
         public override void ConnectTo(Layer PreviousLayer)
         {
-            this.input.ConnectTo(PreviousLayer.Output);
+ 	        base.ConnectTo(PreviousLayer);
             this.weights = new float[Output.NumberOfUnits, Input.NumberOfUnits];
         }
 
-        public override void SetAsFirstLayer(int InputImageWidth, int InputImageHeight, int InputImageDepth) // in case this is the first layer
+        public override void SetAsFirstLayer(int[] InputDimensions)
         {
-            this.input = new Neurons(InputImageWidth * InputImageHeight * InputImageDepth);
-            this.weights = new float[Output.NumberOfUnits, Input.NumberOfUnits];
+            this.input = new Neurons(InputDimensions[0] * InputDimensions[1] * InputDimensions[2]);
+            this.weights = new float[this.output.NumberOfUnits, this.input.NumberOfUnits];
         }
 
         public override void InitializeParameters() // only call after either "SetAsFirstLayer()" or "ConnectTo()"
@@ -61,12 +66,10 @@ namespace TrafficNetCL
             // Initialize biases as normally distributed numbers with mean 0 and std 1
 
             Random rng = new Random(); //reuse this if you are generating many
-            double weightsStdDev = 1 / (Math.Sqrt(this.Input.NumberOfUnits));
+            double weightsStdDev = 1 / (Math.Sqrt(this.input.NumberOfUnits));
             double uniformRand1;
             double uniformRand2;
             double tmp;
-
-
 
             for (int iRow = 0; iRow < this.weights.GetLength(0); iRow++)
             {
@@ -93,10 +96,18 @@ namespace TrafficNetCL
         }
         #endregion
 
+
+        #region Training methods
+
         public override void ForwardOneCPU()
         {
             float[] unbiasedOutput = Utils.MultiplyMatrixByVector(this.weights, (float[])this.input.Get());
             this.output.Set(unbiasedOutput.Zip(this.biases, (x, y) => x + y).ToArray());
+        }
+
+        public override void ForwardBatchCPU()
+        {
+
         }
 
         public override void ForwardGPU()
@@ -106,15 +117,20 @@ namespace TrafficNetCL
 
         public override void BackPropOneCPU()
         {
-            this.deltas = Utils.MultiplyMatrixTranspByVector(this.weights, this.nextLayer.Delta);
+            this.delta = Utils.MultiplyMatrixTranspByVector(this.weights, this.nextLayer.Delta);
         }
 
+        public override void BackPropBatchCPU()
+        {
+          
+        }
 
+        public override void UpdateParameters()
+        {
 
+        }
 
-
-
-        
+        #endregion
 
     }
 }

@@ -21,7 +21,7 @@ namespace TrafficNetCL
         {
             // TO-DO: transform this into parallelized GPU code
             int nCorrectClassifications = 0;
-            float [,,] trafficSign;
+            float [] trafficSign;
             int label;
             float[] outputClassScores;
             int assignedClass;

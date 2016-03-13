@@ -16,7 +16,11 @@ namespace TrafficNetCL
 
         protected Neurons input;
         protected Neurons output;
+
         protected Layer nextLayer;
+
+        protected float[] delta;
+
         protected string layerType;
 
         #endregion
@@ -33,6 +37,11 @@ namespace TrafficNetCL
         public virtual Neurons Output
         {
             get { return output; }
+        }
+
+        public virtual float[] Delta
+        {
+            get { return delta; }
         }
         
         public virtual Layer NextLayer {
@@ -54,7 +63,7 @@ namespace TrafficNetCL
         /// Link this layer to previous one.
         /// </summary>
         /// <param name="PreviousLayer"></param>
-        public void ConnectTo(Layer PreviousLayer)
+        public virtual void ConnectTo(Layer PreviousLayer)
         {
             this.Input = PreviousLayer.Output;
         }
@@ -64,7 +73,7 @@ namespace TrafficNetCL
         /// Method to setup the first layer of the network.
         /// </summary>
         /// 
-        public abstract void SetAsFirstLayer(int InputImageWidth, int InputImageHeight, int InputImageDepth);
+        public abstract void SetAsFirstLayer(int[] InputDimensions);
 
         /// <summary>
         /// Initialize layer parameters (weights and biases).

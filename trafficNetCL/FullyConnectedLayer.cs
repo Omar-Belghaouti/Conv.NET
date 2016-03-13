@@ -17,33 +17,21 @@ namespace TrafficNetCL
         private float[] biases;
         private float[] deltas;
 
-        //private Neurons input;
-        //private Neurons output;
-
         #endregion
 
         
         #region Properties (public)
 
-        /*
-        public override Neurons Input
+        public float[] Delta
         {
-            get { return this.input; }
-            set { this.input = value; }
+            get { return deltas; }
         }
-
-        public override Neurons Output
-        {
-            get { return this.output; }
-        }
-        */
-        
-         
 
         #endregion
 
 
-        #region Layer setup
+        #region Setup methods (to be called once)
+
         // Constructor
         public FullyConnectedLayer(int nUnits)
         {

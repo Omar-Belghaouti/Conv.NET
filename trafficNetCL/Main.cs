@@ -43,7 +43,9 @@ namespace TrafficNetCL
             DataSet trainingSet = new DataSet();
             DataSet validationSet = new DataSet();
 
-            net.Setup(32, 32, 1, 10); // input img: 32x32x3, output classes: 43
+            int[] inputDimensions = new int[] {32, 32, 1};
+            int outputDimension = 43;
+            net.Setup(inputDimensions, outputDimension);
 
 
 

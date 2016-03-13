@@ -9,9 +9,7 @@ namespace TrafficNetCL
     public class Neurons
     {
         private int nUnits;
-        private object unitsActivations;
-        
-        Type typeOfUnits;
+        private float[] unitsActivations;
 
         public int NumberOfUnits 
         {
@@ -26,25 +24,29 @@ namespace TrafficNetCL
         {
             this.nUnits = NumberOfUnits;
             this.unitsActivations = new float[nUnits];
-            this.typeOfUnits = typeof(float[]);
         }
 
+        /*
         public Neurons(int width, int height, int depth) // Constructor for 3D Neurons instance
         {
             this.nUnits = width * height * depth;
             this.unitsActivations = new float[width, height, depth];
             this.typeOfUnits = typeof(float[, ,]);
         }
+         * */
 
         public void Set(float[] value)
         {
-            // TO-DO: improve error-handling
-            if (typeOfUnits.Equals(typeof(float[]))) // simple case (same type of neurons)
-                this.unitsActivations = value;
-            else
-                Console.WriteLine("Something wrong happened when setting neuron values!");
+            this.unitsActivations = value;
         }
 
+        public float[] Get()
+        {
+            return unitsActivations;
+        }
+
+
+        /*
         public void Set(float[,,] value)
         {
             // TO-DO: improve error-handling
@@ -56,12 +58,10 @@ namespace TrafficNetCL
                 Console.WriteLine("Something wrong happened when setting neuron values!");
 
         }
+         * */
 
-        public object Get()
-        {
-            return unitsActivations;
-        }
-
+        
+        /*
         public void ConnectTo(Neurons PreviousOutput)
         {
             this.unitsActivations = new object();
@@ -69,7 +69,8 @@ namespace TrafficNetCL
             this.nUnits = PreviousOutput.NumberOfUnits;
             this.typeOfUnits = unitsActivations.GetType();
         }
-
+         * */
+        
         /*
         public void Setup(int nUnits) // if 1-dim array of units
         {

@@ -12,19 +12,17 @@ namespace TrafficNetCL
     public abstract class Layer
     {
 
-
-        #region Layer class fields
-
-        private object weights; // weight tensor, transforms 3D input to 3D output (should live on the GPU)
-        private object biases; // same size as Output (should live on the GPU)
-        private float[] deltas; // errors, to be computed with backprop (must have same size as Output)
+        #region Layer base class fields (protected)
 
         protected Neurons input;
         protected Neurons output;
-
         protected Layer nextLayer;
+        protected string layerType;
 
         #endregion
+
+
+        #region Layer base class properties (public)
 
         public virtual Neurons Input
         {
@@ -36,22 +34,30 @@ namespace TrafficNetCL
         {
             get { return output; }
         }
-
-        public virtual float[] Delta
-        {
-            get { return this.deltas; }
-        }
-
-        // Alternative approach: link layer to the next like so:
+        
         public virtual Layer NextLayer {
             set { this.nextLayer = value; } 
         }
-        // And then in all loops over layer use this "pointer"... 
-        // Q: But is this better, or even useful?
-        // A: No, but we are going to NEED to use something like this if we want to create a multiscale network
+
+        public string LayerType
+        {
+            get { return layerType; }
+            set { this.layerType = value; }
+        }
+
+        #endregion
 
 
-        public abstract void ConnectTo(Layer PreviousLayer);
+        #region Layer base class setup methods (public, to be called once)
+
+        /// <summary>
+        /// Link this layer to previous one.
+        /// </summary>
+        /// <param name="PreviousLayer"></param>
+        public void ConnectTo(Layer PreviousLayer)
+        {
+            this.Input = PreviousLayer.Output;
+        }
 
 
         /// <summary>
@@ -65,18 +71,42 @@ namespace TrafficNetCL
         /// </summary>
         public abstract void InitializeParameters();
 
+        #endregion
+
+
+        #region Layer class methods (public abstract)
+
+        /// <summary>
+        /// Run layer forward (one input), using CPU
+        /// </summary>
         public abstract void ForwardOneCPU();
 
-        public virtual void ForwardGPU()
-        {
-            // here we'll use GPU
-        }
+        /// <summary>
+        /// Run layer forward (one minibatch), using CPU
+        /// </summary>
+        public abstract void ForwardBatchCPU();
 
+        /// <summary>
+        /// Run layer forward using GPU
+        /// </summary>
+        public abstract void ForwardGPU();
+
+        /// <summary>
+        /// Compute errors with backpropagation (for one input/output) using CPU
+        /// </summary>
         public abstract void BackPropOneCPU();
 
-        public virtual void UpdateWeights()
-        {
+        /// <summary>
+        /// Compute errors with backpropagation (for one minibatch) using CPU
+        /// </summary>
+        public abstract void BackPropBatchCPU();
 
-        }
+        /// <summary>
+        /// Compute errors with backpropagation using GPU
+        /// </summary>
+        public abstract void UpdateParameters();
+
+        #endregion
+
     }
 }

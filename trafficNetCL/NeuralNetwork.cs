@@ -71,7 +71,7 @@ namespace TrafficNetCL
             {
                 Console.WriteLine("Setting up layer {0}...", i);
                 
-                layers[i].Input.ConnectTo(layers[i - 1].Output);
+                layers[i].ConnectTo(layers[i - 1]);
                 
 
                 /*
@@ -90,7 +90,7 @@ namespace TrafficNetCL
 
 
 
-        public int RunForwardOne(float[, ,] inputImage, out float[] outputClassScores)
+        public int RunForwardOne(float[] inputImage, out float[] outputClassScores)
         {
             int errorCode = 0;
 

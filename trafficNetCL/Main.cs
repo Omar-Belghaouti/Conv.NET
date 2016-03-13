@@ -28,10 +28,11 @@ namespace TrafficNetCL
              ****************************************************/
             NeuralNetwork net = new NeuralNetwork();
             // neuralNet.AddLayer(new ConvolutionalLayer(7,40));
-            net.AddLayer(new FullyConnectedLayer(100));
-            net.AddLayer(new FullyConnectedLayer(100));
+            //net.AddLayer(new FullyConnectedLayer(100));
+            //net.AddLayer(new FullyConnectedLayer(50));
+            //net.AddLayer(new FullyConnectedLayer(150));
+            net.AddLayer(new FullyConnectedLayer(10));
             //net.AddLayer(new SoftMaxLayer(43));
-
 
 
             /*****************************************************
@@ -42,24 +43,14 @@ namespace TrafficNetCL
             DataSet trainingSet = new DataSet();
             DataSet validationSet = new DataSet();
 
-            net.Setup(32, 32, 3, 43); // input img: 32x32x3, output classes: 43
+            net.Setup(32, 32, 1, 10); // input img: 32x32x3, output classes: 43
 
-            /*
-            for (int i = 0; i < net.layers.Count; i++)
-            {
-                Console.WriteLine("\nLayer {0} is a {1}", i, net.layers[i].GetType());
-                Console.WriteLine("\tInput dimensions: {0}, {1}, {2}",
-                    net.layers[i].InputWidth, net.layers[i].InputHeight, net.layers[i].InputDepth);
-                Console.WriteLine("\tOutput dimensions: {0}, {1}, {2}",
-                    net.layers[i].OutputWidth, net.layers[i].OutputHeight, net.layers[i].OutputDepth);
 
-            }
-             */
 
             /*****************************************************
              * (3) Train network
              ****************************************************/
-            errorCode = NetworkTrainer.Run(net, trainingSet, validationSet);
+            errorCode = NetworkTrainer.Train(net, trainingSet, validationSet);
 
 
 

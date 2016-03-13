@@ -72,7 +72,7 @@ namespace TrafficNetCL
         /// <param name="trainingSet"></param>
         /// <param name="validationSet"></param>
         /// <returns></returns>
-        public static int Run(NeuralNetwork Network, DataSet TrainingSet, DataSet ValidationSet)
+        public static int Train(NeuralNetwork Network, DataSet TrainingSet, DataSet ValidationSet)
         {
             int errorCode = 0;
             bool stopFlag = false;

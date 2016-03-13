@@ -31,7 +31,7 @@ namespace TrafficNetCL
                 trafficSign = TestSet.TrafficSigns[iSign];
                 label = TestSet.Labels[iSign];
 
-                errorCode = Network.RunForward(trafficSign, out outputClassScores);
+                errorCode = Network.RunForwardOne(trafficSign, out outputClassScores);
                 // check error code
                 assignedClass = Utils.IndexOfMax(outputClassScores);
 

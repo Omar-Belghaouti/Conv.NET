@@ -26,15 +26,23 @@ namespace TrafficNetCL
         /// <summary>
         /// Method to setup the first layer of the network.
         /// </summary>
-        public override void SetupAsFirstLayer(int InputImageWidth, int InputImageHeight, int InputImageDepth)
+        public override void SetAsFirstLayer(int InputImageWidth, int InputImageHeight, int InputImageDepth)
         {
         }
 
-        /// <summary>
-        /// Method to setup any layer in the network EXCEPT the first one.
-        /// </summary>
-        public override void Setup()
+
+        public override void InitializeParameters()
         {
+        }
+
+        public override void ForwardOneCPU()
+        {
+
+        }
+
+        public override void BackPropOneCPU()
+        {
+
         }
 
     }

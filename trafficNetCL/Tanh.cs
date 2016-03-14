@@ -36,6 +36,7 @@ namespace TrafficNetCL
             this.numberOfUnits = PreviousLayer.Output.NumberOfUnits;
             //this.input = new Neurons(this.numberOfUnits);
             this.output = new Neurons(this.numberOfUnits);
+            this.deltaInput = new float[this.numberOfUnits];
         }
 
         /// <summary>
@@ -75,20 +76,35 @@ namespace TrafficNetCL
 
         public override void BackPropOneCPU()
         {
+            if (this.DeltaInput.Length != nextLayer.DeltaInput.Length)
+                throw new System.InvalidOperationException("Tanh layer: mismatch in length of delta arrays.");
             
+            for (int i = 0; i < this.numberOfUnits; i++)
+                this.DeltaInput[i] = this.nextLayer.DeltaInput[i] * (1 - (float)Math.Pow((double)this.output.Get()[i], 2));
+
+        }
+
+        public override void BackPropOneCPU(float[] CostGradient) // overloaded in case this is last layer, takes gradient of cost as argument
+        {
+            if (this.DeltaInput.Length != CostGradient.Length)
+                throw new System.InvalidOperationException("Output layer: mismatch between length of delta array and gradient of cost function.");
+
+            for (int i = 0; i < this.numberOfUnits; i++)
+                this.DeltaInput[i] = CostGradient[i] * (1 - (float)Math.Pow((double)this.output.Get()[i], 2));
+
         }
 
         public override void BackPropBatchCPU()
         {
+            // TO-DO
         }
 
-        public override void UpdateParameters()
+        public override void UpdateParameters(double learningRate)
         {
+            // nothing to update
         }
 
         #endregion
-
-
 
 
     }

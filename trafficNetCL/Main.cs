@@ -16,11 +16,12 @@ namespace TrafficNetCL
             /*****************************************************
              * (0) Set hyperparameters
              ****************************************************/
-            NetworkTrainer.LearningRate = 0.0001;
+            NetworkTrainer.LearningRate = 0.05;
             NetworkTrainer.MomentumMultiplier = 0.9;
-            NetworkTrainer.MaxTrainingEpochs = 100;
+            NetworkTrainer.MaxTrainingEpochs = 1000;
             NetworkTrainer.MiniBatchSize = 90; // use multiples of 30
             NetworkTrainer.ErrorTolerance = 0.001;
+            double tanhBeta = 0.5;
 
 
             /*****************************************************
@@ -29,9 +30,13 @@ namespace TrafficNetCL
             NeuralNetwork net = new NeuralNetwork();
             // neuralNet.AddLayer(new ConvolutionalLayer(7,40));
             //net.AddLayer(new FullyConnectedLayer(100));
-            net.AddLayer(new FullyConnectedLayer(50));
-            net.AddLayer(new FullyConnectedLayer(150));
-            net.AddLayer(new FullyConnectedLayer(10));
+            net.AddLayer(new FullyConnectedLayer(3));
+            net.AddLayer(new Tanh(tanhBeta));
+            net.AddLayer(new FullyConnectedLayer(2));
+            net.AddLayer(new Tanh(tanhBeta));
+            net.AddLayer(new FullyConnectedLayer(1));
+            net.AddLayer(new Tanh(tanhBeta));
+            //net.AddLayer(new FullyConnectedLayer(10));
             //net.AddLayer(new SoftMaxLayer(43));
 
 
@@ -43,7 +48,7 @@ namespace TrafficNetCL
             DataSet trainingSet = new DataSet();
             DataSet validationSet = new DataSet();
 
-            int[] inputDimensions = new int[] {32, 32, 1};
+            int[] inputDimensions = new int[] {2, 1, 1};
             int outputDimension = 43;
             net.Setup(inputDimensions, outputDimension);
 
@@ -52,9 +57,30 @@ namespace TrafficNetCL
             /*****************************************************
              * (3) Train network
              ****************************************************/
-            errorCode = NetworkTrainer.Train(net, trainingSet, validationSet);
+            //errorCode = NetworkTrainer.Train(net, trainingSet, validationSet);
+            
+            double errorTraining;
+            errorCode = NetworkTrainer.TrainSimpleTest(net, new float[] { 0.1f, -0.5f }, new float[] { 1.0f }, out errorTraining);
 
+            // TESTING
+            /*
+             * net.Layers[0].Input.Set(new float[] { 0.1f, -0.5f});
 
+            for (int l = 0; l < net.Layers.Count; l++ )
+            {
+                Console.WriteLine("\n\nInput of layer {0}:", l);
+                for (int i = 0; i < net.Layers[l].Input.NumberOfUnits; i++)
+                    Console.Write(net.Layers[l].Input.Get()[i] + " ");
+
+                Console.WriteLine("\n\nRunning layer {0}...", l);
+                net.Layers[l].ForwardOneCPU();
+
+                Console.WriteLine("\nOutput of layer {0}:", l);
+                for (int i = 0; i < net.Layers[l].Output.NumberOfUnits; i++)
+                    Console.Write(net.Layers[l].Output.Get()[i] + " ");
+            }
+            Console.WriteLine();
+             * */
 
             /*****************************************************
              * (4) Test network
@@ -62,6 +88,18 @@ namespace TrafficNetCL
            
 
 
+
+
+
+
+
+            /*****************************************************/
+            // GENERAL TO-DO LIST:
+
+            // Using DeltaInput is cumbersome and confusing.
+            // Add DeltaOutput alongside DeltaInput and use that for parameters update instead.
+
+            // There is something very weird with the weights update: works if the gradient is ADDED instead of SUBTRACTED. Why?!?
         }
     }
 }

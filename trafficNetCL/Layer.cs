@@ -19,7 +19,7 @@ namespace TrafficNetCL
 
         protected Layer nextLayer;
 
-        protected float[] delta;
+        protected float[] deltaInput;
 
         protected string layerType;
 
@@ -39,9 +39,9 @@ namespace TrafficNetCL
             get { return output; }
         }
 
-        public virtual float[] Delta
+        public virtual float[] DeltaInput
         {
-            get { return delta; }
+            get { return deltaInput; }
         }
         
         public virtual Layer NextLayer {
@@ -104,6 +104,7 @@ namespace TrafficNetCL
         /// Compute errors with backpropagation (for one input/output) using CPU
         /// </summary>
         public abstract void BackPropOneCPU();
+        public abstract void BackPropOneCPU(float[] costGradient);
 
         /// <summary>
         /// Compute errors with backpropagation (for one minibatch) using CPU
@@ -113,7 +114,7 @@ namespace TrafficNetCL
         /// <summary>
         /// Compute errors with backpropagation using GPU
         /// </summary>
-        public abstract void UpdateParameters();
+        public abstract void UpdateParameters(double learningRate);
 
         #endregion
 

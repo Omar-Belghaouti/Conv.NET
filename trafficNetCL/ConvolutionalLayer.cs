@@ -52,11 +52,16 @@ namespace TrafficNetCL
 
         }
 
+        public override void BackPropOneCPU(float[] costGradient)
+        {
+            throw new System.InvalidOperationException("You are using a convolutional layer as output layer of the network...\nIs it really what you want to do?");
+        }
+
         public override void BackPropBatchCPU()
         {
         }
 
-        public override void UpdateParameters()
+        public override void UpdateParameters(double learningRate)
         {
         }
 

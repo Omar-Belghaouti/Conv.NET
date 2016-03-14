@@ -19,7 +19,7 @@ namespace TrafficNetCL
         {
             get { return layers; }
         }
-        public int Depth
+        public int NumberOfLayers
         {
             get { return nLayers; }
         }

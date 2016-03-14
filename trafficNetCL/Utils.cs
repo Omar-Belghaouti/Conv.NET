@@ -46,7 +46,7 @@ namespace TrafficNetCL
                 float sum = 0.0f;
                 for (int col = 0; col < A.GetLength(1); col++)
                 {
-                    sum += A[row, col] * b[row];
+                    sum += A[row, col] * b[col];
                 }
                 c[row] = sum;
             }
@@ -92,7 +92,7 @@ namespace TrafficNetCL
                 float sum = 0.0f;
                 for (int col = 0; col < A.GetLength(0); col++)
                 {
-                    sum += A[col, row] * b[row];
+                    sum += A[col, row] * b[col];
                 }
                 c[row] = sum;
             }

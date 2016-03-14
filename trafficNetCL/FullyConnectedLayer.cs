@@ -16,16 +16,16 @@ namespace TrafficNetCL
         private float[,] weights;
         private float[] biases;
         
-        private new float[] delta;
+        private new float[] deltaInput;
 
         #endregion
 
         
         #region Properties (public)
 
-        public override float[] Delta
+        public override float[] DeltaInput
         {
-            get { return delta; }
+            get { return deltaInput; }
         }
 
         #endregion
@@ -42,7 +42,6 @@ namespace TrafficNetCL
             Console.WriteLine("Adding a fully connected layer with {0} units...", nUnits);
             this.numberOfUnits = nUnits;
             this.biases = new float[nUnits];
-            this.delta = new float[nUnits];
             this.input = new Neurons();
             this.output = new Neurons(nUnits);
             this.layerType = "FullyConnected";
@@ -52,6 +51,7 @@ namespace TrafficNetCL
         {
  	        base.ConnectTo(PreviousLayer);
             this.weights = new float[Output.NumberOfUnits, Input.NumberOfUnits];
+            this.deltaInput = new float[Input.NumberOfUnits];
         }
 
         public override void SetAsFirstLayer(int[] InputDimensions)
@@ -117,16 +117,33 @@ namespace TrafficNetCL
 
         public override void BackPropOneCPU()
         {
-            this.delta = Utils.MultiplyMatrixTranspByVector(this.weights, this.nextLayer.Delta);
+            this.deltaInput = Utils.MultiplyMatrixTranspByVector(this.weights, this.nextLayer.DeltaInput);
         }
+
+        public override void BackPropOneCPU(float[] costGradient)
+        {
+            throw new System.InvalidOperationException("You are using a fully connected layer as output layer of the network...\nIs it really what you want to do?");
+        }
+
 
         public override void BackPropBatchCPU()
         {
           
         }
 
-        public override void UpdateParameters()
+        public override void UpdateParameters(double learningRate)
         {
+            // Update weights
+            for (int i = 0; i < this.weights.GetLength(0); i++)
+            {
+                for (int j = 0; j < this.weights.GetLength(1); j++)
+                {
+                    this.weights[i, j] += (float) (learningRate * this.input.Get()[j] * this.nextLayer.DeltaInput[i]);
+                }
+            }
+
+            // Update biases
+            this.biases = this.biases.Zip(this.nextLayer.DeltaInput, (x, y) => x + (float)(learningRate * y)).ToArray(); // the LINQ way
 
         }
 

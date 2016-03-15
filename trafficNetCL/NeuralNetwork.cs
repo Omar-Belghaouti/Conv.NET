@@ -10,11 +10,16 @@ namespace TrafficNetCL
 {
     class NeuralNetwork
     {
-        // Fields
-        List<Layer> layers;
-        int nLayers = 0;
+        #region NeuralNetwork class fields (private)
 
-        // Properties
+        private List<Layer> layers;
+        private int nLayers = 0;
+
+        #endregion
+
+
+        #region NeuralNetwork class properties (public)
+
         public List<Layer> Layers
         {
             get { return layers; }
@@ -23,6 +28,11 @@ namespace TrafficNetCL
         {
             get { return nLayers; }
         }
+
+        #endregion
+
+
+        #region Setup methods (to be called once)
 
         /// <summary>
         /// NeuralNetwork class constructor.
@@ -88,7 +98,10 @@ namespace TrafficNetCL
             Console.WriteLine("--- Network setup and initialization complete ---");
         }
 
+        #endregion
 
+
+        #region Other methods
 
         public int RunForwardOne(float[] inputImage, out float[] outputClassScores)
         {
@@ -106,19 +119,9 @@ namespace TrafficNetCL
             return errorCode;
         }
 
+        #endregion
 
 
-
-
-        
-        
-
-
-
-        
-
-        
-		
     }
 
     

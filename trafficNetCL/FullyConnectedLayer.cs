@@ -15,17 +15,24 @@ namespace TrafficNetCL
 
         private float[,] weights;
         private float[] biases;
-        
-        private new float[] deltaInput;
+
+        /* Additional fields, inherited from "Layer" class:
+         * 
+         * protected Neurons input;
+         * protected Neurons output;
+         * 
+         * protected Layer nextLayer;
+         * protected string layerType;
+         */
 
         #endregion
 
-        
+
         #region Properties (public)
 
-        public override float[] DeltaInput
+        public int NumberOfUnits
         {
-            get { return deltaInput; }
+            get { return numberOfUnits; }
         }
 
         #endregion
@@ -40,30 +47,33 @@ namespace TrafficNetCL
         public FullyConnectedLayer(int nUnits)
         {
             Console.WriteLine("Adding a fully connected layer with {0} units...", nUnits);
+
             this.numberOfUnits = nUnits;
-            this.biases = new float[nUnits];
-            this.input = new Neurons();
-            this.output = new Neurons(nUnits);
             this.layerType = "FullyConnected";
         }
 
         public override void ConnectTo(Layer PreviousLayer)
         {
  	        base.ConnectTo(PreviousLayer);
-            this.weights = new float[Output.NumberOfUnits, Input.NumberOfUnits];
-            this.deltaInput = new float[Input.NumberOfUnits];
+
+            this.output = new Neurons(this.numberOfUnits);
+
+            
         }
 
         public override void SetAsFirstLayer(int[] InputDimensions)
         {
             this.input = new Neurons(InputDimensions[0] * InputDimensions[1] * InputDimensions[2]);
-            this.weights = new float[this.output.NumberOfUnits, this.input.NumberOfUnits];
+            this.output = new Neurons(this.numberOfUnits);
         }
 
         public override void InitializeParameters() // only call after either "SetAsFirstLayer()" or "ConnectTo()"
         {
             // Initialize weigths as normally distributed numbers with mean 0 and std equals to 1/sqrt(nInputUnits)
             // Initialize biases as normally distributed numbers with mean 0 and std 1
+
+            this.weights = new float[this.Output.NumberOfUnits, this.Input.NumberOfUnits];
+            this.biases = new float[this.Output.NumberOfUnits];
 
             Random rng = new Random(); //reuse this if you are generating many
             double weightsStdDev = 1 / (Math.Sqrt(this.input.NumberOfUnits));
@@ -117,12 +127,7 @@ namespace TrafficNetCL
 
         public override void BackPropOneCPU()
         {
-            this.deltaInput = Utils.MultiplyMatrixTranspByVector(this.weights, this.nextLayer.DeltaInput);
-        }
-
-        public override void BackPropOneCPU(float[] costGradient)
-        {
-            throw new System.InvalidOperationException("You are using a fully connected layer as output layer of the network...\nIs it really what you want to do?");
+            this.Input.Delta = Utils.MultiplyMatrixTranspByVector(this.weights, this.Output.Delta);
         }
 
 
@@ -138,12 +143,12 @@ namespace TrafficNetCL
             {
                 for (int j = 0; j < this.weights.GetLength(1); j++)
                 {
-                    this.weights[i, j] += (float) (learningRate * this.input.Get()[j] * this.nextLayer.DeltaInput[i]);
+                    this.weights[i, j] += (float) (learningRate * this.input.Get()[j] * this.Output.Delta[i]);
                 }
             }
 
             // Update biases
-            this.biases = this.biases.Zip(this.nextLayer.DeltaInput, (x, y) => x + (float)(learningRate * y)).ToArray(); // the LINQ way
+            this.biases = this.biases.Zip(this.Output.Delta, (x, y) => x + (float)(learningRate * y)).ToArray(); // the LINQ way
 
         }
 

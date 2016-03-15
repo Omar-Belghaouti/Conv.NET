@@ -126,23 +126,10 @@ namespace TrafficNetCL
                 Network.Layers[0].Input.Set(inputArray);
 
                 // Run forward
-
-                //Console.WriteLine("Running FORWARD...");
-
                 for (int l = 0; l < Network.Layers.Count; l++)
                 {
-                    //Console.WriteLine("\n\nInput of layer {0}:", l);
-                    //for (int i = 0; i < Network.Layers[l].Input.NumberOfUnits; i++)
-                        //Console.Write(Network.Layers[l].Input.Get()[i] + " ");
-
-                    //Console.WriteLine("\n\nRunning layer {0}...", l);
                     Network.Layers[l].ForwardOneCPU();
-
-                    //Console.WriteLine("\nOutput of layer {0}:", l);
-                    //for (int i = 0; i < Network.Layers[l].Output.NumberOfUnits; i++)
-                        //Console.Write(Network.Layers[l].Output.Get()[i] + " ");
                 }
-               // Console.WriteLine();
 
                 // Compute cost
                 errorTraining = QuadraticCost(targetOutput, Network.Layers.Last().Output.Get(), out costGgradient);
@@ -150,24 +137,19 @@ namespace TrafficNetCL
 
                 // Error backpropagation and parameters update
 
-                //Console.WriteLine("Now BACKPROPAGATING...");
+                Network.Layers.Last().Output.Delta = costGgradient; // delta of output of last layer (L-1)
 
-                Network.Layers.Last().BackPropOneCPU(costGgradient); // last layer (L-1)
-                //Console.WriteLine("\n\nDelta of layer {0}:", Network.Layers.Count - 1);
-                //for (int i = 0; i < Network.Layers[Network.Layers.Count - 1].DeltaInput.Length; i++)
-                    //Console.Write(Network.Layers[Network.Layers.Count - 1].DeltaInput[i] + " ");
-
-
-                for (int l = Network.Layers.Count-2; l >= 0; l--) // layers L-2 to 0
+                for (int l = Network.Layers.Count-1; l >= 0; l--) // propagate deltas in all layers backwards (L-1 to 0)
                 {
-                    //Console.WriteLine("\n\nBackpropagating error in layer {0}:", l);
-
                     Network.Layers[l].BackPropOneCPU();
                     Network.Layers[l].UpdateParameters(learningRate);
 
-                    //Console.WriteLine("\nDelta of layer {0}:", l);
-                    //for (int i = 0; i < Network.Layers[l].DeltaInput.Length; i++)
-                        //Console.Write(Network.Layers[l].DeltaInput[i] + " ");
+                    /*
+                    Console.WriteLine("\nInput delta of layer {0}:", l);
+                    for (int i = 0; i < Network.Layers[l].Input.Delta.Length; i++)
+                        Console.Write(Network.Layers[l].Input.Delta[i] + " ");
+                    Console.WriteLine();
+                    */
                 }
 
                 if (errorTraining < errorTolerance)

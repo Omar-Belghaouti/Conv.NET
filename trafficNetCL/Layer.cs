@@ -19,7 +19,7 @@ namespace TrafficNetCL
 
         protected Layer nextLayer;
 
-        protected float[] deltaInput;
+        
 
         protected string layerType;
 
@@ -38,11 +38,6 @@ namespace TrafficNetCL
         {
             get { return output; }
         }
-
-        public virtual float[] DeltaInput
-        {
-            get { return deltaInput; }
-        }
         
         public virtual Layer NextLayer {
             set { this.nextLayer = value; } 
@@ -57,7 +52,7 @@ namespace TrafficNetCL
         #endregion
 
 
-        #region Layer base class setup methods (public, to be called once)
+        #region Setup methods (public, to be called once)
 
         /// <summary>
         /// Link this layer to previous one.
@@ -70,20 +65,20 @@ namespace TrafficNetCL
 
 
         /// <summary>
-        /// Method to setup the first layer of the network.
+        /// Set this as the first layer of the network.
         /// </summary>
         /// 
         public abstract void SetAsFirstLayer(int[] InputDimensions);
 
         /// <summary>
-        /// Initialize layer parameters (weights and biases).
+        /// Initialize layer parameters.
         /// </summary>
         public abstract void InitializeParameters();
 
         #endregion
 
 
-        #region Layer class methods (public abstract)
+        #region Training methods (public abstract)
 
         /// <summary>
         /// Run layer forward (one input), using CPU
@@ -104,7 +99,6 @@ namespace TrafficNetCL
         /// Compute errors with backpropagation (for one input/output) using CPU
         /// </summary>
         public abstract void BackPropOneCPU();
-        public abstract void BackPropOneCPU(float[] costGradient);
 
         /// <summary>
         /// Compute errors with backpropagation (for one minibatch) using CPU

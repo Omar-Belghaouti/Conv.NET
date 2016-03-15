@@ -8,10 +8,22 @@ namespace TrafficNetCL
 {
     class Tanh : Layer
     {
+        #region Tanh layer class fields (private)
 
         private int numberOfUnits;
         private double beta;
-        
+
+        /* Additional fields, inherited from "Layer" class:
+        * 
+        * protected Neurons input;
+        * protected Neurons output;
+        * 
+        * protected Layer nextLayer;
+        * protected string layerType;
+        */
+
+        #endregion
+
 
         #region Setup methods (to be called once)
 
@@ -22,6 +34,7 @@ namespace TrafficNetCL
         public Tanh(double Beta)
         {
             Console.WriteLine("Adding a tanh layer with activation parameter {0}...", Beta);
+
             this.beta = Beta;
             this.layerType = "Tanh";
         }
@@ -33,10 +46,10 @@ namespace TrafficNetCL
         public override void ConnectTo(Layer PreviousLayer)
         {
             base.ConnectTo(PreviousLayer);
+
             this.numberOfUnits = PreviousLayer.Output.NumberOfUnits;
-            //this.input = new Neurons(this.numberOfUnits);
             this.output = new Neurons(this.numberOfUnits);
-            this.deltaInput = new float[this.numberOfUnits];
+            
         }
 
         /// <summary>
@@ -56,6 +69,7 @@ namespace TrafficNetCL
 
 
         #region Training methods
+
         public override void ForwardOneCPU()
         {
             float[] tmpOutput = new float[this.numberOfUnits];
@@ -76,21 +90,11 @@ namespace TrafficNetCL
 
         public override void BackPropOneCPU()
         {
-            if (this.DeltaInput.Length != nextLayer.DeltaInput.Length)
+            if (this.Input.Delta.Length != this.Output.Delta.Length)
                 throw new System.InvalidOperationException("Tanh layer: mismatch in length of delta arrays.");
             
             for (int i = 0; i < this.numberOfUnits; i++)
-                this.DeltaInput[i] = this.nextLayer.DeltaInput[i] * (1 - (float)Math.Pow((double)this.output.Get()[i], 2));
-
-        }
-
-        public override void BackPropOneCPU(float[] CostGradient) // overloaded in case this is last layer, takes gradient of cost as argument
-        {
-            if (this.DeltaInput.Length != CostGradient.Length)
-                throw new System.InvalidOperationException("Output layer: mismatch between length of delta array and gradient of cost function.");
-
-            for (int i = 0; i < this.numberOfUnits; i++)
-                this.DeltaInput[i] = CostGradient[i] * (1 - (float)Math.Pow((double)this.output.Get()[i], 2));
+                this.Input.Delta[i] = this.Output.Delta[i] * (1 - (float)Math.Pow((double)this.output.Get()[i], 2));
 
         }
 

@@ -8,32 +8,22 @@ namespace TrafficNetCL
 {
     public class Neurons
     {
+        #region Neuron class fields (private)
+
         private int nUnits;
         private float[] unitsActivations;
+        private float[] delta;
+
+        #endregion
+
+
+        #region Neuron class properties (public)
+
 
         public int NumberOfUnits 
         {
             get { return nUnits;  }
         }
-
-        public Neurons() // Generic constructor
-        {
-        }
-
-        public Neurons(int NumberOfUnits) // Constructor for 1D Neurons instance
-        {
-            this.nUnits = NumberOfUnits;
-            this.unitsActivations = new float[nUnits];
-        }
-
-        /*
-        public Neurons(int width, int height, int depth) // Constructor for 3D Neurons instance
-        {
-            this.nUnits = width * height * depth;
-            this.unitsActivations = new float[width, height, depth];
-            this.typeOfUnits = typeof(float[, ,]);
-        }
-         * */
 
         public void Set(float[] value)
         {
@@ -45,46 +35,31 @@ namespace TrafficNetCL
             return unitsActivations;
         }
 
-
-        /*
-        public void Set(float[,,] value)
+        public virtual float[] Delta
         {
-            // TO-DO: improve error-handling
-            if (typeOfUnits.Equals(typeof(float[, ,]))) // simple case (same type of neurons)
-                this.unitsActivations = value;
-            else if (typeOfUnits.Equals(typeof(float[]))) // multi-dim neuron array to one-dim
-                this.unitsActivations = value.Cast<float>().ToArray();
-            else
-                Console.WriteLine("Something wrong happened when setting neuron values!");
-
-        }
-         * */
-
-        
-        /*
-        public void ConnectTo(Neurons PreviousOutput)
-        {
-            this.unitsActivations = new object();
-            this.unitsActivations = PreviousOutput.Get();
-            this.nUnits = PreviousOutput.NumberOfUnits;
-            this.typeOfUnits = unitsActivations.GetType();
-        }
-         * */
-        
-        /*
-        public void Setup(int nUnits) // if 1-dim array of units
-        {
-            unitsActivations = new float[nUnits];
-            typeOfUnits = typeof(float[]);
+            get { return delta; }
+            set { this.delta = value; }
         }
 
-        public void Setup(int width, int height, int depth) // if 3-dim array of units
+        #endregion
+
+
+        #region Constructors
+
+        public Neurons() // Generic constructor
         {
-            unitsActivations = new float[width, height, depth];
-            typeOfUnits = typeof(float[,,]);
         }
-         * */
-        
-        
+
+        public Neurons(int NumberOfUnits) // Constructor for 1D Neurons instance
+        {
+            this.nUnits = NumberOfUnits;
+            this.unitsActivations = new float[nUnits];
+            this.delta = new float[nUnits];
+        }
+
+        #endregion
+
+
+
     }
 }

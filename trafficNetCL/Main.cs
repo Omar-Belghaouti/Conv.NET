@@ -16,10 +16,10 @@ namespace TrafficNetCL
             /*****************************************************
              * (0) Set hyperparameters
              ****************************************************/
-            NetworkTrainer.LearningRate = 0.05;
-            NetworkTrainer.MomentumMultiplier = 0.9;
-            NetworkTrainer.MaxTrainingEpochs = 1000;
-            NetworkTrainer.MiniBatchSize = 90; // use multiples of 30
+            NetworkTrainer.LearningRate = 0.1;
+            NetworkTrainer.MomentumMultiplier = 0.9;  // not implemented yet
+            NetworkTrainer.MaxTrainingEpochs = 100;
+            NetworkTrainer.MiniBatchSize = 90; // use multiples of 30  // not implemented yet
             NetworkTrainer.ErrorTolerance = 0.001;
             double tanhBeta = 0.5;
 
@@ -30,10 +30,10 @@ namespace TrafficNetCL
             NeuralNetwork net = new NeuralNetwork();
             // neuralNet.AddLayer(new ConvolutionalLayer(7,40));
             //net.AddLayer(new FullyConnectedLayer(100));
-            net.AddLayer(new FullyConnectedLayer(3));
-            net.AddLayer(new Tanh(tanhBeta));
-            net.AddLayer(new FullyConnectedLayer(2));
-            net.AddLayer(new Tanh(tanhBeta));
+            //net.AddLayer(new FullyConnectedLayer(3));
+            //net.AddLayer(new Tanh(tanhBeta));
+            //net.AddLayer(new FullyConnectedLayer(2));
+            //net.AddLayer(new Tanh(tanhBeta));
             net.AddLayer(new FullyConnectedLayer(1));
             net.AddLayer(new Tanh(tanhBeta));
             //net.AddLayer(new FullyConnectedLayer(10));

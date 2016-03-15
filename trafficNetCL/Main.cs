@@ -30,8 +30,8 @@ namespace TrafficNetCL
             NeuralNetwork net = new NeuralNetwork();
             // neuralNet.AddLayer(new ConvolutionalLayer(7,40));
             //net.AddLayer(new FullyConnectedLayer(100));
-            //net.AddLayer(new FullyConnectedLayer(3));
-            //net.AddLayer(new Tanh(tanhBeta));
+            net.AddLayer(new FullyConnectedLayer(3));
+            net.AddLayer(new Tanh(tanhBeta));
             //net.AddLayer(new FullyConnectedLayer(2));
             //net.AddLayer(new Tanh(tanhBeta));
             net.AddLayer(new FullyConnectedLayer(1));
@@ -45,11 +45,20 @@ namespace TrafficNetCL
              ****************************************************/
 
             // data will be preprocessed and split into training/validation sets with MATLAB
-            DataSet trainingSet = new DataSet();
-            DataSet validationSet = new DataSet();
+            DataSet trainingSet = new DataSet("C:/Users/jacopo/Dropbox/Chalmers/MSc thesis/TrafficNetCL/Data/train_data.txt");
+            //DataSet validationSet = new DataSet();
+
+            
+            for (int iPoint = 0; iPoint < trainingSet.Size; iPoint++)
+            {
+                Console.WriteLine("Data point number {3} is: {0}, {1} and its class is {2}",
+                    trainingSet.TrafficSign(iPoint)[0], trainingSet.TrafficSign(iPoint)[1], trainingSet.Label(15), iPoint);
+            }
+            
+
 
             int[] inputDimensions = new int[] {2, 1, 1};
-            int outputDimension = 43;
+            int outputDimension = 1;
             net.Setup(inputDimensions, outputDimension);
 
 
@@ -59,8 +68,8 @@ namespace TrafficNetCL
              ****************************************************/
             //errorCode = NetworkTrainer.Train(net, trainingSet, validationSet);
             
-            double errorTraining;
-            errorCode = NetworkTrainer.TrainSimpleTest(net, new float[] { 0.1f, -0.5f }, new float[] { 1.0f }, out errorTraining);
+            //double errorTraining;
+            //errorCode = NetworkTrainer.TrainSimpleTest(net, new float[] { 0.1f, -0.5f }, new float[] { 1.0f }, out errorTraining);
 
             // TESTING
             /*

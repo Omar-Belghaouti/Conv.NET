@@ -26,10 +26,10 @@ namespace TrafficNetCL
             float[] outputClassScores;
             int assignedClass;
 
-            for (int iSign = 0; iSign < TestSet.Length; iSign++ )
+            for (int iSign = 0; iSign < TestSet.Size; iSign++ )
             {
-                trafficSign = TestSet.TrafficSigns[iSign];
-                label = TestSet.Labels[iSign];
+                trafficSign = TestSet.TrafficSign(iSign);
+                label = TestSet.Label(iSign);
 
                 errorCode = Network.RunForwardOne(trafficSign, out outputClassScores);
                 // check error code
@@ -39,7 +39,7 @@ namespace TrafficNetCL
                     nCorrectClassifications += 1;
             }
 
-            return (double)nCorrectClassifications / (double)TestSet.Length;
+            return (double)nCorrectClassifications / (double)TestSet.Size;
         }
 
 

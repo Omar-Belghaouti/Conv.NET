@@ -111,7 +111,7 @@ namespace TrafficNetCL
 
         public override void ForwardOneCPU()
         {
-            float[] unbiasedOutput = Utils.MultiplyMatrixByVector(this.weights, (float[])this.input.Get());
+            float[] unbiasedOutput = Utils.MultiplyMatrixByVector(this.weights, this.Input.Get());
             this.output.Set(unbiasedOutput.Zip(this.biases, (x, y) => x + y).ToArray());
         }
 
@@ -143,12 +143,12 @@ namespace TrafficNetCL
             {
                 for (int j = 0; j < this.weights.GetLength(1); j++)
                 {
-                    this.weights[i, j] += (float) (learningRate * this.input.Get()[j] * this.Output.Delta[i]);
+                    this.weights[i, j] -= (float) (learningRate * this.input.Get()[j] * this.Output.Delta[i]);
                 }
             }
 
             // Update biases
-            this.biases = this.biases.Zip(this.Output.Delta, (x, y) => x + (float)(learningRate * y)).ToArray(); // the LINQ way
+            this.biases = this.biases.Zip(this.Output.Delta, (x, y) => x - (float)(learningRate * y)).ToArray(); // the LINQ way
 
         }
 

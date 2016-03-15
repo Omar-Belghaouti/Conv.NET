@@ -75,7 +75,7 @@ namespace TrafficNetCL
             float[] tmpOutput = new float[this.numberOfUnits];
             for (int i = 0; i < this.numberOfUnits; i++)
             {
-                tmpOutput[i] = (float)Math.Tanh(this.input.Get()[i]);
+                tmpOutput[i] = (float)Math.Tanh(beta*this.input.Get()[i]);
             }
             this.output.Set(tmpOutput);
         }
@@ -94,7 +94,7 @@ namespace TrafficNetCL
                 throw new System.InvalidOperationException("Tanh layer: mismatch in length of delta arrays.");
             
             for (int i = 0; i < this.numberOfUnits; i++)
-                this.Input.Delta[i] = this.Output.Delta[i] * (1 - (float)Math.Pow((double)this.output.Get()[i], 2));
+                this.Input.Delta[i] = this.Output.Delta[i] * (float) (beta * (1 - Math.Pow((double)this.output.Get()[i], 2)) );
 
         }
 

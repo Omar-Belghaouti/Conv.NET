@@ -97,8 +97,8 @@ namespace TrafficNetCL
         {
             int errorCode = 0;
 
-            Debug.Assert(TrainingSet.Length % miniBatchSize == 0);
-            int nMiniBatches = TrainingSet.Length / miniBatchSize;
+            Debug.Assert(TrainingSet.Size % miniBatchSize == 0);
+            int nMiniBatches = TrainingSet.Size / miniBatchSize;
 
             // TO-DO: split training set into mini-batches
 
@@ -171,11 +171,17 @@ namespace TrafficNetCL
             if (targetValues.Length != networkOutputs.Length)
                 throw new System.InvalidOperationException("Mismatch between length of output array and target (label) array.");
 
-            gradient = targetValues.Zip(networkOutputs, (x, y) => x - y).ToArray();
+            gradient = targetValues.Zip(networkOutputs, (x, y) => y - x).ToArray();
             var squaredErrors = gradient.Select(x => Math.Pow(x, 2));
 
             return squaredErrors.Sum() / squaredErrors.Count();
         }
+
+
+
+        
+
+
 
 
     }

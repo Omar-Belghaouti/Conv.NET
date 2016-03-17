@@ -108,7 +108,7 @@ namespace TrafficNetCL
         /// <summary>
         /// Compute errors with backpropagation using GPU
         /// </summary>
-        public abstract void UpdateParameters(double learningRate);
+        public abstract void UpdateParameters(double learningRate, double momentumMultiplier);
 
         #endregion
 

@@ -103,7 +103,7 @@ namespace TrafficNetCL
             // TO-DO
         }
 
-        public override void UpdateParameters(double learningRate)
+        public override void UpdateParameters(double learningRate, double momentumMultiplier)
         {
             // nothing to update
         }

@@ -16,6 +16,9 @@ namespace TrafficNetCL
         private float[,] weights;
         private float[] biases;
 
+        private float[,] weightsUpdateSpeed;
+        private float[] biasesUpdateSpeed;
+
         /* Additional fields, inherited from "Layer" class:
          * 
          * protected Neurons input;
@@ -103,6 +106,10 @@ namespace TrafficNetCL
                 biases[iRow] = (float)tmp;
                 
             }
+
+            // Also initialize updates speeds to zero (for momentum)
+            this.weightsUpdateSpeed = new float[this.Output.NumberOfUnits, this.Input.NumberOfUnits];
+            this.biasesUpdateSpeed = new float[this.Output.NumberOfUnits];
         }
         #endregion
 
@@ -136,19 +143,28 @@ namespace TrafficNetCL
           
         }
 
-        public override void UpdateParameters(double learningRate)
+        public override void UpdateParameters(double learningRate, double momentumCoefficient)
         {
             // Update weights
             for (int i = 0; i < this.weights.GetLength(0); i++)
             {
                 for (int j = 0; j < this.weights.GetLength(1); j++)
                 {
-                    this.weights[i, j] -= (float) (learningRate * this.input.Get()[j] * this.Output.Delta[i]);
+                    this.weightsUpdateSpeed[i, j] *= (float)momentumCoefficient;
+                    this.weightsUpdateSpeed[i, j] -= this.input.Get()[j] * this.Output.Delta[i];
+
+                    this.weights[i, j] += (float)(learningRate * this.weightsUpdateSpeed[i, j]);
                 }
             }
 
             // Update biases
-            this.biases = this.biases.Zip(this.Output.Delta, (x, y) => x - (float)(learningRate * y)).ToArray(); // the LINQ way
+            for (int i = 0; i < this.biases.GetLength(0); i++)
+            {
+                this.biasesUpdateSpeed[i] *= (float)momentumCoefficient;
+                this.biasesUpdateSpeed[i] -= this.Output.Delta[i];
+
+                this.biases[i] += (float)(learningRate * this.biasesUpdateSpeed[i]);
+            }
 
         }
 

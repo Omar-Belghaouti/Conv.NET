@@ -56,7 +56,7 @@ namespace TrafficNetCL
         {
         }
 
-        public override void UpdateParameters(double learningRate)
+        public override void UpdateParameters(double learningRate, double momentumMultiplier)
         {
         }
 

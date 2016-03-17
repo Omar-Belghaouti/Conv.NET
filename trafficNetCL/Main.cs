@@ -16,26 +16,27 @@ namespace TrafficNetCL
             /*****************************************************
              * (0) Set hyperparameters
              ****************************************************/
-            NetworkTrainer.LearningRate = 0.1;
+            NetworkTrainer.LearningRate = 0.01;
             NetworkTrainer.MomentumMultiplier = 0.9;  // not implemented yet
-            NetworkTrainer.MaxTrainingEpochs = 100;
+            NetworkTrainer.MaxTrainingEpochs = 100000;
             NetworkTrainer.MiniBatchSize = 90; // use multiples of 30  // not implemented yet
             NetworkTrainer.ErrorTolerance = 0.001;
+            NetworkTrainer.ConsoleOutputLag = 100;
             double tanhBeta = 0.5;
 
 
             /*****************************************************
              * (1) Instantiate a neural network and add layers
              ****************************************************/
-            NeuralNetwork net = new NeuralNetwork();
+            NeuralNetwork network = new NeuralNetwork();
             // neuralNet.AddLayer(new ConvolutionalLayer(7,40));
             //net.AddLayer(new FullyConnectedLayer(100));
-            net.AddLayer(new FullyConnectedLayer(3));
-            net.AddLayer(new Tanh(tanhBeta));
-            //net.AddLayer(new FullyConnectedLayer(2));
-            //net.AddLayer(new Tanh(tanhBeta));
-            net.AddLayer(new FullyConnectedLayer(1));
-            net.AddLayer(new Tanh(tanhBeta));
+            network.AddLayer(new FullyConnectedLayer(3));
+            network.AddLayer(new Tanh(tanhBeta));
+            network.AddLayer(new FullyConnectedLayer(2));
+            network.AddLayer(new Tanh(tanhBeta));
+            network.AddLayer(new FullyConnectedLayer(1));
+            network.AddLayer(new Tanh(tanhBeta));
             //net.AddLayer(new FullyConnectedLayer(10));
             //net.AddLayer(new SoftMaxLayer(43));
 
@@ -48,18 +49,19 @@ namespace TrafficNetCL
             DataSet trainingSet = new DataSet("C:/Users/jacopo/Dropbox/Chalmers/MSc thesis/TrafficNetCL/Data/train_data.txt");
             //DataSet validationSet = new DataSet();
 
-            
+            /*
             for (int iPoint = 0; iPoint < trainingSet.Size; iPoint++)
             {
                 Console.WriteLine("Data point number {3} is: {0}, {1} and its class is {2}",
-                    trainingSet.TrafficSign(iPoint)[0], trainingSet.TrafficSign(iPoint)[1], trainingSet.Label(15), iPoint);
+                    trainingSet.GetDataPoint(iPoint)[0], trainingSet.GetDataPoint(iPoint)[1], trainingSet.GetLabel(iPoint), iPoint);
             }
+             * */
             
 
 
             int[] inputDimensions = new int[] {2, 1, 1};
             int outputDimension = 1;
-            net.Setup(inputDimensions, outputDimension);
+            network.Setup(inputDimensions, outputDimension);
 
 
 
@@ -68,8 +70,9 @@ namespace TrafficNetCL
              ****************************************************/
             //errorCode = NetworkTrainer.Train(net, trainingSet, validationSet);
             
-            //double errorTraining;
-            //errorCode = NetworkTrainer.TrainSimpleTest(net, new float[] { 0.1f, -0.5f }, new float[] { 1.0f }, out errorTraining);
+            double errorTraining;
+            int finalEpoch;
+            errorCode = NetworkTrainer.TrainSimpleTest(network, trainingSet, out errorTraining, out finalEpoch);
 
             // TESTING
             /*

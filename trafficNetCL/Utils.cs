@@ -99,5 +99,31 @@ namespace TrafficNetCL
             return c;
         }
 
+        /// <summary>
+        /// Generates a random permutation of the set 0, 1, 2, ..., maxN-1 consecutive integers.
+        /// </summary>
+        /// <param name="maxN"></param>
+        /// <returns></returns>
+        public static int[] GenerateRandomPermutation(int maxN)
+        {
+            Random random = new Random();
+            int[] sequence = new int[maxN];
+            int n = maxN;
+
+            for (int i = 0; i < maxN; i++)
+                sequence[i] = i;
+            
+            while (n > 1)
+            {
+                int randomIndex = random.Next(n--);
+                int temp = sequence[randomIndex];
+                sequence[randomIndex] = sequence[n];
+                sequence[n] = temp;
+            }
+
+            return sequence;
+        }
+
+
     }
 }

@@ -4,28 +4,30 @@ using System.Linq;
 using System.Text;
 using System.IO;
 using System.Threading.Tasks;
+using System.Globalization;
 
 namespace TrafficNetCL
 {
     class DataSet
     {
 
-        private List<float[]> trafficSigns;
+        private List<float[]> data;
         private List<int> labels;
         private int size;
 
         public void Add(float[] DataPoint, int Class)
         {
-            this.trafficSigns.Add(DataPoint);
+            this.data.Add(DataPoint);
             this.labels.Add(Class);
             this.size += 1;
         }
 
-        public float[] TrafficSign(int Index)
+        public float[] GetDataPoint(int Index)
         {
-            return this.trafficSigns[Index];
+            return this.data[Index];
         }
-        public int Label(int Index)
+
+        public int GetLabel(int Index)
         {
             return this.labels[Index];
         }
@@ -39,8 +41,10 @@ namespace TrafficNetCL
         {
             Console.WriteLine("Importing data set from file {0}...", dataPath);
 
+            new System.Globalization.CultureInfo("en-US");
+
             // Initialize empty lists
-            this.trafficSigns = new List<float[]>();
+            this.data = new List<float[]>();
             this.labels = new List<int>();
             this.size = 0;
 
@@ -48,16 +52,20 @@ namespace TrafficNetCL
             {
                 var columns = line.Split('\t');
 
-                Console.WriteLine("Line {0} reads: {1}", this.size, line);
+                //Console.WriteLine("Line {0} reads:", this.size);
 
                 float[] DataPoint = new float[columns.Length - 1];
-                for (int i = 0; i < columns.Length - 2; i++)
-                    DataPoint[i] = Convert.ToSingle(columns[i].Trim());
-
-                this.Add(DataPoint, Convert.ToInt32(columns[columns.Length - 1].Trim()));
+                for (int i = 0; i < columns.Length - 1; i++)
+                {
+                    DataPoint[i] = float.Parse(columns[i], CultureInfo.InvariantCulture.NumberFormat);
+                    //Console.Write("{0}  ", columns[i].Trim());
+                }
+                //Console.WriteLine(columns[columns.Length - 1]);
+                this.Add(DataPoint, Convert.ToInt16(columns[columns.Length - 1]));
             }
 
-            Console.WriteLine("\tImported {0} data points. \n\tData is {1} dimensional.", this.size, this.TrafficSign(0).Length);
+
+            Console.WriteLine("\tImported {0} data points. \n\tData is {1} dimensional.", this.size, this.GetDataPoint(0).Length);
         }
 
 

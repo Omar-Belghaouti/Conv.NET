@@ -26,13 +26,14 @@ namespace TrafficNetCL
             float[] outputClassScores;
             int assignedClass;
 
-            for (int iSign = 0; iSign < TestSet.Size; iSign++ )
+            for (int iDataPoint = 0; iDataPoint < TestSet.Size; iDataPoint++ )
             {
-                trafficSign = TestSet.TrafficSign(iSign);
-                label = TestSet.Label(iSign);
+                trafficSign = TestSet.GetDataPoint(iDataPoint);
+                label = TestSet.GetLabel(iDataPoint);
 
                 errorCode = Network.RunForwardOne(trafficSign, out outputClassScores);
                 // check error code
+
                 assignedClass = Utils.IndexOfMax(outputClassScores);
 
                 if (assignedClass == label)

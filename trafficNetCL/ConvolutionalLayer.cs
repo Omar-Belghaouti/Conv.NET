@@ -11,10 +11,14 @@ namespace TrafficNetCL
         int FilterSize;
 
         // TO-DO: implement constructor
-        public ConvolutionalLayer(int filterSize, int numFilters)
+        public ConvolutionalLayer(int filterSize, int numFilters, int strideLength)
         {
+            Console.WriteLine("Adding a convolutional layer with {0} filters of size {1} and stride length {2}...", 
+                filterSize, numFilters, strideLength);
 
+            this.layerType = "Convolutional";
         }
+
 
         // TO-DO: implement convolutional layer methods
 

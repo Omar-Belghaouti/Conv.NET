@@ -42,6 +42,8 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Neurons.cs" />
+    <Compile Include="ReLU.cs" />
+    <Compile Include="SoftMax.cs" />
     <Compile Include="Utils.cs" />
     <Compile Include="DataSet.cs" />
     <Compile Include="NetworkEvaluator.cs" />

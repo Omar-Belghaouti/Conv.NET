@@ -125,44 +125,59 @@ namespace TrafficNetCL
 
 
 
-        public static int TrainSimpleTest(NeuralNetwork network, DataSet trainingSet, out double finalCost, out int finalEpoch)
+        public static int TrainSimpleTest(NeuralNetwork network, DataSet trainingSet, out double finalError, out int finalEpoch)
         {
 
             // Initializations
             int errorCode = 0;
-            float[] costGgradient;
             int[] randomIntSequence = new int[trainingSet.Size];
             int iDataPoint;
             bool stopFlag = false;
-            int epoch = 0;
-            double error;
-            double costEpoch;
+            
             double errorEpoch;
             bool isOutputEpoch = true;
             int epochsRemainingToOutput = 0;
+            List<int[]> miniBatchList = new List<int[]>();
+            int nMiniBatches = trainingSet.Size / miniBatchSize;
 
-            do
+            List<float[]> outputsBatch = new List<float[]>(miniBatchSize);
+            List<float[]> labelArraysBatch = new List<float[]>(miniBatchSize);
+
+            // initialize lists
+            for (int i = 0; i < miniBatchSize; i++)
             {
-                randomIntSequence = Utils.GenerateRandomPermutation(trainingSet.Size);
+                outputsBatch.Add(new float[trainingSet.NumberOfClasses]);
+                labelArraysBatch.Add(new float[trainingSet.NumberOfClasses]);
+            }
+            
 
-                // Run over training set in random order
-                for (int i = 0; i < trainingSet.Size; i++)
+            int epoch = 0;
+            do // loop over training epochs
+            {
+                miniBatchList = Utils.GenerateMiniBatches(trainingSet.Size, miniBatchSize); // new every epoch
+
+                // Run over mini-batches list
+                for (int iMiniBatch = 0; iMiniBatch < nMiniBatches; iMiniBatch++)
                 {
-                    iDataPoint = randomIntSequence[i];
 
-                    network.Layers[0].Input.Set(trainingSet.GetDataPoint(iDataPoint));
-
-                    // Run forward
-                    for (int l = 0; l < network.Layers.Count; l++)
+                    for (int i = 0; i < miniBatchSize; i++) // Run over a mini-batch
                     {
-                        network.Layers[l].ForwardOneCPU();
-                    }
+                        iDataPoint = miniBatchList[iMiniBatch][i];
 
-                    // Compute cost
-                    error = QuadraticCost(new float[] { (float)trainingSet.GetLabel(iDataPoint) }, network.Layers.Last().Output.Get(), out costGgradient);
+                        network.Layers[0].Input.Set(trainingSet.GetDataPoint(iDataPoint));
+
+                        // Run forward
+                        for (int l = 0; l < network.Layers.Count; l++)
+                        {
+                            network.Layers[l].ForwardOneCPU();
+                        }
+
+                        outputsBatch[i] = (float[]) network.Layers.Last().Output.Get().Clone();
+                        labelArraysBatch[i] = (float[]) trainingSet.GetLabelArray(iDataPoint).Clone();
+                    } // end loop over mini-batches
 
                     // Error backpropagation and parameters update
-                    network.Layers.Last().Output.Delta = costGgradient; // delta of output of last layer (L-1)
+                    network.Layers.Last().Output.Delta = QuadraticGradientBatch(labelArraysBatch, outputsBatch); // delta of output of last layer (L-1)
                     for (int l = network.Layers.Count - 1; l >= 0; l--) // propagate deltas in all layers backwards (L-1 to 0)
                     {
                         network.Layers[l].BackPropOneCPU();
@@ -173,9 +188,9 @@ namespace TrafficNetCL
 
                 if (isOutputEpoch)
                 {
-                    costEpoch = QuadraticCost(network, trainingSet);
-                    errorEpoch = ClassificationError(network, trainingSet);
-                    Console.WriteLine("Epoch {0}: training set quadratic cost = {1}, classification error = {2}", epoch, costEpoch, errorEpoch);
+                    //costEpoch = QuadraticCost(network, trainingSet);
+                    errorEpoch = ClassificationErrorTopOne(network, trainingSet);
+                    Console.WriteLine("Epoch {0}: classification error = {1}", epoch, errorEpoch);
 
                     if (errorEpoch < errorTolerance)
                         stopFlag = true;
@@ -195,14 +210,30 @@ namespace TrafficNetCL
 
 
             finalEpoch = epoch;
-            finalCost = QuadraticCost(network, trainingSet);
+            finalError = ClassificationErrorTopOne(network, trainingSet);
 
             return errorCode; // error code
         }
 
 
+        static float[] QuadraticGradientBatch(List<float[]> labelsBatch, List<float[]> outputsBatch)
+        {
+            int nClasses = labelsBatch[0].Length;
+            float[] gradient = new float[nClasses];
+
+            for (int iData = 0; iData < miniBatchSize; iData++)
+            {
+                for (int iClassScore = 0; iClassScore < nClasses; iClassScore++)
+                    gradient[iClassScore] += outputsBatch[iData][iClassScore] - labelsBatch[iData][iClassScore];
+            }
+
+            return gradient;
+        }
 
 
+
+
+        /*
         static double QuadraticCost(float[] targetValues, float[] networkOutputs, out float[] gradient)
         {
             if (targetValues.Length != networkOutputs.Length)
@@ -213,6 +244,7 @@ namespace TrafficNetCL
 
             return squaredErrors.Sum() / squaredErrors.Count();
         }
+         * 
 
 
         static double QuadraticCost(NeuralNetwork network, DataSet dataSet)
@@ -236,6 +268,7 @@ namespace TrafficNetCL
 
             return totalCost / (2 * dataSet.Size);
         }
+         * */
 
         /// <summary>
         /// Only use for SINGLE OUTPUT UNIT networks! 
@@ -243,7 +276,7 @@ namespace TrafficNetCL
         /// <param name="network"></param>
         /// <param name="dataSet"></param>
         /// <returns></returns>
-        static double ClassificationError(NeuralNetwork network, DataSet dataSet)
+        static double ClassificationErrorSign(NeuralNetwork network, DataSet dataSet)
         {
             double classificationError = 0;
 
@@ -262,10 +295,49 @@ namespace TrafficNetCL
                 classificationError += Math.Abs(outputClass - dataSet.GetLabel(i));
             }
 
+            return classificationError / (2* dataSet.Size);
+        }
+
+        static double ClassificationErrorTopOne(NeuralNetwork network, DataSet dataSet)
+        {
+            double classificationError = 0;
+
+            for (int i = 0; i < dataSet.Size; i++)
+            {
+                network.Layers[0].Input.Set(dataSet.GetDataPoint(i));
+
+                // Run forward
+                for (int l = 0; l < network.Layers.Count; l++)
+                {
+                    network.Layers[l].ForwardOneCPU();
+                }
+
+                // Check for correct/wrong classification
+                int outputClassMaxScore = IndexOfMax(network.Layers.Last().Output.Get());
+                if (outputClassMaxScore != dataSet.GetLabel(i))
+                {
+                    classificationError += 1;
+                }
+            }
+
             return classificationError / dataSet.Size;
         }
 
 
+        public static int IndexOfMax(float[] outputScores)
+        {
+            int iMax = 0;
+            float max = outputScores[0];
+            for (int j = 1; j < outputScores.Length; j++)
+            {
+                if (outputScores[j] > max)
+                {
+                    max = outputScores[j];
+                    iMax = j;
+                }
+            }
+            return iMax;
+        }
 
 
         

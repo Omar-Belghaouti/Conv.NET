@@ -8,6 +8,10 @@ namespace TrafficNetCL
 {
     static class Utils
     {
+
+
+        static Random random = new Random();
+
         /// <summary>
         /// Returns index of maximum element in the given input array.
         /// </summary>
@@ -106,7 +110,7 @@ namespace TrafficNetCL
         /// <returns></returns>
         public static int[] GenerateRandomPermutation(int maxN)
         {
-            Random random = new Random();
+            
             int[] sequence = new int[maxN];
             int n = maxN;
 
@@ -122,6 +126,52 @@ namespace TrafficNetCL
             }
 
             return sequence;
+        }
+
+        /// <summary>
+        /// Generate list of mini-batches indices, i.e. output is a list, each element of which is a minibatch, containing indices in random order
+        /// </summary>
+        /// <param name="maxN"></param>
+        /// <returns></returns>
+        public static List<int[]> GenerateMiniBatches(int maxN, int miniBatchSize)
+        {
+
+            if (maxN % miniBatchSize != 0)
+                throw new System.ArgumentException("Cannot generate mini-batches.");
+
+
+            List<int[]> miniBatchesList = new List<int[]>();
+            int[] sequence = new int[maxN];
+            int n = maxN;
+            
+
+            for (int i = 0; i < maxN; i++)
+                sequence[i] = i;
+
+            while (n > 1)
+            {
+                int randomIndex = random.Next(n--);
+                int temp = sequence[randomIndex];
+                sequence[randomIndex] = sequence[n];
+                sequence[n] = temp;
+            }
+
+            int[] tmp = new int[miniBatchSize];
+            int j = 0;
+            for (int i = 0; i < maxN; i++)
+            {
+                tmp[j] = sequence[i];
+                j++;
+
+                if (j % miniBatchSize == 0)
+                {
+                    j = 0;
+                    int[] tmp2 = (int[])tmp.Clone();
+                    miniBatchesList.Add(tmp2);
+                }
+            }
+
+            return miniBatchesList;
         }
 
 

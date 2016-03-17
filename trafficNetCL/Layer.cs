@@ -110,7 +110,16 @@ namespace TrafficNetCL
         /// </summary>
         public abstract void UpdateParameters(double learningRate, double momentumMultiplier);
 
+
+        
+
         #endregion
+
+        // DEBUGGING METHODS
+        public virtual void DisplayParameters()
+        {
+
+        }
 
     }
 }

@@ -38,6 +38,16 @@ namespace TrafficNetCL
             get { return numberOfUnits; }
         }
 
+        public float[,] Weights
+        {
+            get { return weights; } 
+        }
+
+        public float[] Biases
+        {
+            get { return biases; }
+        }
+
         #endregion
 
 
@@ -98,12 +108,12 @@ namespace TrafficNetCL
                     weights[iRow, iCol] = (float)tmp;
                 }
 
-                uniformRand1 = rng.NextDouble();
-                uniformRand2 = rng.NextDouble();
+                //uniformRand1 = rng.NextDouble();
+                //uniformRand2 = rng.NextDouble();
                 // Use a Box-Muller transform to get a random normal(0,1)
-                tmp = Math.Sqrt(-2.0 * Math.Log(uniformRand1)) * Math.Sin(2.0 * Math.PI * uniformRand2);
+                //tmp = Math.Sqrt(-2.0 * Math.Log(uniformRand1)) * Math.Sin(2.0 * Math.PI * uniformRand2);
 
-                biases[iRow] = (float)tmp;
+                biases[iRow] = 1.0F;//(float)tmp;
                 
             }
 
@@ -169,6 +179,31 @@ namespace TrafficNetCL
         }
 
         #endregion
+
+
+        // DEBUGGING
+        public override void DisplayParameters()
+        {
+            Console.WriteLine("\n\n ======== LAYER =========\n\n");
+
+            Console.WriteLine("\nFinal weights:");
+            for (int i = 0; i < weights.GetLength(0); i++ )
+            {
+                for (int j = 0; j < weights.GetLength(1); j++)
+                    Console.Write("{0}  ", weights[i,j]);
+
+                Console.WriteLine();
+            }
+
+            Console.WriteLine("\nFinal biases:");
+            for (int i = 0; i < biases.GetLength(0); i++)
+            {
+                Console.Write("{0}  ", biases[i]);
+
+                Console.WriteLine();
+            }
+            
+        }
 
     }
 }

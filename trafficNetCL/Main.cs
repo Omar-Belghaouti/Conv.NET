@@ -18,8 +18,8 @@ namespace TrafficNetCL
              ****************************************************/
             NetworkTrainer.LearningRate = 0.01;
             NetworkTrainer.MomentumMultiplier = 0.9;  // not implemented yet
-            NetworkTrainer.MaxTrainingEpochs = 100000;
-            NetworkTrainer.MiniBatchSize = 90; // use multiples of 30  // not implemented yet
+            NetworkTrainer.MaxTrainingEpochs = 10000;
+            NetworkTrainer.MiniBatchSize = 3; // for GTSRB can use any multiple of 2, 3, 5
             NetworkTrainer.ErrorTolerance = 0.001;
             NetworkTrainer.ConsoleOutputLag = 100;
             double tanhBeta = 0.5;
@@ -31,11 +31,11 @@ namespace TrafficNetCL
             NeuralNetwork network = new NeuralNetwork();
             // neuralNet.AddLayer(new ConvolutionalLayer(7,40));
             //net.AddLayer(new FullyConnectedLayer(100));
-            network.AddLayer(new FullyConnectedLayer(3));
-            network.AddLayer(new Tanh(tanhBeta));
+            network.AddLayer(new FullyConnectedLayer(10));
+            network.AddLayer(new ReLU());
+            network.AddLayer(new FullyConnectedLayer(10));
+            network.AddLayer(new ReLU());
             network.AddLayer(new FullyConnectedLayer(2));
-            network.AddLayer(new Tanh(tanhBeta));
-            network.AddLayer(new FullyConnectedLayer(1));
             network.AddLayer(new Tanh(tanhBeta));
             //net.AddLayer(new FullyConnectedLayer(10));
             //net.AddLayer(new SoftMaxLayer(43));
@@ -46,7 +46,7 @@ namespace TrafficNetCL
              ****************************************************/
 
             // data will be preprocessed and split into training/validation sets with MATLAB
-            DataSet trainingSet = new DataSet("C:/Users/jacopo/Dropbox/Chalmers/MSc thesis/TrafficNetCL/Data/train_data.txt");
+            DataSet trainingSet = new DataSet(2, "C:/Users/jacopo/Dropbox/Chalmers/MSc thesis/TrafficNetCL/Data/train_data.txt");
             //DataSet validationSet = new DataSet();
 
             /*
@@ -74,26 +74,15 @@ namespace TrafficNetCL
             int finalEpoch;
             errorCode = NetworkTrainer.TrainSimpleTest(network, trainingSet, out errorTraining, out finalEpoch);
 
-            // TESTING
-            /*
-             * net.Layers[0].Input.Set(new float[] { 0.1f, -0.5f});
+            network.Layers[0].DisplayParameters();
 
-            for (int l = 0; l < net.Layers.Count; l++ )
-            {
-                Console.WriteLine("\n\nInput of layer {0}:", l);
-                for (int i = 0; i < net.Layers[l].Input.NumberOfUnits; i++)
-                    Console.Write(net.Layers[l].Input.Get()[i] + " ");
+            network.Layers[2].DisplayParameters();
 
-                Console.WriteLine("\n\nRunning layer {0}...", l);
-                net.Layers[l].ForwardOneCPU();
+            //network.Layers[4].DisplayParameters();
 
-                Console.WriteLine("\nOutput of layer {0}:", l);
-                for (int i = 0; i < net.Layers[l].Output.NumberOfUnits; i++)
-                    Console.Write(net.Layers[l].Output.Get()[i] + " ");
-            }
-            Console.WriteLine();
-             * */
-
+            
+            
+            
             /*****************************************************
              * (4) Test network
              ****************************************************/

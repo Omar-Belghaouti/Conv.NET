@@ -13,12 +13,15 @@ namespace TrafficNetCL
 
         private List<float[]> data;
         private List<int> labels;
+        private List<float[]> labelArrays;
+        private int nClasses;
         private int size;
 
-        public void Add(float[] DataPoint, int Class)
+        public void DataAdd(float[] dataPoint, int label, float[] labelArray)
         {
-            this.data.Add(DataPoint);
-            this.labels.Add(Class);
+            this.data.Add(dataPoint);
+            this.labels.Add(label);
+            this.labelArrays.Add(labelArray);
             this.size += 1;
         }
 
@@ -32,12 +35,22 @@ namespace TrafficNetCL
             return this.labels[Index];
         }
 
+        public float[] GetLabelArray(int Index)
+        {
+            return this.labelArrays[Index];
+        }
+
         public int Size
         {
             get { return size; }
         }
 
-        public DataSet(string dataPath)
+        public int NumberOfClasses
+        {
+            get { return nClasses; }
+        }
+
+        public DataSet(int nClasses, string dataPath)
         {
             Console.WriteLine("Importing data set from file {0}...", dataPath);
 
@@ -46,6 +59,8 @@ namespace TrafficNetCL
             // Initialize empty lists
             this.data = new List<float[]>();
             this.labels = new List<int>();
+            this.labelArrays = new List<float[]>();
+            this.nClasses = nClasses;
             this.size = 0;
 
             foreach (var line in System.IO.File.ReadAllLines(dataPath))
@@ -60,8 +75,15 @@ namespace TrafficNetCL
                     DataPoint[i] = float.Parse(columns[i], CultureInfo.InvariantCulture.NumberFormat);
                     //Console.Write("{0}  ", columns[i].Trim());
                 }
-                //Console.WriteLine(columns[columns.Length - 1]);
-                this.Add(DataPoint, Convert.ToInt16(columns[columns.Length - 1]));
+
+                int label = Convert.ToInt16(columns[columns.Length - 1]);
+                if (label == -1)
+                    label = 0;
+
+                float[] labelArray = new float[nClasses];
+                labelArray[label] = 1.0f;
+
+                this.DataAdd(DataPoint, label, labelArray);
             }
 
 

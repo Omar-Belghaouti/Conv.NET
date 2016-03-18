@@ -19,7 +19,7 @@ namespace TrafficNetCL
             NetworkTrainer.LearningRate = 0.01;
             NetworkTrainer.MomentumMultiplier = 0.9;
             NetworkTrainer.MaxTrainingEpochs = 10000;
-            NetworkTrainer.MiniBatchSize = 10; // for GTSRB can use any multiple of 2, 3, 5
+            NetworkTrainer.MiniBatchSize = 1; // for GTSRB can use any multiple of 2, 3, 5
             NetworkTrainer.ErrorTolerance = 0.001;
             NetworkTrainer.ConsoleOutputLag = 100;
             double tanhBeta = 0.5;

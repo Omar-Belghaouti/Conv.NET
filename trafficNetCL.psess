@@ -67,11 +67,6 @@
       <ProjName>TrafficNetCL</ProjName>
     </ProjBinary>
   </Binaries>
-  <Reports>
-    <Report>
-      <Path>trafficNetCL160317.vspx</Path>
-    </Report>
-  </Reports>
   <Launches>
     <ProjBinary>
       <Path>:PB:{5679C427-B82C-437A-8DF6-3237A4169144}|trafficNetCL\TrafficNetCL.csproj</Path>

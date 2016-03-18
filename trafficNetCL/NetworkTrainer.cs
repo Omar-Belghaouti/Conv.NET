@@ -154,15 +154,15 @@ namespace TrafficNetCL
             int epoch = 0;
             do // loop over training epochs
             {
-                miniBatchList = Utils.GenerateMiniBatches(trainingSet.Size, miniBatchSize); // new every epoch
+                randomIntSequence = Utils.GenerateRandomPermutation(trainingSet.Size);  // new every epoch
 
-                // Run over mini-batches list
-                for (int iMiniBatch = 0; iMiniBatch < nMiniBatches; iMiniBatch++)
+                // Run over mini-batches
+                for (int iStartMiniBatch = 0; iStartMiniBatch < trainingSet.Size; iStartMiniBatch += miniBatchSize)
                 {
-
-                    for (int i = 0; i < miniBatchSize; i++) // Run over a mini-batch
+                    // Run over a mini-batch
+                    for (int iWithinMiniBatch = 0; iWithinMiniBatch < miniBatchSize; iWithinMiniBatch++) 
                     {
-                        iDataPoint = miniBatchList[iMiniBatch][i];
+                        iDataPoint = randomIntSequence[iStartMiniBatch + iWithinMiniBatch];
                         //Console.WriteLine("Feeding data point {0}", iDataPoint);
 
                         network.Layers[0].Input.Set(trainingSet.GetDataPoint(iDataPoint));
@@ -173,12 +173,12 @@ namespace TrafficNetCL
                             network.Layers[l].ForwardOneCPU();
                         }
 
-                        outputsBatch[i] = (float[]) network.Layers.Last().Output.Get().Clone();
-                        labelArraysBatch[i] = (float[]) trainingSet.GetLabelArray(iDataPoint).Clone();
+                        outputsBatch[iWithinMiniBatch] = (float[])network.Layers.Last().Output.Get().Clone();
+                        labelArraysBatch[iWithinMiniBatch] = (float[])trainingSet.GetLabelArray(iDataPoint).Clone();
                     } // end loop over mini-batches
 
                     // Error backpropagation and parameters update
-                    network.Layers.Last().Output.Delta = QuadraticGradientBatch(labelArraysBatch, outputsBatch); // delta of output of last layer (L-1)
+                    network.Layers.Last().Output.Delta = QuadraticGradientBatch(labelArraysBatch, outputsBatch);
                     for (int l = network.Layers.Count - 1; l >= 0; l--) // propagate deltas in all layers backwards (L-1 to 0)
                     {
                         network.Layers[l].BackPropOneCPU();
@@ -222,10 +222,12 @@ namespace TrafficNetCL
             int nClasses = labelsBatch[0].Length;
             float[] gradient = new float[nClasses];
 
-            for (int iData = 0; iData < miniBatchSize; iData++)
+            for (int iClassScore = 0; iClassScore < nClasses; iClassScore++)
             {
-                for (int iClassScore = 0; iClassScore < nClasses; iClassScore++)
+                for (int iData = 0; iData < miniBatchSize; iData++)
                     gradient[iClassScore] += outputsBatch[iData][iClassScore] - labelsBatch[iData][iClassScore];
+
+                gradient[iClassScore] /= miniBatchSize;
             }
 
             return gradient;

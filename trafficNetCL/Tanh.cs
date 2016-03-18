@@ -10,7 +10,6 @@ namespace TrafficNetCL
     {
         #region Tanh layer class fields (private)
 
-        private int numberOfUnits;
         private double beta;
 
         /* Additional fields, inherited from "Layer" class:
@@ -90,20 +89,24 @@ namespace TrafficNetCL
 
         public override void BackPropOneCPU()
         {
-            if (this.Input.Delta.Length != this.Output.Delta.Length)
-                throw new System.InvalidOperationException("Tanh layer: mismatch in length of delta arrays.");
-            
             for (int i = 0; i < this.numberOfUnits; i++)
-                this.Input.Delta[i] = this.Output.Delta[i] * (float) (beta * (1 - Math.Pow((double)this.output.Get()[i], 2)) );
+                this.input.Delta[i] = this.output.Delta[i] * (float) (beta * (1 - Math.Pow((double)this.output.Get()[i], 2)) );
 
         }
 
         public override void BackPropBatchCPU()
         {
             // TO-DO
+
+            float[] tmpDelta = new float[numberOfUnits];
+            for (int i = 0; i < this.numberOfUnits; i++)
+                tmpDelta[i] = this.output.Delta[i] * (float)(beta * (1 - Math.Pow((double)this.output.Get()[i], 2)));
+            
+            this.input.Delta = this.input.Delta.Zip(tmpDelta, (x, y) => x + y).ToArray();
+
         }
 
-        public override void UpdateParameters(double learningRate, double momentumMultiplier)
+        public override void UpdateParameters(double learningRate, double momentumCoefficient)
         {
             // nothing to update
         }

@@ -11,8 +11,6 @@ namespace TrafficNetCL
 
         #region Fields (private)
 
-        private int numberOfUnits;
-
         private float[,] weights;
         private float[] biases;
 
@@ -68,7 +66,6 @@ namespace TrafficNetCL
         public override void ConnectTo(Layer PreviousLayer)
         {
  	        base.ConnectTo(PreviousLayer);
-
             this.output = new Neurons(this.numberOfUnits);
 
             
@@ -78,6 +75,7 @@ namespace TrafficNetCL
         {
             this.input = new Neurons(InputDimensions[0] * InputDimensions[1] * InputDimensions[2]);
             this.output = new Neurons(this.numberOfUnits);
+
         }
 
         public override void InitializeParameters() // only call after either "SetAsFirstLayer()" or "ConnectTo()"
@@ -89,7 +87,7 @@ namespace TrafficNetCL
             this.biases = new float[this.Output.NumberOfUnits];
 
             Random rng = new Random(); //reuse this if you are generating many
-            double weightsStdDev = 1 / (Math.Sqrt(this.input.NumberOfUnits));
+            double weightsStdDev = Math.Sqrt(2.0/this.input.NumberOfUnits);
             double uniformRand1;
             double uniformRand2;
             double tmp;
@@ -113,7 +111,7 @@ namespace TrafficNetCL
                 // Use a Box-Muller transform to get a random normal(0,1)
                 //tmp = Math.Sqrt(-2.0 * Math.Log(uniformRand1)) * Math.Sin(2.0 * Math.PI * uniformRand2);
 
-                biases[iRow] = 1.0F;//(float)tmp;
+                biases[iRow] = 0.1F;//(float)tmp;
                 
             }
 
@@ -132,7 +130,7 @@ namespace TrafficNetCL
             this.output.Set(unbiasedOutput.Zip(this.biases, (x, y) => x + y).ToArray());
         }
 
-        public override void ForwardBatchCPU()
+        public override void ForwardBatchCPU() // really needed??
         {
 
         }
@@ -150,20 +148,23 @@ namespace TrafficNetCL
 
         public override void BackPropBatchCPU()
         {
-          
+            float[] tmpDelta = new float[numberOfUnits];
+            tmpDelta = Utils.MultiplyMatrixTranspByVector(this.weights, this.Output.Delta);
+            this.Input.Delta = this.Input.Delta.Zip(tmpDelta, (x, y) => x + y).ToArray();
         }
 
         public override void UpdateParameters(double learningRate, double momentumCoefficient)
         {
+
             // Update weights
             for (int i = 0; i < this.weights.GetLength(0); i++)
             {
                 for (int j = 0; j < this.weights.GetLength(1); j++)
                 {
                     this.weightsUpdateSpeed[i, j] *= (float)momentumCoefficient;
-                    this.weightsUpdateSpeed[i, j] -= this.input.Get()[j] * this.Output.Delta[i];
+                    this.weightsUpdateSpeed[i, j] -= (float) learningRate * this.input.Get()[j] * this.output.Delta[i];
 
-                    this.weights[i, j] += (float)(learningRate * this.weightsUpdateSpeed[i, j]);
+                    this.weights[i, j] += this.weightsUpdateSpeed[i, j];
                 }
             }
 
@@ -171,7 +172,7 @@ namespace TrafficNetCL
             for (int i = 0; i < this.biases.GetLength(0); i++)
             {
                 this.biasesUpdateSpeed[i] *= (float)momentumCoefficient;
-                this.biasesUpdateSpeed[i] -= this.Output.Delta[i];
+                this.biasesUpdateSpeed[i] -= this.output.Delta[i];
 
                 this.biases[i] += (float)(learningRate * this.biasesUpdateSpeed[i]);
             }

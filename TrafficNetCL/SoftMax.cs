@@ -10,7 +10,6 @@ namespace TrafficNetCL
     {
         #region SoftMax layer class fields (private)
 
-        private int numberOfUnits;
 
         /* Additional fields, inherited from "Layer" class:
         * 
@@ -105,7 +104,7 @@ namespace TrafficNetCL
             // TO-DO
         }
 
-        public override void UpdateParameters(double learningRate, double momentumMultiplier)
+        public override void UpdateParameters(double learningRate, double momentumCoefficient)
         {
             // nothing to update
         }

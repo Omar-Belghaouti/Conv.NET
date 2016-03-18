@@ -139,17 +139,8 @@ namespace TrafficNetCL
             int epochsRemainingToOutput = 0;
             List<int[]> miniBatchList = new List<int[]>();
             int nMiniBatches = trainingSet.Size / miniBatchSize;
-
-            List<float[]> outputsBatch = new List<float[]>(miniBatchSize);
-            List<float[]> labelArraysBatch = new List<float[]>(miniBatchSize);
-
-            // initialize lists
-            for (int i = 0; i < miniBatchSize; i++)
-            {
-                outputsBatch.Add(new float[trainingSet.NumberOfClasses]);
-                labelArraysBatch.Add(new float[trainingSet.NumberOfClasses]);
-            }
-            
+            float[] outputScores = new float[trainingSet.NumberOfClasses];
+            float[] labelArray = new float[trainingSet.NumberOfClasses];
 
             int epoch = 0;
             do // loop over training epochs
@@ -163,27 +154,41 @@ namespace TrafficNetCL
                     for (int iWithinMiniBatch = 0; iWithinMiniBatch < miniBatchSize; iWithinMiniBatch++) 
                     {
                         iDataPoint = randomIntSequence[iStartMiniBatch + iWithinMiniBatch];
-                        //Console.WriteLine("Feeding data point {0}", iDataPoint);
 
                         network.Layers[0].Input.Set(trainingSet.GetDataPoint(iDataPoint));
-
                         // Run forward
-                        for (int l = 0; l < network.Layers.Count; l++)
+                        for (int l = 0; l < network.NumberOfLayers; l++)
                         {
                             network.Layers[l].ForwardOneCPU();
                         }
+                        outputScores = network.Layers.Last().Output.Get();
+                        labelArray = trainingSet.GetLabelArray(iDataPoint);
 
-                        outputsBatch[iWithinMiniBatch] = (float[])network.Layers.Last().Output.Get().Clone();
-                        labelArraysBatch[iWithinMiniBatch] = (float[])trainingSet.GetLabelArray(iDataPoint).Clone();
+                        // Gradient of quadratic cost, using LINQ
+                        network.Layers.Last().Output.Delta = outputScores.Zip(labelArray, 
+                            (x, y) => (x - y)).ToArray();
+                        
+                        // Now run backwards and update deltas (cumulating them), but DO NOT update parameters
+                        for (int l = network.Layers.Count - 1; l >= 0; l--) // propagate deltas in all layers backwards (L-1 to 0)
+                        {
+                            network.Layers[l].BackPropOneCPU();
+                        }
+
                     } // end loop over mini-batches
 
-                    // Error backpropagation and parameters update
-                    network.Layers.Last().Output.Delta = QuadraticGradientBatch(labelArraysBatch, outputsBatch);
-                    for (int l = network.Layers.Count - 1; l >= 0; l--) // propagate deltas in all layers backwards (L-1 to 0)
+                    // Now update parameters using cumulated deltas
+                    for (int l = network.Layers.Count - 1; l >= 0; l--)
                     {
-                        network.Layers[l].BackPropOneCPU();
                         network.Layers[l].UpdateParameters(learningRate, momentumMultiplier);
                     }
+
+                    // And finally wipe out all cumulated deltas (NOTE: can NOT merge this and previous loop!)
+                    for (int l = network.Layers.Count - 1; l >= 0; l--)
+                    {
+                        network.Layers[l].ClearDelta();
+                    }
+                    
+
                 }
 
 
@@ -215,25 +220,6 @@ namespace TrafficNetCL
 
             return errorCode; // error code
         }
-
-
-        static float[] QuadraticGradientBatch(List<float[]> labelsBatch, List<float[]> outputsBatch)
-        {
-            int nClasses = labelsBatch[0].Length;
-            float[] gradient = new float[nClasses];
-
-            for (int iClassScore = 0; iClassScore < nClasses; iClassScore++)
-            {
-                for (int iData = 0; iData < miniBatchSize; iData++)
-                    gradient[iClassScore] += outputsBatch[iData][iClassScore] - labelsBatch[iData][iClassScore];
-
-                gradient[iClassScore] /= miniBatchSize;
-            }
-
-            return gradient;
-        }
-
-
 
 
         /*

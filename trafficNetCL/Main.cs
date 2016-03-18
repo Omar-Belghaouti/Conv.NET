@@ -17,9 +17,9 @@ namespace TrafficNetCL
              * (0) Set hyperparameters
              ****************************************************/
             NetworkTrainer.LearningRate = 0.01;
-            NetworkTrainer.MomentumMultiplier = 0.9;  // not implemented yet
+            NetworkTrainer.MomentumMultiplier = 0.9;
             NetworkTrainer.MaxTrainingEpochs = 10000;
-            NetworkTrainer.MiniBatchSize = 3; // for GTSRB can use any multiple of 2, 3, 5
+            NetworkTrainer.MiniBatchSize = 10; // for GTSRB can use any multiple of 2, 3, 5
             NetworkTrainer.ErrorTolerance = 0.001;
             NetworkTrainer.ConsoleOutputLag = 100;
             double tanhBeta = 0.5;
@@ -31,10 +31,14 @@ namespace TrafficNetCL
             NeuralNetwork network = new NeuralNetwork();
             // neuralNet.AddLayer(new ConvolutionalLayer(7,40));
             //net.AddLayer(new FullyConnectedLayer(100));
-            network.AddLayer(new FullyConnectedLayer(10));
+            //network.AddLayer(new FullyConnectedLayer(2));
+            //network.AddLayer(new ReLU());
+            network.AddLayer(new FullyConnectedLayer(2));
             network.AddLayer(new ReLU());
-            network.AddLayer(new FullyConnectedLayer(10));
+            //network.AddLayer(new Tanh(tanhBeta));
+            network.AddLayer(new FullyConnectedLayer(3));
             network.AddLayer(new ReLU());
+            //network.AddLayer(new Tanh(tanhBeta));
             network.AddLayer(new FullyConnectedLayer(2));
             network.AddLayer(new Tanh(tanhBeta));
             //net.AddLayer(new FullyConnectedLayer(10));
@@ -97,10 +101,6 @@ namespace TrafficNetCL
             /*****************************************************/
             // GENERAL TO-DO LIST:
 
-            // Using DeltaInput is cumbersome and confusing.
-            // Add DeltaOutput alongside DeltaInput and use that for parameters update instead.
-
-            // There is something very weird with the weights update: works if the gradient is ADDED instead of SUBTRACTED. Why?!?
-        }
+            }
     }
 }

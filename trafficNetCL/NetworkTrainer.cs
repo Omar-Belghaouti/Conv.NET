@@ -163,6 +163,7 @@ namespace TrafficNetCL
                     for (int i = 0; i < miniBatchSize; i++) // Run over a mini-batch
                     {
                         iDataPoint = miniBatchList[iMiniBatch][i];
+                        //Console.WriteLine("Feeding data point {0}", iDataPoint);
 
                         network.Layers[0].Input.Set(trainingSet.GetDataPoint(iDataPoint));
 

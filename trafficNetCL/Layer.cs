@@ -19,7 +19,7 @@ namespace TrafficNetCL
 
         protected Layer nextLayer;
 
-        
+        protected int numberOfUnits;
 
         protected string layerType;
 
@@ -110,6 +110,11 @@ namespace TrafficNetCL
         /// </summary>
         public abstract void UpdateParameters(double learningRate, double momentumMultiplier);
 
+        public virtual void ClearDelta()
+        {
+            Array.Clear(this.input.Delta, 0, this.input.NumberOfUnits);
+            Array.Clear(this.output.Delta, 0, this.output.NumberOfUnits);
+        }
 
         
 
@@ -118,6 +123,24 @@ namespace TrafficNetCL
         // DEBUGGING METHODS
         public virtual void DisplayParameters()
         {
+
+        }
+
+        public virtual void DisplayDeltas()
+        {
+
+
+            Console.WriteLine("Layer INPUT deltas:");
+            for (int i = 0; i < this.input.NumberOfUnits; i++)
+            {
+                Console.Write("{0}  ", this.input.Delta[i]);
+            }
+
+            Console.WriteLine("\nLayer OUTPUT deltas:");
+            for (int i = 0; i < this.output.NumberOfUnits; i++)
+            {
+                Console.Write("{0}  ", this.output.Delta[i]);
+            }
 
         }
 

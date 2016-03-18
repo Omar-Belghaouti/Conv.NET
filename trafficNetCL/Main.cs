@@ -16,10 +16,10 @@ namespace TrafficNetCL
             /*****************************************************
              * (0) Set hyperparameters
              ****************************************************/
-            NetworkTrainer.LearningRate = 0.01;
+            NetworkTrainer.LearningRate = 0.005;
             NetworkTrainer.MomentumMultiplier = 0.9;
             NetworkTrainer.MaxTrainingEpochs = 10000;
-            NetworkTrainer.MiniBatchSize = 1; // for GTSRB can use any multiple of 2, 3, 5
+            NetworkTrainer.MiniBatchSize = 1; // not correctly implemented yer!! // for GTSRB can use any multiple of 2, 3, 5
             NetworkTrainer.ErrorTolerance = 0.001;
             NetworkTrainer.ConsoleOutputLag = 100;
             double tanhBeta = 0.5;
@@ -33,7 +33,7 @@ namespace TrafficNetCL
             //net.AddLayer(new FullyConnectedLayer(100));
             //network.AddLayer(new FullyConnectedLayer(2));
             //network.AddLayer(new ReLU());
-            network.AddLayer(new FullyConnectedLayer(2));
+            network.AddLayer(new FullyConnectedLayer(3));
             network.AddLayer(new ReLU());
             //network.AddLayer(new Tanh(tanhBeta));
             network.AddLayer(new FullyConnectedLayer(3));
@@ -79,14 +79,10 @@ namespace TrafficNetCL
             errorCode = NetworkTrainer.TrainSimpleTest(network, trainingSet, out errorTraining, out finalEpoch);
 
             network.Layers[0].DisplayParameters();
-
             network.Layers[2].DisplayParameters();
+            network.Layers[4].DisplayParameters();
 
-            //network.Layers[4].DisplayParameters();
 
-            
-            
-            
             /*****************************************************
              * (4) Test network
              ****************************************************/

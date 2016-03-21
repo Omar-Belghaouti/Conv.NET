@@ -97,7 +97,7 @@ namespace TrafficNetCL
             }
 
 
-            Console.WriteLine("\tImported {0} data points. \n\tData is {1} dimensional.", this.size, this.GetDataPoint(0).Length);
+            Console.WriteLine("\tImported {0} data points. \n\tData is {1} dimensional.\n", this.size, this.GetDataPoint(0).Length);
         }
 
         /// <summary>
@@ -143,7 +143,7 @@ namespace TrafficNetCL
                 this.size += 1;
             }
 
-            Console.WriteLine("\tImported {0} images. \n\tImage dimension: {1}.", this.size, this.GetDataPoint(0).Length);
+            Console.WriteLine("\tImported {0} images. \n\tImage dimension: {1}.\n", this.size, this.GetDataPoint(0).Length);
         }
 
 

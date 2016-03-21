@@ -30,7 +30,7 @@ namespace TrafficNetCL
         /// <param name="Beta"></param>
         public ReLU()
         {
-            Console.WriteLine("Adding a ReLU layer...");
+            //Console.WriteLine("Adding a ReLU layer...");
             this.type = "ReLU";
         }
 

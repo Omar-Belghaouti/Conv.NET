@@ -31,7 +31,7 @@ namespace TrafficNetCL
         /// <param name="Beta"></param>
         public SoftMax()
         {
-            Console.WriteLine("Adding a SoftMax layer...");
+            //Console.WriteLine("Adding a SoftMax layer...");
 
             this.type = "SoftMax";
         }

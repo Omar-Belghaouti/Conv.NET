@@ -59,7 +59,7 @@ namespace TrafficNetCL
         /// <param name="nUnits"></param>
         public FullyConnectedLayer(int nUnits)
         {
-            Console.WriteLine("Adding a fully connected layer with {0} units...", nUnits);
+            //Console.WriteLine("Adding a fully connected layer with {0} units...", nUnits);
 
             this.numberOfUnits = nUnits;
             this.type = "FullyConnected";

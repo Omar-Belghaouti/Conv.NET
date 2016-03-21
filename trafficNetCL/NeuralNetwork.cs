@@ -39,7 +39,7 @@ namespace TrafficNetCL
         /// </summary>
         public NeuralNetwork()
         {
-            Console.WriteLine("--- New empty network created ---");
+            //Console.WriteLine("--- New empty network created ---\n");
             this.layers = new List<Layer>(); // empty list of layers
         }
 
@@ -63,9 +63,9 @@ namespace TrafficNetCL
         /// <param name="nOutputClasses"></param>
         public void Setup(int inputWidth, int inputHeigth, int inputDepth, int nOutputClasses)
         {
-            Console.WriteLine("--- Network setup and initialization started ---");
+            Console.WriteLine("--- Network setup and initialization started... ---");
 
-            Console.WriteLine("Setting up layer 0 (input layer)...");
+            Console.WriteLine("Setting up layer 0 (input layer): " + layers[0].Type);
             layers[0].SetAsFirstLayer(inputWidth, inputHeigth, inputDepth); 
             // this should AUTOMATICALLY setup both input AND output AND initialize weights and biases
 
@@ -73,13 +73,13 @@ namespace TrafficNetCL
 
             for (int i = 1; i < layers.Count; i++ ) // all other layers
             {
-                Console.WriteLine("Setting up layer {0}...", i);
+                Console.WriteLine("Setting up layer " + i.ToString() + ": " + layers[i].Type);
                 layers[i].ConnectTo(layers[i - 1]);
                 layers[i].InitializeParameters();
                 
             }
 
-            Console.WriteLine("--- Network setup and initialization complete ---");
+            Console.WriteLine("--- Network setup and initialization complete ---\n");
         }
 
         #endregion

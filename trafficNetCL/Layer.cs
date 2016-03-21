@@ -25,11 +25,11 @@ namespace TrafficNetCL
 
         // Used in convolutional and pooling layers:
         protected int inputWidth;
-        //private int inputHeight; // assume = inputWidth for now
+        protected int inputHeight; // assumed equal to inputWidth for now
         protected int inputDepth;
 
         protected int outputWidth;
-        //private int outputHeight; // assume = outputWidth for now
+        protected int outputHeight; // assumed equal to outputWidth for now
         protected int outputDepth;
 
 
@@ -64,6 +64,11 @@ namespace TrafficNetCL
         public int OutputWidth // allows setup of next layer
         {
             get { return outputWidth; }
+        }
+
+        public int OutputHeight // allows setup of next layer
+        {
+            get { return outputHeight; }
         }
 
         public int OutputDepth // allows setup of next layer

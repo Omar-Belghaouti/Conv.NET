@@ -29,7 +29,7 @@ namespace TrafficNetCL
              * (1) Instantiate a neural network and add layers
              * 
              * OPTIONS: (implemented)
-             * ConvolutionalLayer(filterSize, numberOfFilters, strideLength, zeroPadding) // zero padding not implemented
+             * ConvolutionalLayer(filterSize, numberOfFilters, strideLength, zeroPadding) // zero padding not implemented yet
              * FullyConnectedLayer(numberOfUnits)
              * Tanh(beta)
              * ReLU()
@@ -40,8 +40,8 @@ namespace TrafficNetCL
             network.AddLayer(new ConvolutionalLayer(7, 16, 2, 0));
             network.AddLayer(new ReLU());
             //network.AddLayer(new Tanh(tanhBeta));
-            network.AddLayer(new FullyConnectedLayer(200));
-            network.AddLayer(new ReLU());
+            //network.AddLayer(new FullyConnectedLayer(10));
+            //network.AddLayer(new ReLU());
             //network.AddLayer(new Tanh(tanhBeta));
             network.AddLayer(new FullyConnectedLayer(10));
             //network.AddLayer(new Tanh(tanhBeta));
@@ -95,6 +95,10 @@ namespace TrafficNetCL
             network.Layers[2].DisplayParameters();
             network.Layers[4].DisplayParameters();
             */
+
+
+            double errorMNIST;
+            errorMNIST = NetworkTrainer.TrainMNIST(network, reducedMNIST);
 
             /*****************************************************
              * (4) Test network

@@ -18,10 +18,6 @@ namespace TrafficNetCL
 
         static Random random = new Random();
 
-        
-
-
-
         /// <summary>
         /// Returns index of maximum element in the given input array.
         /// </summary>
@@ -67,21 +63,26 @@ namespace TrafficNetCL
             return c;
         }
 
-        public static float[ , ] MultiplyMatrixByMatrix(float[ , ] A, float[ , ] B)
+        public static float[ , ] MatrixMultiply(float[ , ] A, float[ , ] B)
         {
-            float[,] C = new float[A.GetLength(0), B.GetLength(1)];
-            float sum = 0.0f;
+            int rowsA = A.GetLength(0);
+            int colsA = A.GetLength(1);
+            int rowsB = B.GetLength(0);
+            int colsB = B.GetLength(1);
 
-            for (int row = 0; row < A.GetLength(0); row++)
+            if (colsA != rowsB)
+                throw new Exception("Non-conformable matrices in MatrixMultiply");
+
+            float[,] C = new float[rowsA, colsB];
+
+            for (int row = 0; row < rowsA; row++)
             {
-                sum = 0.0f;
-                for (int col = 0; col < B.GetLength(1); col++)
+                for (int col = 0; col < colsB; col++)
                 {
-                    for (int k = 0; k < A.GetLength(1); k++)
+                    for (int k = 0; k < colsA; k++)
                     {
-                        sum += A[row, k] * B[k, col];
+                        C[row, col] += A[row, k] * B[k, col];
                     }
-                    C[row, col] = sum;
                 }
             }
             return C;

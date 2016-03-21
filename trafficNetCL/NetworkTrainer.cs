@@ -124,7 +124,14 @@ namespace TrafficNetCL
         }
 
 
-
+        /// <summary>
+        /// Training on toy 2D data set (to test network structure, fully connected, tanh, softmax and respective backprops)
+        /// </summary>
+        /// <param name="network"></param>
+        /// <param name="trainingSet"></param>
+        /// <param name="finalError"></param>
+        /// <param name="finalEpoch"></param>
+        /// <returns></returns>
         public static int TrainSimpleTest(NeuralNetwork network, DataSet trainingSet, out double finalError, out int finalEpoch)
         {
 
@@ -261,6 +268,104 @@ namespace TrafficNetCL
             return totalCost / (2 * dataSet.Size);
         }
          * */
+
+
+
+        public static double TrainMNIST(NeuralNetwork network, DataSet trainingSet)
+        {
+
+            // Initializations
+            int[] randomIntSequence = new int[trainingSet.Size];
+            int iDataPoint;
+            bool stopFlag = false;
+            double errorEpoch;
+            bool isOutputEpoch = true;
+            int epochsRemainingToOutput = 0;
+            
+            float[] outputScores = new float[trainingSet.NumberOfClasses];
+            float[] labelArray = new float[trainingSet.NumberOfClasses];
+
+            int epoch = 0;
+
+            do // loop over training epochs
+            {
+                randomIntSequence = Utils.GenerateRandomPermutation(trainingSet.Size);  // newly generated at every epoch
+
+                // Run over mini-batches
+                for (int iStartMiniBatch = 0; iStartMiniBatch < trainingSet.Size; iStartMiniBatch += miniBatchSize)
+                {
+                    // Run over a mini-batch
+                    for (int iWithinMiniBatch = 0; iWithinMiniBatch < miniBatchSize; iWithinMiniBatch++)
+                    {
+                        iDataPoint = randomIntSequence[iStartMiniBatch + iWithinMiniBatch];
+
+                        network.Layers[0].Input.Set(trainingSet.GetDataPoint(iDataPoint));
+                        // Run forward
+                        for (int l = 0; l < network.NumberOfLayers; l++)
+                        {
+                            network.Layers[l].ForwardOneCPU();
+                        }
+                        outputScores = network.Layers.Last().Output.Get();
+                        labelArray = trainingSet.GetLabelArray(iDataPoint);
+
+                        // JUST RUN FORWARD NOW
+
+                        // Gradient of cross-entropy cost (directly write this to INPUT delta)
+                        //network.Layers.Last().Input.Delta = outputScores.Zip(labelArray, (x, y) => (x - y)).ToArray();
+
+                        // Now run backwards and update deltas (cumulating them), but DO NOT update parameters
+                        /*
+                        for (int l = network.Layers.Count - 2; l >= 0; l--) // propagate deltas in all layers (but the last) backwards (L-2 to 0)
+                        {
+                            network.Layers[l].BackPropOneCPU();
+                        }
+                        */
+
+                    } // end loop over mini-batches
+
+                    // Now update parameters using cumulated deltas
+                    /*
+                    for (int l = network.Layers.Count - 1; l >= 0; l--)
+                    {
+                        network.Layers[l].UpdateParameters(learningRate, momentumMultiplier);
+                    }
+                    
+
+                    // And finally wipe out all cumulated deltas (NOTE: can NOT merge this and previous loop!)
+                    for (int l = network.Layers.Count - 1; l >= 0; l--)
+                    {
+                        network.Layers[l].ClearDelta();
+                    }
+                    */
+
+                }
+
+                isOutputEpoch = epochsRemainingToOutput == 0;
+                if (isOutputEpoch)
+                {
+                    //costEpoch = QuadraticCost(network, trainingSet);
+                    errorEpoch = ClassificationErrorTopOne(network, trainingSet);
+                    Console.WriteLine("Epoch {0}: classification error = {1}", epoch, errorEpoch);
+
+                    if (errorEpoch < errorTolerance)
+                        stopFlag = true;
+
+                    epochsRemainingToOutput = consoleOutputLag;
+                    isOutputEpoch = false;
+                }
+                epochsRemainingToOutput--;
+                
+                // TO-DO: also implement early stopping (stop if validation error starts increasing)
+                epoch++;
+
+            } while (epoch < maxTrainingEpochs && !stopFlag);
+
+            return ClassificationErrorTopOne(network, trainingSet);
+        }
+
+
+
+
 
 
         /// <summary>

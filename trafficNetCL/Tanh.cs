@@ -32,7 +32,7 @@ namespace TrafficNetCL
         /// <param name="Beta"></param>
         public Tanh(double Beta)
         {
-            Console.WriteLine("Adding a tanh layer with activation parameter {0}...", Beta);
+            //Console.WriteLine("Adding a tanh layer with activation parameter {0}...", Beta);
 
             this.beta = Beta;
             this.type = "Tanh";

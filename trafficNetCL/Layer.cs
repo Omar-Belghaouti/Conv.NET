@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace TrafficNetCL
+namespace JaNet
 {
     /// <summary>
     /// Base layer class. All other layers will inherit from this.

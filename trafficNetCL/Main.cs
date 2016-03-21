@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace TrafficNetCL
+namespace JaNet
 {
     class trafficNetCLProgram
     {
@@ -18,7 +18,7 @@ namespace TrafficNetCL
              ****************************************************/
             NetworkTrainer.LearningRate = 0.01;
             NetworkTrainer.MomentumMultiplier = 0.9;
-            NetworkTrainer.MaxTrainingEpochs = 100;
+            NetworkTrainer.MaxTrainingEpochs = 1;
             NetworkTrainer.MiniBatchSize = 1; // not correctly implemented yet!! // for GTSRB can use any multiple of 2, 3, 5
             NetworkTrainer.ErrorTolerance = 0.001;
             NetworkTrainer.ConsoleOutputLag = 1;
@@ -37,8 +37,10 @@ namespace TrafficNetCL
              ****************************************************/
 
             NeuralNetwork network = new NeuralNetwork();
-            network.AddLayer(new ConvolutionalLayer(7, 16, 2, 0));
+            network.AddLayer(new ConvolutionalLayer(3, 16, 1, 0));
+            network.AddLayer(new ConvolutionalLayer(3, 16, 1, 0));
             network.AddLayer(new ReLU());
+
             //network.AddLayer(new Tanh(tanhBeta));
             //network.AddLayer(new FullyConnectedLayer(10));
             //network.AddLayer(new ReLU());

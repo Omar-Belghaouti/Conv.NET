@@ -5,7 +5,7 @@ using System.Text;
 using System.Diagnostics;
 using System.Threading.Tasks;
 
-namespace TrafficNetCL
+namespace JaNet
 {
     class NetworkTrainer
     {

@@ -5,7 +5,7 @@ using System.Text;
 using System.Threading.Tasks;
 
 
-namespace TrafficNetCL
+namespace JaNet
 {
     class ConvolutionalLayer : Layer
     {
@@ -62,11 +62,11 @@ namespace TrafficNetCL
             this.inputDepth = PreviousLayer.OutputDepth;
 
             // Setup output
-            var tmp = (inputWidth - filterSize + 2*zeroPadding)/(strideLength + 1);
+            double tmp = (double)(inputWidth - filterSize + 2 * zeroPadding) / (double)strideLength + 1;
             if (Math.Abs(tmp % 1) > GlobalVar.EPSILON)
                 throw new System.ArgumentException("Input width, filter size, zero padding and stride length do not fit well. Check the values!");
             this.outputWidth = (int) tmp;
-            tmp = (inputHeight - filterSize + 2 * zeroPadding) / (strideLength + 1);
+            tmp = (double)(inputHeight - filterSize + 2 * zeroPadding) / (double)strideLength + 1;
             if (Math.Abs(tmp % 1) > GlobalVar.EPSILON)
                 throw new System.ArgumentException("Input height, filter size, zero padding and stride length do not fit well. Check the values!");
             this.outputHeight = (int)tmp;
@@ -92,14 +92,15 @@ namespace TrafficNetCL
             this.input = new Neurons(InputDepth * InputWidth * InputHeight);
 
             // Setup output
-            var tmp = (inputWidth - filterSize + 2 * zeroPadding) / (strideLength + 1);
+            double tmp = (double)(inputWidth - filterSize + 2 * zeroPadding) / (double)strideLength + 1;
+            Console.WriteLine("Output width = {0}", tmp);
             if (Math.Abs(tmp % 1) > GlobalVar.EPSILON)
                 throw new System.ArgumentException("Input width, filter size, zero padding and stride length do not fit well. Check the values!");
             this.outputWidth = (int) tmp;
-            tmp = (inputHeight - filterSize + 2 * zeroPadding) / (strideLength + 1);
+            tmp = (double)(inputHeight - filterSize + 2 * zeroPadding) / (double)strideLength + 1;
             if (Math.Abs(tmp % 1) > GlobalVar.EPSILON)
                 throw new System.ArgumentException("Input height, filter size, zero padding and stride length do not fit well. Check the values!");
-            this.outputHeight = (int)tmp;
+            this.outputHeight = (int) tmp;
             this.outputDepth = nFilters;
             this.output = new Neurons(nFilters * outputWidth * outputHeight);
 
@@ -145,8 +146,8 @@ namespace TrafficNetCL
             }
 
             // Also initialize updates speeds to zero (for momentum)
-            this.weightsUpdateSpeed = new float[weights.GetLength(0), weights.GetLength(1)];
-            this.biasesUpdateSpeed = new float[biases.GetLength(0)];
+            this.weightsUpdateSpeed = new float[nFilters, inputDepth * filterSize * filterSize];
+            this.biasesUpdateSpeed = new float[nFilters];
         }
 
         #endregion
@@ -159,6 +160,7 @@ namespace TrafficNetCL
             this.inputAsMatrix = InputVectorToMatrix(input.Get());
             this.outputAsMatrix = Utils.MatrixMultiply(weights, inputAsMatrix);
             this.output.Set(OutputMatrixToVector(outputAsMatrix));
+            // Probably implementing all of this as a single OpenCL kernel would be a good idea
         }
 
         public override void ForwardBatchCPU()
@@ -196,20 +198,32 @@ namespace TrafficNetCL
         private float[,] InputVectorToMatrix(float[] inputVector)
         {
             int nRows = inputDepth * filterSize * filterSize;
-            int nCols = (int)Math.Pow(outputWidth, 2);
+            int nCols = (int) Math.Pow(outputWidth, 2);
             float[,] reshapedInput = new float[nRows, nCols];
 
             // Unfortunately there is no way of writing this so that it is readable!
-            int constCoefficient = inputWidth * inputHeight - filterSize;
             for (int i = 0; i < nRows; i++)
             {
+                int channelIndex = inputWidth * inputHeight * (int)Math.Floor(i / Math.Pow(filterSize, 2)); 
+                // the channel to look at is determined by i, W, H, F
+
+                int rowIndexAux = inputWidth * (int)Math.Floor( (i % Math.Pow(filterSize, 2)) / filterSize);
+                // will be incremented inside loop over j
+
+                int colIndexAux = (int) Math.Floor( (double)i / (double)filterSize);
+                // will be incremented inside loop over j
+
                 for (int j = 0; j < nCols; j++)
                 {
-                    int correctIndex = constCoefficient * (int)Math.Floor(i / Math.Pow(filterSize, 2));
-                    correctIndex += inputWidth * (int)(Math.Floor((double)i / filterSize) + Math.Floor( (double)j / outputWidth));
-                    correctIndex += j * strideLength + (i % filterSize);
+                    int rowIndex = rowIndexAux + (int) Math.Floor((double)j / (double)outputWidth);
+                    int colIndex = colIndexAux + (j % outputWidth) * strideLength;
+                    
+                    // Lines below are WRONG
+                    //int correctIndex = constCoefficient * (int)Math.Floor(i / Math.Pow(filterSize, 2));
+                    //correctIndex += inputWidth * (int) ( Math.Floor((double)i / filterSize) + Math.Floor( (double)j / outputWidth) );
+                    //correctIndex += j * strideLength + (i % filterSize);
 
-                    reshapedInput[i, j] = inputVector[correctIndex];
+                    reshapedInput[i, j] = inputVector[channelIndex + rowIndex + colIndex];
                 }
             }
 

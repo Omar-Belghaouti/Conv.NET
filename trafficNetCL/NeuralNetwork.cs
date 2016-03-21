@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 using System.Data;
 using System.Diagnostics;
 
-namespace TrafficNetCL
+namespace JaNet
 {
     class NeuralNetwork
     {

@@ -17,6 +17,7 @@ namespace TrafficNetCL
         private int nClasses;
         private int size;
 
+        /*
         public void DataAdd(float[] dataPoint, int label, float[] labelArray)
         {
             this.data.Add(dataPoint);
@@ -24,6 +25,7 @@ namespace TrafficNetCL
             this.labelArrays.Add(labelArray);
             this.size += 1;
         }
+         * */
 
         public float[] GetDataPoint(int Index)
         {
@@ -50,6 +52,11 @@ namespace TrafficNetCL
             get { return nClasses; }
         }
 
+        /// <summary>
+        ///  Constructor 1: both data AND labels in the same text file
+        /// </summary>
+        /// <param name="nClasses"></param>
+        /// <param name="dataPath"></param>
         public DataSet(int nClasses, string dataPath)
         {
             Console.WriteLine("Importing data set from file {0}...", dataPath);
@@ -69,10 +76,10 @@ namespace TrafficNetCL
 
                 //Console.WriteLine("Line {0} reads:", this.size);
 
-                float[] DataPoint = new float[columns.Length - 1];
+                float[] dataPoint = new float[columns.Length - 1];
                 for (int i = 0; i < columns.Length - 1; i++)
                 {
-                    DataPoint[i] = float.Parse(columns[i], CultureInfo.InvariantCulture.NumberFormat);
+                    dataPoint[i] = float.Parse(columns[i], CultureInfo.InvariantCulture.NumberFormat);
                     //Console.Write("{0}  ", columns[i].Trim());
                 }
 
@@ -83,11 +90,60 @@ namespace TrafficNetCL
                 float[] labelArray = new float[nClasses];
                 labelArray[label] = 1.0f;
 
-                this.DataAdd(DataPoint, label, labelArray);
+                this.data.Add(dataPoint);
+                this.labels.Add(label);
+                this.labelArrays.Add(labelArray);
+                this.size += 1;
             }
 
 
             Console.WriteLine("\tImported {0} data points. \n\tData is {1} dimensional.", this.size, this.GetDataPoint(0).Length);
+        }
+
+        /// <summary>
+        /// Constructor 2: data and labels in two separate text files (paths as arguments)
+        /// </summary>
+        /// <param name="nClasses"></param>
+        /// <param name="dataPath"></param>
+        public DataSet(int nClasses, string imagesPath, string labelsPath)
+        {
+            new System.Globalization.CultureInfo("en-US");
+
+            // Initialize empty lists
+            this.data = new List<float[]>();
+            this.labels = new List<int>();
+            this.labelArrays = new List<float[]>();
+            this.nClasses = nClasses;
+            this.size = 0;
+
+            // Read images
+            foreach (var line in System.IO.File.ReadAllLines(imagesPath))
+            {
+                var columns = line.Split('\t');
+
+                float[] image = new float[columns.Length];
+                for (int i = 0; i < columns.Length; i++)
+                {
+                    image[i] = float.Parse(columns[i], CultureInfo.InvariantCulture.NumberFormat);
+                }
+
+                this.data.Add(image);
+            }
+
+            // Read labels
+            foreach (var line in System.IO.File.ReadAllLines(labelsPath))
+            {
+                int label = Convert.ToInt16(line);
+                float[] labelArray = new float[nClasses];
+                labelArray[label] = 1.0f;
+
+                this.labels.Add(label);
+                this.labelArrays.Add(labelArray);
+
+                this.size += 1;
+            }
+
+            Console.WriteLine("\tImported {0} images. \n\tImage dimension: {1}.", this.size, this.GetDataPoint(0).Length);
         }
 
 

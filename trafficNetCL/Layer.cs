@@ -21,7 +21,17 @@ namespace TrafficNetCL
 
         protected int numberOfUnits;
 
-        protected string layerType;
+        protected string type;
+
+        // Used in convolutional and pooling layers:
+        protected int inputWidth;
+        //private int inputHeight; // assume = inputWidth for now
+        protected int inputDepth;
+
+        protected int outputWidth;
+        //private int outputHeight; // assume = outputWidth for now
+        protected int outputDepth;
+
 
         #endregion
 
@@ -43,12 +53,23 @@ namespace TrafficNetCL
             set { this.nextLayer = value; } 
         }
 
-        public string LayerType
+        public string Type
         {
-            get { return layerType; }
-            set { this.layerType = value; }
+            get { return type; }
+            set { this.type = value; }
         }
 
+        // Used in convolutional and pooling layers:
+
+        public int OutputWidth // allows setup of next layer
+        {
+            get { return outputWidth; }
+        }
+
+        public int OutputDepth // allows setup of next layer
+        {
+            get { return outputDepth; }
+        }
         #endregion
 
 
@@ -60,7 +81,8 @@ namespace TrafficNetCL
         /// <param name="PreviousLayer"></param>
         public virtual void ConnectTo(Layer PreviousLayer)
         {
-            this.Input = PreviousLayer.Output;
+            this.Input = PreviousLayer.Output; // assignment by reference! 
+            // In memory, output neurons of previous layer and input neurons of current layer are the same thing!
         }
 
 
@@ -68,7 +90,10 @@ namespace TrafficNetCL
         /// Set this as the first layer of the network.
         /// </summary>
         /// 
-        public abstract void SetAsFirstLayer(int[] InputDimensions);
+        public virtual void SetAsFirstLayer(int InputWidth, int InputHeight, int InputDepth)
+        {
+
+        }
 
         /// <summary>
         /// Initialize layer parameters.

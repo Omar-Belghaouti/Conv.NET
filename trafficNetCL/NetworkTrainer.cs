@@ -165,11 +165,14 @@ namespace TrafficNetCL
                         labelArray = trainingSet.GetLabelArray(iDataPoint);
 
                         // Gradient of quadratic cost, using LINQ
-                        network.Layers.Last().Output.Delta = outputScores.Zip(labelArray, 
-                            (x, y) => (x - y)).ToArray();
-                        
+                        // network.Layers.Last().Output.Delta = outputScores.Zip(labelArray, (x, y) => (x - y)).ToArray();
+                        // network.Layers.Last().BackPropOneCPU();
+
+                        // Gradient of cross-entropy cost (directly write in INPUT delta)
+                        network.Layers.Last().Input.Delta = outputScores.Zip(labelArray, (x, y) => (x - y)).ToArray();
+
                         // Now run backwards and update deltas (cumulating them), but DO NOT update parameters
-                        for (int l = network.Layers.Count - 1; l >= 0; l--) // propagate deltas in all layers backwards (L-1 to 0)
+                        for (int l = network.Layers.Count - 2; l >= 0; l--) // propagate deltas in all layers (but the last) backwards (L-2 to 0)
                         {
                             network.Layers[l].BackPropOneCPU();
                         }
@@ -259,12 +262,35 @@ namespace TrafficNetCL
         }
          * */
 
+
+        /// <summary>
+        /// Cross-entropy cost for a single example
+        /// </summary>
+        /// <param name="targetValues"></param>
+        /// <param name="networkOutputs"></param>
+        /// <param name="gradient"></param>
+        /// <returns></returns>
+        static double CrossEntropyCost(float[] targetValues, float[] networkOutputs)
+        {
+            double cost = 0.0;
+
+            for (int k = 0; k < targetValues.Length; k++)
+            {
+                cost += targetValues[k] * Math.Log(networkOutputs[k]);
+            }
+
+            return cost;
+        }
+
+
+
         /// <summary>
         /// Only use for SINGLE OUTPUT UNIT networks! 
         /// </summary>
         /// <param name="network"></param>
         /// <param name="dataSet"></param>
         /// <returns></returns>
+        [Obsolete("This method was originally created to deal with the toy 2d example.")]
         static double ClassificationErrorSign(NeuralNetwork network, DataSet dataSet)
         {
             double classificationError = 0;
@@ -286,6 +312,8 @@ namespace TrafficNetCL
 
             return classificationError / (2* dataSet.Size);
         }
+
+
 
         static double ClassificationErrorTopOne(NeuralNetwork network, DataSet dataSet)
         {

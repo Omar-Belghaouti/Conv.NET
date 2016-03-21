@@ -36,6 +36,7 @@ namespace TrafficNetCL
             get { return numberOfUnits; }
         }
 
+        /*
         public float[,] Weights
         {
             get { return weights; } 
@@ -45,6 +46,7 @@ namespace TrafficNetCL
         {
             get { return biases; }
         }
+         * */
 
         #endregion
 
@@ -60,7 +62,7 @@ namespace TrafficNetCL
             Console.WriteLine("Adding a fully connected layer with {0} units...", nUnits);
 
             this.numberOfUnits = nUnits;
-            this.layerType = "FullyConnected";
+            this.type = "FullyConnected";
         }
 
         public override void ConnectTo(Layer PreviousLayer)
@@ -71,9 +73,9 @@ namespace TrafficNetCL
             
         }
 
-        public override void SetAsFirstLayer(int[] InputDimensions)
+        public override void SetAsFirstLayer(int InputWidth, int InputHeight, int InputDepth)
         {
-            this.input = new Neurons(InputDimensions[0] * InputDimensions[1] * InputDimensions[2]);
+            this.input = new Neurons(InputWidth * InputHeight * InputDepth);
             this.output = new Neurons(this.numberOfUnits);
 
         }
@@ -111,7 +113,7 @@ namespace TrafficNetCL
                 // Use a Box-Muller transform to get a random normal(0,1)
                 //tmp = Math.Sqrt(-2.0 * Math.Log(uniformRand1)) * Math.Sin(2.0 * Math.PI * uniformRand2);
 
-                biases[iRow] = 0.1F;//(float)tmp;
+                biases[iRow] = 0.01F;//(float)tmp;
                 
             }
 

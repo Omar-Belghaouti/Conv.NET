@@ -31,7 +31,7 @@ namespace TrafficNetCL
         public ReLU()
         {
             Console.WriteLine("Adding a ReLU layer...");
-            this.layerType = "ReLU";
+            this.type = "ReLU";
         }
 
         /// <summary>
@@ -50,7 +50,7 @@ namespace TrafficNetCL
         /// <summary>
         /// Method to set this layer as the first layer of the network.
         /// </summary>
-        public override void SetAsFirstLayer(int[] InputDimensions)
+        public override void SetAsFirstLayer(int InputWidth, int InputHeight, int InputDepth)
         {
             throw new System.InvalidOperationException("You are setting a ReLU layer as first layer of the network...\nIs it really what you want to do?");
         }

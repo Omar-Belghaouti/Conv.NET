@@ -16,33 +16,37 @@ namespace TrafficNetCL
             /*****************************************************
              * (0) Set hyperparameters
              ****************************************************/
-            NetworkTrainer.LearningRate = 0.005;
+            NetworkTrainer.LearningRate = 0.01;
             NetworkTrainer.MomentumMultiplier = 0.9;
-            NetworkTrainer.MaxTrainingEpochs = 10000;
-            NetworkTrainer.MiniBatchSize = 1; // not correctly implemented yer!! // for GTSRB can use any multiple of 2, 3, 5
+            NetworkTrainer.MaxTrainingEpochs = 100;
+            NetworkTrainer.MiniBatchSize = 1; // not correctly implemented yet!! // for GTSRB can use any multiple of 2, 3, 5
             NetworkTrainer.ErrorTolerance = 0.001;
-            NetworkTrainer.ConsoleOutputLag = 100;
-            double tanhBeta = 0.5;
+            NetworkTrainer.ConsoleOutputLag = 1;
+            //double tanhBeta = 0.5;
 
 
             /*****************************************************
              * (1) Instantiate a neural network and add layers
+             * 
+             * OPTIONS: (implemented)
+             * ConvolutionalLayer(filterSize, numberOfFilters, strideLength, zeroPadding) // zero padding not implemented
+             * FullyConnectedLayer(numberOfUnits)
+             * Tanh(beta)
+             * ReLU()
+             * SoftMax()
              ****************************************************/
+
             NeuralNetwork network = new NeuralNetwork();
-            // neuralNet.AddLayer(new ConvolutionalLayer(7,40));
-            //net.AddLayer(new FullyConnectedLayer(100));
-            //network.AddLayer(new FullyConnectedLayer(2));
-            //network.AddLayer(new ReLU());
-            network.AddLayer(new FullyConnectedLayer(3));
+            network.AddLayer(new ConvolutionalLayer(7, 16, 2, 0));
             network.AddLayer(new ReLU());
             //network.AddLayer(new Tanh(tanhBeta));
-            network.AddLayer(new FullyConnectedLayer(3));
+            network.AddLayer(new FullyConnectedLayer(200));
             network.AddLayer(new ReLU());
             //network.AddLayer(new Tanh(tanhBeta));
-            network.AddLayer(new FullyConnectedLayer(2));
-            network.AddLayer(new Tanh(tanhBeta));
+            network.AddLayer(new FullyConnectedLayer(10));
+            //network.AddLayer(new Tanh(tanhBeta));
             //net.AddLayer(new FullyConnectedLayer(10));
-            //net.AddLayer(new SoftMaxLayer(43));
+            network.AddLayer(new SoftMax());
 
 
             /*****************************************************
@@ -50,22 +54,30 @@ namespace TrafficNetCL
              ****************************************************/
 
             // data will be preprocessed and split into training/validation sets with MATLAB
-            DataSet trainingSet = new DataSet(2, "C:/Users/jacopo/Dropbox/Chalmers/MSc thesis/TrafficNetCL/Data/train_data.txt");
-            //DataSet validationSet = new DataSet();
+            
+            // Simple, 2-dimensional data set, for initial testing
+            //DataSet trainingSet = new DataSet(2, "C:/Users/jacopo/Dropbox/Chalmers/MSc thesis/TrafficNetCL/Data/train_data_centered_scaled.txt");
+
+            // MNIST dataset reduced to 1000 data points, 
+            Console.WriteLine("Importing MNIST data...");
+            DataSet reducedMNIST = new DataSet(10,
+                "C:/Users/jacopo/Dropbox/Chalmers/MSc thesis/MNIST/mnistImagesSubset.dat",
+                "C:/Users/jacopo/Dropbox/Chalmers/MSc thesis/MNIST/mnistLabelsSubset.dat");
 
             /*
-            for (int iPoint = 0; iPoint < trainingSet.Size; iPoint++)
-            {
-                Console.WriteLine("Data point number {3} is: {0}, {1} and its class is {2}",
-                    trainingSet.GetDataPoint(iPoint)[0], trainingSet.GetDataPoint(iPoint)[1], trainingSet.GetLabel(iPoint), iPoint);
-            }
-             * */
+            Console.WriteLine("Importing training data...");
+            DataSet trainingSet = new DataSet(10,
+                "C:/Users/jacopo/Dropbox/Chalmers/MSc thesis/MNIST/mnistTrainImages.dat",
+                "C:/Users/jacopo/Dropbox/Chalmers/MSc thesis/MNIST/mnistTrainLabels.dat");
             
 
+            Console.WriteLine("Importing test data...");
+            DataSet testSet = new DataSet(10,
+                "C:/Users/jacopo/Dropbox/Chalmers/MSc thesis/MNIST/mnistTestImages.dat",
+                "C:/Users/jacopo/Dropbox/Chalmers/MSc thesis/MNIST/mnistTestLabels.dat");
+             */
 
-            int[] inputDimensions = new int[] {2, 1, 1};
-            int outputDimension = 1;
-            network.Setup(inputDimensions, outputDimension);
+            network.Setup(28, 28, 1, 10);
 
 
 
@@ -74,14 +86,15 @@ namespace TrafficNetCL
              ****************************************************/
             //errorCode = NetworkTrainer.Train(net, trainingSet, validationSet);
             
+            /*
             double errorTraining;
             int finalEpoch;
-            errorCode = NetworkTrainer.TrainSimpleTest(network, trainingSet, out errorTraining, out finalEpoch);
+            errorCode = NetworkTrainer.TrainSimpleTest(network, reducedMNIST, out errorTraining, out finalEpoch);
 
             network.Layers[0].DisplayParameters();
             network.Layers[2].DisplayParameters();
             network.Layers[4].DisplayParameters();
-
+            */
 
             /*****************************************************
              * (4) Test network

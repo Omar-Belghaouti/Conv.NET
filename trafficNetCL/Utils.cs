@@ -6,11 +6,21 @@ using System.Threading.Tasks;
 
 namespace TrafficNetCL
 {
+
+    public static class GlobalVar
+    {
+        public const double EPSILON = 0.000001;
+    }
+
+
     static class Utils
     {
 
-
         static Random random = new Random();
+
+        
+
+
 
         /// <summary>
         /// Returns index of maximum element in the given input array.

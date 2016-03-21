@@ -33,7 +33,7 @@ namespace TrafficNetCL
         {
             Console.WriteLine("Adding a SoftMax layer...");
 
-            this.layerType = "SoftMax";
+            this.type = "SoftMax";
         }
 
         /// <summary>
@@ -52,7 +52,7 @@ namespace TrafficNetCL
         /// <summary>
         /// Method to set this layer as the first layer of the network.
         /// </summary>
-        public override void SetAsFirstLayer(int[] InputDimensions)
+        public override void SetAsFirstLayer(int InputWidth, int InputHeight, int InputDepth)
         {
             throw new System.InvalidOperationException("You are setting a SoftMax layer as first layer of the network...\nIs it really what you want to do?");
         }
@@ -69,10 +69,18 @@ namespace TrafficNetCL
 
         public override void ForwardOneCPU()
         {
+            // use rescaling trick to improve numerical stability
+            float maxInput = this.input.Get()[0];
+            for (int i = 1; i < this.numberOfUnits; i++)
+            {
+                if (this.input.Get()[i] > maxInput)
+                    maxInput = this.input.Get()[i];
+            }
+
             float[] tmpOutput = new float[this.numberOfUnits];
             for (int i = 0; i < this.numberOfUnits; i++)
             {
-                tmpOutput[i] = (float)Math.Exp(this.input.Get()[i]);
+                tmpOutput[i] = (float)Math.Exp(this.input.Get()[i]-maxInput);
             }
             float sum = tmpOutput.Sum();
             for (int i = 0; i < this.numberOfUnits; i++)
@@ -96,7 +104,8 @@ namespace TrafficNetCL
             if (this.Input.Delta.Length != this.Output.Delta.Length)
                 throw new System.InvalidOperationException("Softmax layer: mismatch in length of delta arrays.");
 
-            // TO-DO: implement this backprop
+            // NO backprop here!!
+            // Compute directly input.Delta from cross-entropy cost: faster and numerically more stable
         }
 
         public override void BackPropBatchCPU()

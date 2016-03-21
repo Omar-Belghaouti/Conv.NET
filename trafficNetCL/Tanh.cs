@@ -35,7 +35,7 @@ namespace TrafficNetCL
             Console.WriteLine("Adding a tanh layer with activation parameter {0}...", Beta);
 
             this.beta = Beta;
-            this.layerType = "Tanh";
+            this.type = "Tanh";
         }
 
         /// <summary>
@@ -54,7 +54,7 @@ namespace TrafficNetCL
         /// <summary>
         /// Method to set this layer as the first layer of the network.
         /// </summary>
-        public override void SetAsFirstLayer(int[] InputDimensions)
+        public override void SetAsFirstLayer(int InputWidth, int InputHeight, int InputDepth)
         {
             throw new System.InvalidOperationException("You are setting a sigmoid layer as first layer of the network...\nIs it really what you want to do?");
         }

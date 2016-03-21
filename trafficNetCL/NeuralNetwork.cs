@@ -61,36 +61,20 @@ namespace TrafficNetCL
         /// </summary>
         /// <param name="inputDimensions"></param>
         /// <param name="nOutputClasses"></param>
-        public void Setup(int[] inputDimensions, int nOutputClasses)
+        public void Setup(int inputWidth, int inputHeigth, int inputDepth, int nOutputClasses)
         {
             Console.WriteLine("--- Network setup and initialization started ---");
 
             Console.WriteLine("Setting up layer 0 (input layer)...");
-            layers[0].SetAsFirstLayer(inputDimensions); // should AUTOMATICALLY setup both input AND output AND initialize weights and biases
-            
-            /*
-            Console.WriteLine("\tLayer 0: {1} input neurons arranged as {2}",
-                    0, layers[0].Input.NumberOfUnits, layers[0].Input.Get().GetType());
-            Console.WriteLine("\tLayer 0: {1} output neurons arranged as {2}",
-                0, layers[0].Output.NumberOfUnits, layers[0].Output.Get().GetType());
-            */
+            layers[0].SetAsFirstLayer(inputWidth, inputHeigth, inputDepth); 
+            // this should AUTOMATICALLY setup both input AND output AND initialize weights and biases
 
             layers[0].InitializeParameters();
 
             for (int i = 1; i < layers.Count; i++ ) // all other layers
             {
                 Console.WriteLine("Setting up layer {0}...", i);
-                
                 layers[i].ConnectTo(layers[i - 1]);
-                
-
-                /*
-                Console.WriteLine("\tLayer {0}: {1} input neurons arranged as {2}",
-                    i, layers[i].Input.NumberOfUnits, layers[i].Input.Get().GetType());
-                Console.WriteLine("\tLayer {0}: {1} output neurons arranged as {2}",
-                    i, layers[i].Output.NumberOfUnits, layers[i].Output.Get().GetType());
-                */
-
                 layers[i].InitializeParameters();
                 
             }
@@ -102,7 +86,7 @@ namespace TrafficNetCL
 
 
         #region Other methods
-
+        [Obsolete("Now implemented in class NetworkTrainer")]
         public int RunForwardOne(float[] inputImage, out float[] outputClassScores)
         {
             int errorCode = 0;

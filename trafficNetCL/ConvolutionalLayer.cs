@@ -157,7 +157,7 @@ namespace JaNet
 
         public override void ForwardOneCPU()
         {
-            this.inputAsMatrix = InputVectorToMatrix(input.Get());
+            this.inputAsMatrix = UnrollInput(input.Get());
             this.outputAsMatrix = Utils.MatrixMultiply(weights, inputAsMatrix);
             this.output.Set(OutputMatrixToVector(outputAsMatrix));
             // Probably implementing all of this as a single OpenCL kernel would be a good idea
@@ -190,44 +190,34 @@ namespace JaNet
         #region Private methods
 
         /// <summary>
-        /// Reshape input vector to a matrix so that convolution can be implemented as matrix multiplication (fast!).
+        /// Reshape input vector into a matrix of receptive fields, so that convolution can be implemented as matrix multiplication (fast!).
         /// This method is likely to be incredibly SLOW and will soon be ported to OpenCL.
         /// </summary>
         /// <param name="inputVector"></param>
         /// <returns></returns>
-        private float[,] InputVectorToMatrix(float[] inputVector)
+        [Obsolete("This method is slow, use the OpenCL kernel instead.")]
+        private float[,] UnrollInput(float[] inputVector)
         {
             int nRows = inputDepth * filterSize * filterSize;
-            int nCols = (int) Math.Pow(outputWidth, 2);
-            float[,] reshapedInput = new float[nRows, nCols];
+            int nCols = outputWidth * outputWidth;
+            float[,] unrolledInput = new float[nRows, nCols];
 
             // Unfortunately there is no way of writing this so that it is readable!
             for (int i = 0; i < nRows; i++)
             {
-                int channelIndex = inputWidth * inputHeight * (int)Math.Floor(i / Math.Pow(filterSize, 2)); 
-                // the channel to look at is determined by i, W, H, F
+                int iChannelBeginning = inputWidth * inputHeight * (i / (filterSize * filterSize));
 
-                int rowIndexAux = inputWidth * (int)Math.Floor( (i % Math.Pow(filterSize, 2)) / filterSize);
-                // will be incremented inside loop over j
-
-                int colIndexAux = (int) Math.Floor( (double)i / (double)filterSize);
-                // will be incremented inside loop over j
+                int iAux1 = (i % filterSize) + inputWidth * ((i % (filterSize * filterSize)) / filterSize);
 
                 for (int j = 0; j < nCols; j++)
                 {
-                    int rowIndex = rowIndexAux + (int) Math.Floor((double)j / (double)outputWidth);
-                    int colIndex = colIndexAux + (j % outputWidth) * strideLength;
-                    
-                    // Lines below are WRONG
-                    //int correctIndex = constCoefficient * (int)Math.Floor(i / Math.Pow(filterSize, 2));
-                    //correctIndex += inputWidth * (int) ( Math.Floor((double)i / filterSize) + Math.Floor( (double)j / outputWidth) );
-                    //correctIndex += j * strideLength + (i % filterSize);
+                    int iAux2 = (j % outputWidth) + inputWidth * (j / outputWidth);
 
-                    reshapedInput[i, j] = inputVector[channelIndex + rowIndex + colIndex];
+                    unrolledInput[i, j] = inputVector[iChannelBeginning + iAux1 + iAux2];
                 }
             }
 
-            return reshapedInput;
+            return unrolledInput;
         }
 
         /// <summary>
@@ -236,6 +226,7 @@ namespace JaNet
         /// </summary>
         /// <param name="outputMatrix"></param>
         /// <returns></returns>
+        [Obsolete("Replace this method with an OpenCL kernel!")]
         private float[] OutputMatrixToVector(float[,] outputMatrix)
         {
 
@@ -255,6 +246,41 @@ namespace JaNet
 
             return reshapedOutput;
         }
+
+        /// <summary>
+        /// Pad input vector with zeros.
+        /// </summary>
+        /// <param name="array"></param>
+        /// <param name="padding"></param>
+        /// <param name="depth"></param>
+        /// <param name="height"></param>
+        /// <param name="width"></param>
+        /// <returns></returns>
+        [Obsolete("Replace this method with an OpenCL kernel!")]
+        static float[] PadWithZeros(float[] array, int padding, int depth, int height, int width)
+        {
+            int area = height * width;
+            int volume = depth * height * width;
+            int zerosPerSlice = 2 * padding * (height + width + 2 * padding);
+            float[] paddedArray = new float[array.Length + depth * zerosPerSlice];
+
+            // auxiliary variables
+            int iRow, iSlice, iNew;
+
+            for (int k = 0; k < array.Length; k++)
+            {
+                iRow = (int)((k % area) / width);
+                iSlice = (int)((k % volume) / area);
+
+                iNew = k + padding + padding * (2 * padding + width) + 2 * padding * iRow + zerosPerSlice * iSlice;
+
+                paddedArray[iNew] = array[k];
+            }
+
+            return paddedArray;
+        }
+
+
         #endregion
 
 

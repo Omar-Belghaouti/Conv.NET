@@ -62,14 +62,14 @@
       <PostinstrumentEvent>
         <InstrEventExclude>false</InstrEventExclude>
       </PostinstrumentEvent>
-      <ProjRef>{5679C427-B82C-437A-8DF6-3237A4169144}|trafficNetCL\TrafficNetCL.csproj</ProjRef>
-      <ProjPath>trafficNetCL\TrafficNetCL.csproj</ProjPath>
-      <ProjName>TrafficNetCL</ProjName>
+      <ProjRef>{5679C427-B82C-437A-8DF6-3237A4169144}|trafficNetCL\JaNet.csproj</ProjRef>
+      <ProjPath>trafficNetCL\JaNet.csproj</ProjPath>
+      <ProjName>JaNet</ProjName>
     </ProjBinary>
   </Binaries>
   <Launches>
     <ProjBinary>
-      <Path>:PB:{5679C427-B82C-437A-8DF6-3237A4169144}|trafficNetCL\TrafficNetCL.csproj</Path>
+      <Path>:PB:{5679C427-B82C-437A-8DF6-3237A4169144}|trafficNetCL\JaNet.csproj</Path>
     </ProjBinary>
   </Launches>
 </VSPerformanceSession>

@@ -18,7 +18,7 @@ namespace JaNet
              ****************************************************/
             NetworkTrainer.LearningRate = 0.01;
             NetworkTrainer.MomentumMultiplier = 0.9;
-            NetworkTrainer.MaxTrainingEpochs = 1;
+            NetworkTrainer.MaxTrainingEpochs = 5;
             NetworkTrainer.MiniBatchSize = 1; // not correctly implemented yet!! // for GTSRB can use any multiple of 2, 3, 5
             NetworkTrainer.ErrorTolerance = 0.001;
             NetworkTrainer.ConsoleOutputLag = 1;
@@ -38,7 +38,7 @@ namespace JaNet
 
             NeuralNetwork network = new NeuralNetwork();
             network.AddLayer(new ConvolutionalLayer(3, 16, 1, 0));
-            network.AddLayer(new ConvolutionalLayer(3, 16, 1, 0));
+            //network.AddLayer(new ConvolutionalLayer(3, 16, 1, 0));
             network.AddLayer(new ReLU());
 
             //network.AddLayer(new Tanh(tanhBeta));

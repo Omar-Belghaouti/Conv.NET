@@ -4,3 +4,4 @@ C:\Users\jacopo\Dropbox\Chalmers\MSc thesis\JaNet\trafficNetCL\bin\Debug\traffic
 C:\Users\jacopo\Dropbox\Chalmers\MSc thesis\JaNet\trafficNetCL\obj\Debug\JaNet.csprojResolveAssemblyReference.cache
 C:\Users\jacopo\Dropbox\Chalmers\MSc thesis\JaNet\trafficNetCL\obj\Debug\trafficNetCL.exe
 C:\Users\jacopo\Dropbox\Chalmers\MSc thesis\JaNet\trafficNetCL\obj\Debug\trafficNetCL.pdb
+C:\Users\jacopo\Dropbox\Chalmers\MSc thesis\JaNet\trafficNetCL\bin\Debug\OpenCL.Net.dll

@@ -184,7 +184,7 @@ namespace JaNet
         #endregion
 
 
-        // DEBUGGING
+        #region Debugging/helper methods
         public override void DisplayParameters()
         {
             Console.WriteLine("\n\n ======== LAYER =========\n\n");
@@ -205,8 +205,10 @@ namespace JaNet
 
                 Console.WriteLine();
             }
-            
+
         }
+        #endregion
+
 
     }
 }

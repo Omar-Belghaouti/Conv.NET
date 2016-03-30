@@ -69,47 +69,43 @@ namespace JaNet
 
         #region Training methods
 
-        public override void ForwardOneCPU()
+        public override void FeedForward()
         {
             float[] tmpOutput = new float[this.numberOfUnits];
             for (int i = 0; i < this.numberOfUnits; i++)
             {
-                tmpOutput[i] = (float)Math.Tanh(beta*this.input.Get()[i]);
+                tmpOutput[i] = (float)Math.Tanh(beta*this.input.GetHost()[i]);
             }
-            this.output.Set(tmpOutput);
+            this.output.SetHost(tmpOutput);
         }
 
-        public override void ForwardBatchCPU()
-        {
-        }
-
-        public override void ForwardGPU()
-        {
-        }
-
-        public override void BackPropOneCPU()
+        public override void BackPropagate()
         {
             for (int i = 0; i < this.numberOfUnits; i++)
-                this.input.Delta[i] = this.output.Delta[i] * (float) (beta * (1 - Math.Pow((double)this.output.Get()[i], 2)) );
+                this.input.DeltaHost[i] = this.output.DeltaHost[i] * (float) (beta * (1 - Math.Pow((double)this.output.GetHost()[i], 2)) );
 
         }
 
+        /*
         public override void BackPropBatchCPU()
         {
             // TO-DO
 
             float[] tmpDelta = new float[numberOfUnits];
             for (int i = 0; i < this.numberOfUnits; i++)
-                tmpDelta[i] = this.output.Delta[i] * (float)(beta * (1 - Math.Pow((double)this.output.Get()[i], 2)));
+                tmpDelta[i] = this.output.DeltaHost[i] * (float)(beta * (1 - Math.Pow((double)this.output.GetHost()[i], 2)));
             
-            this.input.Delta = this.input.Delta.Zip(tmpDelta, (x, y) => x + y).ToArray();
+            this.input.DeltaHost = this.input.DeltaHost.Zip(tmpDelta, (x, y) => x + y).ToArray();
 
         }
-
+        */
+        
+        /*
         public override void UpdateParameters(double learningRate, double momentumCoefficient)
         {
             // nothing to update
         }
+         * */
 
         #endregion
 

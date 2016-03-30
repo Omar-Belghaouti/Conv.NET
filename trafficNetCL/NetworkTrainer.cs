@@ -162,13 +162,13 @@ namespace JaNet
                     {
                         iDataPoint = randomIntSequence[iStartMiniBatch + iWithinMiniBatch];
 
-                        network.Layers[0].Input.Set(trainingSet.GetDataPoint(iDataPoint));
+                        network.Layers[0].Input.SetHost(trainingSet.GetDataPoint(iDataPoint));
                         // Run forward
                         for (int l = 0; l < network.NumberOfLayers; l++)
                         {
-                            network.Layers[l].ForwardOneCPU();
+                            network.Layers[l].FeedForward();
                         }
-                        outputScores = network.Layers.Last().Output.Get();
+                        outputScores = network.Layers.Last().Output.GetHost();
                         labelArray = trainingSet.GetLabelArray(iDataPoint);
 
                         // Gradient of quadratic cost, using LINQ
@@ -176,12 +176,12 @@ namespace JaNet
                         // network.Layers.Last().BackPropOneCPU();
 
                         // Gradient of cross-entropy cost (directly write in INPUT delta)
-                        network.Layers.Last().Input.Delta = outputScores.Zip(labelArray, (x, y) => (x - y)).ToArray();
+                        network.Layers.Last().Input.DeltaHost = outputScores.Zip(labelArray, (x, y) => (x - y)).ToArray();
 
                         // Now run backwards and update deltas (cumulating them), but DO NOT update parameters
                         for (int l = network.Layers.Count - 2; l >= 0; l--) // propagate deltas in all layers (but the last) backwards (L-2 to 0)
                         {
-                            network.Layers[l].BackPropOneCPU();
+                            network.Layers[l].BackPropagate();
                         }
 
                     } // end loop over mini-batches
@@ -205,7 +205,7 @@ namespace JaNet
                 if (isOutputEpoch)
                 {
                     //costEpoch = QuadraticCost(network, trainingSet);
-                    errorEpoch = ClassificationErrorTopOne(network, trainingSet);
+                    errorEpoch = NetworkEvaluator.ComputeClassificationError(network, trainingSet);
                     Console.WriteLine("Epoch {0}: classification error = {1}", epoch, errorEpoch);
 
                     if (errorEpoch < errorTolerance)
@@ -226,13 +226,13 @@ namespace JaNet
 
 
             finalEpoch = epoch;
-            finalError = ClassificationErrorTopOne(network, trainingSet);
+            finalError = NetworkEvaluator.ComputeClassificationError(network, trainingSet);
 
             return errorCode; // error code
         }
 
 
-        /*
+        [Obsolete("Deprecated. Use cross-entropy cost instead.")]
         static double QuadraticCost(float[] targetValues, float[] networkOutputs, out float[] gradient)
         {
             if (targetValues.Length != networkOutputs.Length)
@@ -243,9 +243,9 @@ namespace JaNet
 
             return squaredErrors.Sum() / squaredErrors.Count();
         }
-         * 
+        
 
-
+        [Obsolete("Deprecated. Use cross-entropy cost instead.")]
         static double QuadraticCost(NeuralNetwork network, DataSet dataSet)
         {
             float[] dummy;
@@ -253,26 +253,30 @@ namespace JaNet
 
             for (int i = 0; i < dataSet.Size; i++)
             {
-                network.Layers[0].Input.Set(dataSet.GetDataPoint(i));
+                network.Layers[0].Input.SetHost(dataSet.GetDataPoint(i));
 
                 // Run forward
                 for (int l = 0; l < network.Layers.Count; l++)
                 {
-                    network.Layers[l].ForwardOneCPU();
+                    network.Layers[l].FeedForward();
                 }
 
                 // Compute cost
-                totalCost += QuadraticCost(new float[] { (float)dataSet.GetLabel(i) }, network.Layers.Last().Output.Get(), out dummy);
+                totalCost += QuadraticCost(new float[] { (float)dataSet.GetLabel(i) }, network.Layers.Last().Output.GetHost(), out dummy);
             }
 
             return totalCost / (2 * dataSet.Size);
         }
-         * */
+        
 
 
 
         public static double TrainMNIST(NeuralNetwork network, DataSet trainingSet)
         {
+            Console.WriteLine("\n=========================================");
+            Console.WriteLine("    Network training");
+            Console.WriteLine("=========================================\n");
+            
 
             // Initializations
             int[] randomIntSequence = new int[trainingSet.Size];
@@ -299,32 +303,33 @@ namespace JaNet
                     {
                         iDataPoint = randomIntSequence[iStartMiniBatch + iWithinMiniBatch];
 
-                        network.Layers[0].Input.Set(trainingSet.GetDataPoint(iDataPoint));
+                        network.Layers[0].Input.SetHost(trainingSet.GetDataPoint(iDataPoint));
+
                         // Run forward
                         for (int l = 0; l < network.NumberOfLayers; l++)
                         {
-                            network.Layers[l].ForwardOneCPU();
+                            network.Layers[l].FeedForward();
                         }
-                        outputScores = network.Layers.Last().Output.Get();
+                        outputScores = network.Layers.Last().Output.GetHost();
                         labelArray = trainingSet.GetLabelArray(iDataPoint);
 
                         // JUST RUN FORWARD NOW
 
                         // Gradient of cross-entropy cost (directly write this to INPUT delta)
-                        //network.Layers.Last().Input.Delta = outputScores.Zip(labelArray, (x, y) => (x - y)).ToArray();
+                        network.Layers.Last().Input.DeltaHost = outputScores.Zip(labelArray, (x, y) => (x - y)).ToArray();
 
                         // Now run backwards and update deltas (cumulating them), but DO NOT update parameters
-                        /*
+                        
                         for (int l = network.Layers.Count - 2; l >= 0; l--) // propagate deltas in all layers (but the last) backwards (L-2 to 0)
                         {
-                            network.Layers[l].BackPropOneCPU();
+                            network.Layers[l].BackPropagate();
                         }
-                        */
+                        
 
                     } // end loop over mini-batches
 
                     // Now update parameters using cumulated deltas
-                    /*
+                    
                     for (int l = network.Layers.Count - 1; l >= 0; l--)
                     {
                         network.Layers[l].UpdateParameters(learningRate, momentumMultiplier);
@@ -336,7 +341,7 @@ namespace JaNet
                     {
                         network.Layers[l].ClearDelta();
                     }
-                    */
+                    
 
                 }
 
@@ -344,7 +349,7 @@ namespace JaNet
                 if (isOutputEpoch)
                 {
                     //costEpoch = QuadraticCost(network, trainingSet);
-                    errorEpoch = ClassificationErrorTopOne(network, trainingSet);
+                    errorEpoch = NetworkEvaluator.ComputeClassificationError(network, trainingSet);
                     Console.WriteLine("Epoch {0}: classification error = {1}", epoch, errorEpoch);
 
                     if (errorEpoch < errorTolerance)
@@ -360,7 +365,7 @@ namespace JaNet
 
             } while (epoch < maxTrainingEpochs && !stopFlag);
 
-            return ClassificationErrorTopOne(network, trainingSet);
+            return NetworkEvaluator.ComputeClassificationError(network, trainingSet);
         }
 
 
@@ -402,69 +407,21 @@ namespace JaNet
 
             for (int i = 0; i < dataSet.Size; i++)
             {
-                network.Layers[0].Input.Set(dataSet.GetDataPoint(i));
+                network.Layers[0].Input.SetHost(dataSet.GetDataPoint(i));
 
                 // Run forward
                 for (int l = 0; l < network.Layers.Count; l++)
                 {
-                    network.Layers[l].ForwardOneCPU();
+                    network.Layers[l].FeedForward();
                 }
 
                 // Check for correct/wrong classification
-                int outputClass = Math.Sign(network.Layers.Last().Output.Get()[0]);
+                int outputClass = Math.Sign(network.Layers.Last().Output.GetHost()[0]);
                 classificationError += Math.Abs(outputClass - dataSet.GetLabel(i));
             }
 
             return classificationError / (2* dataSet.Size);
         }
-
-
-
-        static double ClassificationErrorTopOne(NeuralNetwork network, DataSet dataSet)
-        {
-            double classificationError = 0;
-
-            for (int i = 0; i < dataSet.Size; i++)
-            {
-                network.Layers[0].Input.Set(dataSet.GetDataPoint(i));
-
-                // Run forward
-                for (int l = 0; l < network.Layers.Count; l++)
-                {
-                    network.Layers[l].ForwardOneCPU();
-                }
-
-                // Check for correct/wrong classification
-                int outputClassMaxScore = IndexOfMax(network.Layers.Last().Output.Get());
-                if (outputClassMaxScore != dataSet.GetLabel(i))
-                {
-                    classificationError += 1;
-                }
-            }
-
-            return classificationError / dataSet.Size;
-        }
-
-
-        public static int IndexOfMax(float[] outputScores)
-        {
-            int iMax = 0;
-            float max = outputScores[0];
-            for (int j = 1; j < outputScores.Length; j++)
-            {
-                if (outputScores[j] > max)
-                {
-                    max = outputScores[j];
-                    iMax = j;
-                }
-            }
-            return iMax;
-        }
-
-
-        
-
-
 
 
     }

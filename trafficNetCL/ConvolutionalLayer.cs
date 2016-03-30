@@ -36,7 +36,13 @@ namespace JaNet
 
         #region Setup methods (to be called once)
 
-        // TO-DO: implement constructor
+        /// <summary>
+        /// Constructor: specify filter size, number of filters (output depth), stride (only 1 supported at this stage!), zero padding.
+        /// </summary>
+        /// <param name="FilterSize"></param>
+        /// <param name="nOfFilters"></param>
+        /// <param name="StrideLength"></param>
+        /// <param name="ZeroPadding"></param>
         public ConvolutionalLayer(int FilterSize, int nOfFilters, int StrideLength, int ZeroPadding)
         {
             //Console.WriteLine("Adding a convolutional layer with K = {0} filters of size F = {1}, stride length S = {2} and zero padding P = {3}...",
@@ -49,6 +55,7 @@ namespace JaNet
             this.strideLength = StrideLength;
             this.zeroPadding = ZeroPadding;
         }
+
 
         public override void ConnectTo(Layer PreviousLayer)
         {
@@ -73,7 +80,7 @@ namespace JaNet
             this.outputDepth = nFilters;
             this.output = new Neurons( nFilters * outputWidth * outputHeight);
             
-            // Setup I/O matrices
+            // Setup I/O matrices (to be removed! Use OpenCL buffer instead)
             this.inputAsMatrix = new float[inputDepth * filterSize * filterSize, outputWidth * outputHeight ];
             this.outputAsMatrix = new float[nFilters, outputWidth * outputHeight];
         }
@@ -81,7 +88,7 @@ namespace JaNet
         
 
         /// <summary>
-        /// Method to setup the first layer of the network.
+        /// Set this as the first layer of the neural network.
         /// </summary>
         public override void SetAsFirstLayer(int InputWidth, int InputHeight, int InputDepth)
         {
@@ -104,10 +111,11 @@ namespace JaNet
             this.outputDepth = nFilters;
             this.output = new Neurons(nFilters * outputWidth * outputHeight);
 
-            // Setup I/O matrices
+            // Setup I/O matrices (to be removed! Use OpenCL buffer instead)
             this.inputAsMatrix = new float[inputDepth * filterSize * filterSize, outputWidth * outputHeight];
             this.outputAsMatrix = new float[nFilters, outputWidth * outputHeight];
         }
+
 
         public override void InitializeParameters()
         {
@@ -155,30 +163,19 @@ namespace JaNet
 
         #region Training methods
 
-        public override void ForwardOneCPU()
+        public override void FeedForward()
         {
-            this.inputAsMatrix = UnrollInput(input.Get());
+            this.inputAsMatrix = UnrollInput(input.GetHost());
             this.outputAsMatrix = Utils.MatrixMultiply(weights, inputAsMatrix);
-            this.output.Set(OutputMatrixToVector(outputAsMatrix));
+            this.output.SetHost(OutputMatrixToVector(outputAsMatrix));
             // Probably implementing all of this as a single OpenCL kernel would be a good idea
         }
 
-        public override void ForwardBatchCPU()
-        {
-        }
-
-        public override void ForwardGPU()
-        {
-        }
-
-        public override void BackPropOneCPU()
+        public override void BackPropagate()
         {
 
         }
 
-        public override void BackPropBatchCPU()
-        {
-        }
 
         public override void UpdateParameters(double learningRate, double momentumCoefficient)
         {

@@ -7,19 +7,58 @@ using OpenCL.Net;
 
 namespace JaNet
 {
-    static class CLUtils
+    static class CL
     {
-        private static ErrorCode CLerror;
+
+        #region CL helper class fields
+
         private static Context _context;
         private static Device _device;
         private static CommandQueue _queue;
 
+        public static ErrorCode Error;
+        public static Event Event;
+
+        #endregion
+
+        #region CL helper class properties (public)
+
+        /*
+        public static ErrorCode Error
+        { 
+            get {return Error; }
+            set { Error = value; }
+        }
+         */
+
+        public static Context Context
+        {
+            get { return _context; }
+            set { _context = value; }
+        }
+
+        public static CommandQueue Queue
+        {
+            get { return _queue; }
+            set { _queue = value; }
+        }
+
+        #endregion
+
+
+        #region Kernels (public)
+
+        public static Kernel FCForward;
+
+
+        #endregion
+
         public static void Setup()
         {
-            Console.WriteLine("======================");
+            Console.WriteLine("\n=========================================");
             Console.WriteLine("    OpenCL setup");
-            Console.WriteLine("======================");
-
+            Console.WriteLine("=========================================\n");
+            
             int deviceID; // will be asked to user
 
             List<Device> devicesList = new List<Device>();
@@ -29,23 +68,23 @@ namespace JaNet
 
             // Get list of available platforms
             Console.WriteLine("\nSearching for OpenCL-capable platforms... ");
-            Platform[] platforms = Cl.GetPlatformIDs(out CLerror);
-            CheckErr(CLerror, "CL.Setup: Cl.GetPlatformIDs");
-            Console.WriteLine("{0} platforms found.\n");
+            Platform[] platforms = Cl.GetPlatformIDs(out Error);
+            CheckErr(Error, "CL.Setup: Cl.GetPlatformIDs");
+            Console.WriteLine("{0} platforms found.\n", platforms.Length);
 
             //Console.WriteLine("\n=============================================\n");
             foreach (Platform platform in platforms)
             {
-                string platformName = Cl.GetPlatformInfo(platform, PlatformInfo.Name, out CLerror).ToString();
+                string platformName = Cl.GetPlatformInfo(platform, PlatformInfo.Name, out Error).ToString();
                 Console.WriteLine("Platform: " + platformName);
-                CheckErr(CLerror, "CL.Setup: Cl.GetPlatformInfo");
+                CheckErr(Error, "CL.Setup: Cl.GetPlatformInfo");
 
                 // Get all available devices for this platform and list them on screen
-                foreach (Device device in Cl.GetDeviceIDs(platform, DeviceType.All, out CLerror))
+                foreach (Device device in Cl.GetDeviceIDs(platform, DeviceType.All, out Error))
                 {
-                    CheckErr(CLerror, "CL.Setup: Cl.GetDeviceIDs");
-                    string deviceName = Cl.GetDeviceInfo(device, DeviceInfo.Name, out CLerror).ToString();
-                    CheckErr(CLerror, "CL.Setup: Cl.GetDeviceInfo");
+                    CheckErr(Error, "CL.Setup: Cl.GetDeviceIDs");
+                    string deviceName = Cl.GetDeviceInfo(device, DeviceInfo.Name, out Error).ToString();
+                    CheckErr(Error, "CL.Setup: Cl.GetDeviceInfo");
                     Console.WriteLine("Device {0}: {1}", nDevices, deviceName);
 
                     devicesList.Add(device);
@@ -70,7 +109,7 @@ namespace JaNet
             Console.WriteLine("\nUsing device {0}\n", deviceNames[deviceID]);
 
             /*
-            if (Cl.GetDeviceInfo(_device, DeviceInfo.ImageSupport, out CLerror).CastTo<Bool>() == Bool.False)
+            if (Cl.GetDeviceInfo(_device, DeviceInfo.ImageSupport, out Error).CastTo<Bool>() == Bool.False)
             {
                 Console.WriteLine("No image support.");
                 return;
@@ -78,15 +117,12 @@ namespace JaNet
             */
 
             // Create OpenCL context
-            _context = Cl.CreateContext(null, 1, new[] { _device }, ContextNotify, IntPtr.Zero, out CLerror);    //Second parameter is amount of devices
-            CheckErr(CLerror, "CL.Setup: Cl.CreateContext");
+            _context = Cl.CreateContext(null, 1, new[] { _device }, ContextNotify, IntPtr.Zero, out Error);    //Second parameter is amount of devices
+            CheckErr(Error, "CL.Setup: Cl.CreateContext");
         }
 
 
-
-
-
-        public static Kernel LoadAndBuildKernel(string kernelFilePath, string kernelName)
+        public static Kernel LoadBuildKernel(string kernelFilePath, string kernelName)
         {
 
             // Attempt to read file
@@ -99,29 +135,37 @@ namespace JaNet
             string kernelSource = System.IO.File.ReadAllText(kernelFilePath);
 
             // Create program
-            OpenCL.Net.Program clProgram = Cl.CreateProgramWithSource(_context, 1, new[] { kernelSource }, null, out CLerror);
-            CheckErr(CLerror, "CL.LoadAndBuildKernel: Cl.CreateProgramWithSource");
+            OpenCL.Net.Program clProgram = Cl.CreateProgramWithSource(_context, 1, new[] { kernelSource }, null, out Error);
+            CheckErr(Error, "CL.LoadAndBuildKernel: Cl.CreateProgramWithSource");
 
             //Compile kernel source
-            CLerror = Cl.BuildProgram(clProgram, 1, new[] { _device }, string.Empty, null, IntPtr.Zero);
-            CheckErr(CLerror, "CL.LoadAndBuildKernel: Cl.BuildProgram");
+            Error = Cl.BuildProgram(clProgram, 1, new[] { _device }, string.Empty, null, IntPtr.Zero);
+            CheckErr(Error, "CL.LoadAndBuildKernel: Cl.BuildProgram");
 
             //Check for any compilation errors
-            if (Cl.GetProgramBuildInfo(clProgram, _device, ProgramBuildInfo.Status, out CLerror).CastTo<BuildStatus>()
+            if (Cl.GetProgramBuildInfo(clProgram, _device, ProgramBuildInfo.Status, out Error).CastTo<BuildStatus>()
                 != BuildStatus.Success)
             {
-                CheckErr(CLerror, "CL.LoadAndBuildKernel: Cl.GetProgramBuildInfo");
+                CheckErr(Error, "CL.LoadAndBuildKernel: Cl.GetProgramBuildInfo");
                 Console.WriteLine("Cl.GetProgramBuildInfo != Success");
-                Console.WriteLine(Cl.GetProgramBuildInfo(clProgram, _device, ProgramBuildInfo.Log, out CLerror));
+                Console.WriteLine(Cl.GetProgramBuildInfo(clProgram, _device, ProgramBuildInfo.Log, out Error));
                 Console.ReadKey();
                 System.Environment.Exit(1);
             }
             //Create the required kernel (entry function)
-            Kernel kernel = Cl.CreateKernel(clProgram, kernelName, out CLerror);
-            CheckErr(CLerror, "CL.LoadAndBuildKernel: Cl.CreateKernel");
+            Kernel kernel = Cl.CreateKernel(clProgram, kernelName, out Error);
+            CheckErr(Error, "CL.LoadAndBuildKernel: Cl.CreateKernel");
 
             return kernel;
         }
+
+
+        public static void LoadKernels(string kernelsPath)
+        {
+            FCForward = LoadBuildKernel(kernelsPath, "FCForward");
+        }
+
+
 
         public static void CheckErr(ErrorCode err, string name)
         {

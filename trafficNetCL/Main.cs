@@ -1,4 +1,6 @@
-﻿using System;
+﻿#define OPENCL_ENABLED
+
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -14,15 +16,23 @@ namespace JaNet
         {
 
             /*****************************************************
-             * (0) Set hyperparameters
+             * (0a) Set hyperparameters
              ****************************************************/
             NetworkTrainer.LearningRate = 0.01;
             NetworkTrainer.MomentumMultiplier = 0.9;
-            NetworkTrainer.MaxTrainingEpochs = 5;
+            NetworkTrainer.MaxTrainingEpochs = 100;
             NetworkTrainer.MiniBatchSize = 1; // not correctly implemented yet!! // for GTSRB can use any multiple of 2, 3, 5
             NetworkTrainer.ErrorTolerance = 0.001;
             NetworkTrainer.ConsoleOutputLag = 1;
             //double tanhBeta = 0.5;
+            
+
+            /*****************************************************
+             * (0b) Setup OpenCL
+             ****************************************************/
+            CL.Setup();
+            const string kernelsPath = "C:/Users/jacopo/Dropbox/Chalmers/MSc thesis/JaNet/Kernels";
+            CL.LoadKernels(kernelsPath);
 
 
             /*****************************************************
@@ -37,17 +47,18 @@ namespace JaNet
              ****************************************************/
 
             NeuralNetwork network = new NeuralNetwork();
-            network.AddLayer(new ConvolutionalLayer(3, 16, 1, 0));
             //network.AddLayer(new ConvolutionalLayer(3, 16, 1, 0));
-            network.AddLayer(new ReLU());
+            //network.AddLayer(new ConvolutionalLayer(3, 16, 1, 0));
+            //network.AddLayer(new ReLU());
 
             //network.AddLayer(new Tanh(tanhBeta));
-            //network.AddLayer(new FullyConnectedLayer(10));
+            network.AddLayer(new FullyConnectedLayer(37));
+            network.AddLayer(new ReLU());
+            //network.AddLayer(new Tanh(tanhBeta));
+            //network.AddLayer(new FullyConnectedLayer(100));
             //network.AddLayer(new ReLU());
             //network.AddLayer(new Tanh(tanhBeta));
             network.AddLayer(new FullyConnectedLayer(10));
-            //network.AddLayer(new Tanh(tanhBeta));
-            //net.AddLayer(new FullyConnectedLayer(10));
             network.AddLayer(new SoftMax());
 
 
@@ -61,7 +72,9 @@ namespace JaNet
             //DataSet trainingSet = new DataSet(2, "C:/Users/jacopo/Dropbox/Chalmers/MSc thesis/TrafficNetCL/Data/train_data_centered_scaled.txt");
 
             // MNIST dataset reduced to 1000 data points, 
-            Console.WriteLine("Importing MNIST data...");
+            Console.WriteLine("\n=========================================");
+            Console.WriteLine("    Importing data");
+            Console.WriteLine("=========================================\n");
             DataSet reducedMNIST = new DataSet(10,
                 "C:/Users/jacopo/Dropbox/Chalmers/MSc thesis/MNIST/mnistImagesSubset.dat",
                 "C:/Users/jacopo/Dropbox/Chalmers/MSc thesis/MNIST/mnistLabelsSubset.dat");
@@ -99,8 +112,16 @@ namespace JaNet
             */
 
 
-            double errorMNIST;
-            errorMNIST = NetworkTrainer.TrainMNIST(network, reducedMNIST);
+            //double errorMNIST;
+            //errorMNIST = NetworkTrainer.TrainMNIST(network, reducedMNIST);
+
+
+#if OPENCL_ENABLED
+            Console.WriteLine("Test #define");
+#else
+            Console.WriteLine("Test else");
+#endif
+
 
             /*****************************************************
              * (4) Test network

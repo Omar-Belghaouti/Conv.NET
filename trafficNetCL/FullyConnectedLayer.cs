@@ -1,8 +1,11 @@
-﻿using System;
+﻿#define OPENCL_ENABLED
+
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using OpenCL.Net;
 
 namespace JaNet
 {
@@ -11,20 +14,23 @@ namespace JaNet
 
         #region Fields (private)
 
+        // Host
+
         private float[,] weights;
         private float[] biases;
 
         private float[,] weightsUpdateSpeed;
         private float[] biasesUpdateSpeed;
 
-        /* Additional fields, inherited from "Layer" class:
-         * 
-         * protected Neurons input;
-         * protected Neurons output;
-         * 
-         * protected Layer nextLayer;
-         * protected string layerType;
-         */
+#if OPENCL_ENABLED
+        // Device
+
+        private Mem weightsGPU;
+        private Mem biasesGPU;
+
+        private Mem weightsUpdateSpeedGPU;
+        private Mem biasesUpdateSpeedGPU;
+#endif
 
         #endregion
 
@@ -35,18 +41,6 @@ namespace JaNet
         {
             get { return numberOfUnits; }
         }
-
-        /*
-        public float[,] Weights
-        {
-            get { return weights; } 
-        }
-
-        public float[] Biases
-        {
-            get { return biases; }
-        }
-         * */
 
         #endregion
 
@@ -59,31 +53,42 @@ namespace JaNet
         /// <param name="nUnits"></param>
         public FullyConnectedLayer(int nUnits)
         {
-            //Console.WriteLine("Adding a fully connected layer with {0} units...", nUnits);
-
             this.numberOfUnits = nUnits;
             this.type = "FullyConnected";
+
+           
         }
 
-        public override void ConnectTo(Layer PreviousLayer)
-        {
- 	        base.ConnectTo(PreviousLayer);
-            this.output = new Neurons(this.numberOfUnits);
-
-            
-        }
-
+        /// <summary>
+        /// Set this layer as the first layer of the neural network.
+        /// </summary>
+        /// <param name="InputWidth"></param>
+        /// <param name="InputHeight"></param>
+        /// <param name="InputDepth"></param>
         public override void SetAsFirstLayer(int InputWidth, int InputHeight, int InputDepth)
         {
             this.input = new Neurons(InputWidth * InputHeight * InputDepth);
             this.output = new Neurons(this.numberOfUnits);
-
         }
+
+        /// <summary>
+        /// Connect layer to the previous one.
+        /// </summary>
+        /// <param name="PreviousLayer"></param>
+        public override void ConnectTo(Layer PreviousLayer)
+        {
+            base.ConnectTo(PreviousLayer);
+            this.output = new Neurons(this.numberOfUnits);
+        }
+
+        
 
         public override void InitializeParameters() // only call after either "SetAsFirstLayer()" or "ConnectTo()"
         {
-            // Initialize weigths as normally distributed numbers with mean 0 and std equals to 1/sqrt(nInputUnits)
-            // Initialize biases as normally distributed numbers with mean 0 and std 1
+            // Weigths are initialized as normally distributed numbers with mean 0 and std equals to 1/sqrt(nInputUnits)
+            // Biases are initialized as normally distributed numbers with mean 0 and std 1
+
+            // Host
 
             this.weights = new float[this.Output.NumberOfUnits, this.Input.NumberOfUnits];
             this.biases = new float[this.Output.NumberOfUnits];
@@ -120,39 +125,63 @@ namespace JaNet
             // Also initialize updates speeds to zero (for momentum)
             this.weightsUpdateSpeed = new float[this.Output.NumberOfUnits, this.Input.NumberOfUnits];
             this.biasesUpdateSpeed = new float[this.Output.NumberOfUnits];
+
+            // Device
+
+#if OPENCL_ENABLED
+            
+            int weightBufferSize = sizeof(float) * (this.Output.NumberOfUnits * this.Input.NumberOfUnits);
+            int biasesBufferSize = sizeof(float) * this.Output.NumberOfUnits;
+
+            this.weightsGPU = (Mem)Cl.CreateBuffer(CL.Context, MemFlags.ReadWrite, (IntPtr)weightBufferSize, out CL.Error);
+            this.biasesGPU = (Mem)Cl.CreateBuffer(CL.Context, MemFlags.ReadWrite, (IntPtr)biasesBufferSize, out CL.Error);
+            this.weightsUpdateSpeedGPU = (Mem)Cl.CreateBuffer(CL.Context, MemFlags.ReadWrite, (IntPtr)weightBufferSize, out CL.Error);
+            this.biasesUpdateSpeedGPU = (Mem)Cl.CreateBuffer(CL.Context, MemFlags.ReadWrite, (IntPtr)biasesBufferSize, out CL.Error);
+            CL.CheckErr(CL.Error, "InitializeParameters(): Cl.CreateBuffer");
+        
+#endif
         }
         #endregion
 
 
         #region Training methods
 
-        public override void ForwardOneCPU()
+        public override void FeedForward()
         {
-            float[] unbiasedOutput = Utils.MultiplyMatrixByVector(this.weights, this.Input.Get());
-            this.output.Set(unbiasedOutput.Zip(this.biases, (x, y) => x + y).ToArray());
+#if OPENCL_ENABLED
+            CL.Error = Cl.SetKernelArg(CL.FCForward, 0, weightsGPU);
+            CL.Error |= Cl.SetKernelArg(CL.FCForward, 1, Input.ActivationsGPU);
+            CL.Error |= Cl.SetKernelArg(CL.FCForward, 2, biasesGPU);
+            CL.Error |= Cl.SetKernelArg(CL.FCForward, 3, Output.ActivationsGPU);
+            CL.Error |= Cl.SetKernelArg(CL.FCForward, 4, (IntPtr)sizeof(int), Input.NumberOfUnits);
+            CL.Error |= Cl.SetKernelArg(CL.FCForward, 5, (IntPtr)sizeof(int), Output.NumberOfUnits);
+            CL.CheckErr(CL.Error, "Cl.SetKernelArg");
+
+            IntPtr[] globalWorkSizePtr = new IntPtr[] { (IntPtr)(Output.NumberOfUnits) };
+            IntPtr[] localWorkSizePtr = new IntPtr[] { (IntPtr)Math.Min(128, Output.NumberOfUnits) }; // will need some fine-tuning
+            CL.Error = Cl.EnqueueNDRangeKernel(CL.Queue, CL.FCForward, 1, null, globalWorkSizePtr, localWorkSizePtr, 0, null, out CL.Event);
+            CL.CheckErr(CL.Error, "Cl.EnqueueNDRangeKernel");
+
+#else
+            float[] unbiasedOutput = Utils.MultiplyMatrixByVector(this.weights, this.Input.GetHost());
+            this.output.SetHost(unbiasedOutput.Zip(this.biases, (x, y) => x + y).ToArray());
+#endif
         }
 
-        public override void ForwardBatchCPU() // really needed??
-        {
-
-        }
-
-        public override void ForwardGPU()
-        {
-
-        }
-
+  
+        /*
         public override void BackPropOneCPU()
         {
-            this.Input.Delta = Utils.MultiplyMatrixTranspByVector(this.weights, this.Output.Delta);
+            this.Input.DeltaHost = Utils.MultiplyMatrixTranspByVector(this.weights, this.Output.DeltaHost);
         }
+        */
 
 
-        public override void BackPropBatchCPU()
+        public override void BackPropagate()
         {
             float[] tmpDelta = new float[numberOfUnits];
-            tmpDelta = Utils.MultiplyMatrixTranspByVector(this.weights, this.Output.Delta);
-            this.Input.Delta = this.Input.Delta.Zip(tmpDelta, (x, y) => x + y).ToArray();
+            tmpDelta = Utils.MultiplyMatrixTranspByVector(this.weights, this.Output.DeltaHost);
+            this.Input.DeltaHost = this.Input.DeltaHost.Zip(tmpDelta, (x, y) => x + y).ToArray();
         }
 
         public override void UpdateParameters(double learningRate, double momentumCoefficient)
@@ -164,7 +193,7 @@ namespace JaNet
                 for (int j = 0; j < this.weights.GetLength(1); j++)
                 {
                     this.weightsUpdateSpeed[i, j] *= (float)momentumCoefficient;
-                    this.weightsUpdateSpeed[i, j] -= (float) learningRate * this.input.Get()[j] * this.output.Delta[i];
+                    this.weightsUpdateSpeed[i, j] -= (float) learningRate * this.input.GetHost()[j] * this.output.DeltaHost[i];
 
                     this.weights[i, j] += this.weightsUpdateSpeed[i, j];
                 }
@@ -174,7 +203,7 @@ namespace JaNet
             for (int i = 0; i < this.biases.GetLength(0); i++)
             {
                 this.biasesUpdateSpeed[i] *= (float)momentumCoefficient;
-                this.biasesUpdateSpeed[i] -= this.output.Delta[i];
+                this.biasesUpdateSpeed[i] -= this.output.DeltaHost[i];
 
                 this.biases[i] += (float)(learningRate * this.biasesUpdateSpeed[i]);
             }

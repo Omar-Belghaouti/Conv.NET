@@ -63,12 +63,12 @@ namespace JaNet
         /// <param name="nOutputClasses"></param>
         public void Setup(int inputWidth, int inputHeigth, int inputDepth, int nOutputClasses)
         {
-            Console.WriteLine("--- Network setup and initialization started... ---");
+            Console.WriteLine("\n=========================================");
+            Console.WriteLine("    Network setup and initialization");
+            Console.WriteLine("=========================================\n");
 
             Console.WriteLine("Setting up layer 0 (input layer): " + layers[0].Type);
             layers[0].SetAsFirstLayer(inputWidth, inputHeigth, inputDepth); 
-            // this should AUTOMATICALLY setup both input AND output AND initialize weights and biases
-
             layers[0].InitializeParameters();
 
             for (int i = 1; i < layers.Count; i++ ) // all other layers
@@ -78,8 +78,6 @@ namespace JaNet
                 layers[i].InitializeParameters();
                 
             }
-
-            Console.WriteLine("--- Network setup and initialization complete ---\n");
         }
 
         #endregion
@@ -91,14 +89,14 @@ namespace JaNet
         {
             int errorCode = 0;
 
-            layers[0].Input.Set(inputImage);
+            layers[0].Input.SetHost(inputImage);
             for (int iLayer = 0; iLayer < nLayers - 1; iLayer++) // all layers but last
             {
-                layers[iLayer].ForwardOneCPU();
+                layers[iLayer].FeedForward();
                 layers[iLayer + 1].Input = layers[iLayer].Output; // set input of next layer equals to output of this layer
             }
-            layers[nLayers-1].ForwardOneCPU(); // run output (softmax) layer
-            outputClassScores = (float[])layers[nLayers - 1].Output.Get();
+            layers[nLayers - 1].FeedForward(); // run output (softmax) layer
+            outputClassScores = (float[])layers[nLayers - 1].Output.GetHost();
 
             return errorCode;
         }

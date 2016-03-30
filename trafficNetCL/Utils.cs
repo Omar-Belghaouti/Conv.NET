@@ -38,7 +38,6 @@ namespace JaNet
             return iMax;
         }
 
-
         /// <summary>
         /// Naive implementation of matrix-vector multiplication
         /// </summary>

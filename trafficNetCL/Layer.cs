@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using OpenCL.Net;
 
 namespace JaNet
 {
@@ -81,7 +82,16 @@ namespace JaNet
         #region Setup methods (public, to be called once)
 
         /// <summary>
-        /// Link this layer to previous one.
+        /// Set this as the first layer of the network.
+        /// </summary>
+        /// 
+        public virtual void SetAsFirstLayer(int InputWidth, int InputHeight, int InputDepth)
+        {
+
+        }
+
+        /// <summary>
+        /// Connect this layer to previous one.
         /// </summary>
         /// <param name="PreviousLayer"></param>
         public virtual void ConnectTo(Layer PreviousLayer)
@@ -92,18 +102,11 @@ namespace JaNet
 
 
         /// <summary>
-        /// Set this as the first layer of the network.
-        /// </summary>
-        /// 
-        public virtual void SetAsFirstLayer(int InputWidth, int InputHeight, int InputDepth)
-        {
-
-        }
-
-        /// <summary>
         /// Initialize layer parameters.
         /// </summary>
-        public abstract void InitializeParameters();
+        public virtual void InitializeParameters()
+        {
+        }
 
         #endregion
 
@@ -111,46 +114,36 @@ namespace JaNet
         #region Training methods (public abstract)
 
         /// <summary>
-        /// Run layer forward (one input), using CPU
+        /// Run layer forward.
         /// </summary>
-        public abstract void ForwardOneCPU();
+        public abstract void FeedForward();
+
 
         /// <summary>
-        /// Run layer forward (one minibatch), using CPU
+        /// Compute errors with backpropagation.
         /// </summary>
-        public abstract void ForwardBatchCPU();
+        public abstract void BackPropagate();
 
         /// <summary>
-        /// Run layer forward using GPU
+        /// Updates layer parameters (if any)
         /// </summary>
-        public abstract void ForwardGPU();
-
-        /// <summary>
-        /// Compute errors with backpropagation (for one input/output) using CPU
-        /// </summary>
-        public abstract void BackPropOneCPU();
-
-        /// <summary>
-        /// Compute errors with backpropagation (for one minibatch) using CPU
-        /// </summary>
-        public abstract void BackPropBatchCPU();
-
-        /// <summary>
-        /// Compute errors with backpropagation using GPU
-        /// </summary>
-        public abstract void UpdateParameters(double learningRate, double momentumMultiplier);
+        public virtual void UpdateParameters(double learningRate, double momentumMultiplier)
+        {
+        }
 
         public virtual void ClearDelta()
         {
-            Array.Clear(this.input.Delta, 0, this.input.NumberOfUnits);
-            Array.Clear(this.output.Delta, 0, this.output.NumberOfUnits);
+            Array.Clear(this.input.DeltaHost, 0, this.input.NumberOfUnits);
+            Array.Clear(this.output.DeltaHost, 0, this.output.NumberOfUnits);
         }
 
         
 
         #endregion
 
-        // DEBUGGING METHODS
+
+        #region Debugging 
+        
         public virtual void DisplayParameters()
         {
 
@@ -163,16 +156,18 @@ namespace JaNet
             Console.WriteLine("Layer INPUT deltas:");
             for (int i = 0; i < this.input.NumberOfUnits; i++)
             {
-                Console.Write("{0}  ", this.input.Delta[i]);
+                Console.Write("{0}  ", this.input.DeltaHost[i]);
             }
 
             Console.WriteLine("\nLayer OUTPUT deltas:");
             for (int i = 0; i < this.output.NumberOfUnits; i++)
             {
-                Console.Write("{0}  ", this.output.Delta[i]);
+                Console.Write("{0}  ", this.output.DeltaHost[i]);
             }
 
         }
+
+        #endregion
 
     }
 }

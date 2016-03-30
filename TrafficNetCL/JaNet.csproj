@@ -45,7 +45,7 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="CLUtils.cs" />
+    <Compile Include="CL.cs" />
     <Compile Include="Neurons.cs" />
     <Compile Include="ReLU.cs" />
     <Compile Include="SoftMax.cs" />

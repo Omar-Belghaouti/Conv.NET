@@ -65,46 +65,36 @@ namespace JaNet
 
         #region Training methods
 
-        public override void ForwardOneCPU()
+        public override void FeedForward()
         {
             float[] tmpOutput = new float[this.numberOfUnits];
             for (int i = 0; i < this.numberOfUnits; i++)
             {
-                if (this.input.Get()[i] > 0)
-                    tmpOutput[i] = this.input.Get()[i];
+                if (this.input.GetHost()[i] > 0)
+                    tmpOutput[i] = this.input.GetHost()[i];
                 else
                     tmpOutput[i] = 0.0F;
             }
-            this.output.Set(tmpOutput);
+            this.output.SetHost(tmpOutput);
         }
 
-        public override void ForwardBatchCPU()
-        {
-        }
-
-        public override void ForwardGPU()
-        {
-        }
-
-        public override void BackPropOneCPU()
+        public override void BackPropagate()
         {
             for (int i = 0; i < this.numberOfUnits; i++)
-                this.input.Delta[i] = this.input.Get()[i] > 0 ? this.output.Delta[i] : 0.0F;
+                this.input.DeltaHost[i] = this.input.GetHost()[i] > 0 ? this.output.DeltaHost[i] : 0.0F;
         }
 
+        /*
         public override void BackPropBatchCPU()
         {
             float[] tmpDelta = new float[numberOfUnits];
             for (int i = 0; i < this.numberOfUnits; i++)
-                this.Input.Delta[i] = this.Input.Get()[i] > 0 ? this.Output.Delta[i] : 0.0F;
+                this.Input.DeltaHost[i] = this.Input.GetHost()[i] > 0 ? this.Output.DeltaHost[i] : 0.0F;
 
-            this.Input.Delta = this.Input.Delta.Zip(tmpDelta, (x, y) => x + y).ToArray();
+            this.Input.DeltaHost = this.Input.DeltaHost.Zip(tmpDelta, (x, y) => x + y).ToArray();
         }
-
-        public override void UpdateParameters(double learningRate, double momentumCoefficient)
-        {
-            // nothing to update
-        }
+        */
+        
 
         #endregion
 

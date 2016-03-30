@@ -17,6 +17,7 @@ namespace JaNet
 
         private static int errorCode = 0;
 
+        [Obsolete("Old method")]
         public static double Run(NeuralNetwork Network, DataSet TestSet)
         {
             // TO-DO: transform this into parallelized GPU code
@@ -41,6 +42,32 @@ namespace JaNet
             }
 
             return (double)nCorrectClassifications / (double)TestSet.Size;
+        }
+
+
+        public static double ComputeClassificationError(NeuralNetwork network, DataSet dataSet)
+        {
+            double classificationError = 0;
+
+            for (int i = 0; i < dataSet.Size; i++)
+            {
+                network.Layers[0].Input.SetHost(dataSet.GetDataPoint(i));
+
+                // Run forward
+                for (int l = 0; l < network.Layers.Count; l++)
+                {
+                    network.Layers[l].FeedForward();
+                }
+
+                // Check for correct/wrong classification
+                int outputClassMaxScore = Utils.IndexOfMax(network.Layers.Last().Output.GetHost());
+                if (outputClassMaxScore != dataSet.GetLabel(i))
+                {
+                    classificationError += 1;
+                }
+            }
+
+            return classificationError / dataSet.Size;
         }
 
 

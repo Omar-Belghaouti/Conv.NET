@@ -67,20 +67,20 @@ namespace JaNet
 
         #region Training methods
 
-        public override void ForwardOneCPU()
+        public override void FeedForward()
         {
             // use rescaling trick to improve numerical stability
-            float maxInput = this.input.Get()[0];
+            float maxInput = this.input.GetHost()[0];
             for (int i = 1; i < this.numberOfUnits; i++)
             {
-                if (this.input.Get()[i] > maxInput)
-                    maxInput = this.input.Get()[i];
+                if (this.input.GetHost()[i] > maxInput)
+                    maxInput = this.input.GetHost()[i];
             }
 
             float[] tmpOutput = new float[this.numberOfUnits];
             for (int i = 0; i < this.numberOfUnits; i++)
             {
-                tmpOutput[i] = (float)Math.Exp(this.input.Get()[i]-maxInput);
+                tmpOutput[i] = (float)Math.Exp(this.input.GetHost()[i]-maxInput);
             }
             float sum = tmpOutput.Sum();
             for (int i = 0; i < this.numberOfUnits; i++)
@@ -88,34 +88,17 @@ namespace JaNet
                 tmpOutput[i] /= sum;
             }
 
-            this.output.Set(tmpOutput);
+            this.output.SetHost(tmpOutput);
         }
 
-        public override void ForwardBatchCPU()
-        {
-        }
 
-        public override void ForwardGPU()
+        public override void BackPropagate()
         {
-        }
-
-        public override void BackPropOneCPU()
-        {
-            if (this.Input.Delta.Length != this.Output.Delta.Length)
+            if (this.Input.DeltaHost.Length != this.Output.DeltaHost.Length)
                 throw new System.InvalidOperationException("Softmax layer: mismatch in length of delta arrays.");
 
             // NO backprop here!!
             // Compute directly input.Delta from cross-entropy cost: faster and numerically more stable
-        }
-
-        public override void BackPropBatchCPU()
-        {
-            // TO-DO
-        }
-
-        public override void UpdateParameters(double learningRate, double momentumCoefficient)
-        {
-            // nothing to update
         }
 
         #endregion

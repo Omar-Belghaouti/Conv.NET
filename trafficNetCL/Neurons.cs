@@ -1,6 +1,4 @@
-﻿#define OPENCL_ENABLED
-
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -15,20 +13,22 @@ namespace JaNet
 
         private int nUnits;
 
-        private float[] unitsActivations;
-        private float[] delta;
-        
 #if OPENCL_ENABLED
-
         private Mem activationsGPU;
         private Mem deltaGPU;
-
+//#else
+        private float[] activations;
+        private float[] delta;
 #endif
-        
+
         #endregion
 
         #region Neuron class properties (public)
 
+        public int NumberOfUnits
+        {
+            get { return nUnits; }
+        }
 
 #if OPENCL_ENABLED
 
@@ -43,21 +43,15 @@ namespace JaNet
             get { return this.deltaGPU; }
             set { this.deltaGPU = value; }
         }
-#endif
-
-        public int NumberOfUnits 
-        {
-            get { return nUnits;  }
-        }
-
+//#else       
         public float[] GetHost()
         {
-            return unitsActivations;
+            return activations;
         }
 
         public void SetHost(float[] value)
         {
-            this.unitsActivations = value;
+            this.activations = value;
         }
 
         public float[] DeltaHost
@@ -65,6 +59,7 @@ namespace JaNet
             get { return delta; }
             set { this.delta = value; }
         }
+#endif
 
         #endregion
 

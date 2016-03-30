@@ -1,6 +1,4 @@
-﻿#define OPENCL_ENABLED
-
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -23,13 +21,25 @@ namespace JaNet
         private float[] biasesUpdateSpeed;
 
 #if OPENCL_ENABLED
-        // Device
 
         private Mem weightsGPU;
         private Mem biasesGPU;
 
         private Mem weightsUpdateSpeedGPU;
         private Mem biasesUpdateSpeedGPU;
+
+        // Global and local work-group sizes (for OpenCL kernels) - will be set in SetWorkGroupSizes();
+        private IntPtr[] forwardGlobalWorkSizePtr; //  = new IntPtr[] { (IntPtr)(Output.NumberOfUnits) };
+        private IntPtr[] forwardLocalWorkSizePtr; // = new IntPtr[] { (IntPtr)Math.Min(128, Output.NumberOfUnits) }; // may need some fine-tuning
+        private IntPtr[] backwardGlobalWorkSizePtr;
+        private IntPtr[] backwardLocalWorkSizePtr;
+        private IntPtr[] updateGlobalWorkSizePtr; // = new IntPtr[] { (IntPtr)(Output.NumberOfUnits), (IntPtr)(Input.NumberOfUnits) };
+        private IntPtr[] updateLocalWorkSizePtr; // = new IntPtr[] { (IntPtr)Math.Min(128, Output.NumberOfUnits), (IntPtr)Math.Min(128, Input.NumberOfUnits) }; // may need some fine-tuning
+
+
+#else
+
+
 #endif
 
         #endregion
@@ -82,10 +92,9 @@ namespace JaNet
         }
 
         
-
         public override void InitializeParameters() // only call after either "SetAsFirstLayer()" or "ConnectTo()"
         {
-            // Weigths are initialized as normally distributed numbers with mean 0 and std equals to 1/sqrt(nInputUnits)
+            // Weigths are initialized as normally distributed numbers with mean 0 and std equals to 2/sqrt(nInputUnits)
             // Biases are initialized as normally distributed numbers with mean 0 and std 1
 
             // Host
@@ -118,7 +127,7 @@ namespace JaNet
                 // Use a Box-Muller transform to get a random normal(0,1)
                 //tmp = Math.Sqrt(-2.0 * Math.Log(uniformRand1)) * Math.Sin(2.0 * Math.PI * uniformRand2);
 
-                biases[iRow] = 0.01F;//(float)tmp;
+                biases[iRow] = 0.01F; // (float)tmp;
                 
             }
 
@@ -126,7 +135,6 @@ namespace JaNet
             this.weightsUpdateSpeed = new float[this.Output.NumberOfUnits, this.Input.NumberOfUnits];
             this.biasesUpdateSpeed = new float[this.Output.NumberOfUnits];
 
-            // Device
 
 #if OPENCL_ENABLED
             
@@ -138,9 +146,24 @@ namespace JaNet
             this.weightsUpdateSpeedGPU = (Mem)Cl.CreateBuffer(CL.Context, MemFlags.ReadWrite, (IntPtr)weightBufferSize, out CL.Error);
             this.biasesUpdateSpeedGPU = (Mem)Cl.CreateBuffer(CL.Context, MemFlags.ReadWrite, (IntPtr)biasesBufferSize, out CL.Error);
             CL.CheckErr(CL.Error, "InitializeParameters(): Cl.CreateBuffer");
-        
 #endif
         }
+
+
+        private void SetWorkGroupSizes()
+        {
+            
+            // FeedForward
+            this.forwardGlobalWorkSizePtr = new IntPtr[] { (IntPtr)(Output.NumberOfUnits) };
+            
+
+            // BackPropagate
+
+
+            // UpdateParameters
+        }
+
+
         #endregion
 
 
@@ -148,45 +171,82 @@ namespace JaNet
 
         public override void FeedForward()
         {
+
 #if OPENCL_ENABLED
-            CL.Error = Cl.SetKernelArg(CL.FCForward, 0, weightsGPU);
+
+            // Set kernel arguments
+            CL.Error = Cl.SetKernelArg(CL.FCForward, 0, Output.ActivationsGPU);
             CL.Error |= Cl.SetKernelArg(CL.FCForward, 1, Input.ActivationsGPU);
-            CL.Error |= Cl.SetKernelArg(CL.FCForward, 2, biasesGPU);
-            CL.Error |= Cl.SetKernelArg(CL.FCForward, 3, Output.ActivationsGPU);
+            CL.Error |= Cl.SetKernelArg(CL.FCForward, 2, weightsGPU);
+            CL.Error |= Cl.SetKernelArg(CL.FCForward, 3, biasesGPU);
             CL.Error |= Cl.SetKernelArg(CL.FCForward, 4, (IntPtr)sizeof(int), Input.NumberOfUnits);
             CL.Error |= Cl.SetKernelArg(CL.FCForward, 5, (IntPtr)sizeof(int), Output.NumberOfUnits);
-            CL.CheckErr(CL.Error, "Cl.SetKernelArg");
+            CL.CheckErr(CL.Error, "FullyConnected.FeedForward(): Cl.SetKernelArg");
 
+            // Run kernel
             IntPtr[] globalWorkSizePtr = new IntPtr[] { (IntPtr)(Output.NumberOfUnits) };
-            IntPtr[] localWorkSizePtr = new IntPtr[] { (IntPtr)Math.Min(128, Output.NumberOfUnits) }; // will need some fine-tuning
+            IntPtr[] localWorkSizePtr = new IntPtr[] { (IntPtr)Math.Min(128, Output.NumberOfUnits) }; // may need some fine-tuning
             CL.Error = Cl.EnqueueNDRangeKernel(CL.Queue, CL.FCForward, 1, null, globalWorkSizePtr, localWorkSizePtr, 0, null, out CL.Event);
-            CL.CheckErr(CL.Error, "Cl.EnqueueNDRangeKernel");
+            CL.CheckErr(CL.Error, "FullyConnected.FeedForward(): Cl.EnqueueNDRangeKernel");
 
 #else
+
             float[] unbiasedOutput = Utils.MultiplyMatrixByVector(this.weights, this.Input.GetHost());
             this.output.SetHost(unbiasedOutput.Zip(this.biases, (x, y) => x + y).ToArray());
+
 #endif
         }
-
-  
-        /*
-        public override void BackPropOneCPU()
-        {
-            this.Input.DeltaHost = Utils.MultiplyMatrixTranspByVector(this.weights, this.Output.DeltaHost);
-        }
-        */
 
 
         public override void BackPropagate()
         {
-            float[] tmpDelta = new float[numberOfUnits];
-            tmpDelta = Utils.MultiplyMatrixTranspByVector(this.weights, this.Output.DeltaHost);
-            this.Input.DeltaHost = this.Input.DeltaHost.Zip(tmpDelta, (x, y) => x + y).ToArray();
+
+#if OPENCL_ENABLED
+
+            // Set kernel arguments
+            CL.Error |= Cl.SetKernelArg(CL.FCBackward, 0, Input.DeltaGPU);
+            CL.Error |= Cl.SetKernelArg(CL.FCBackward, 1, Output.DeltaGPU);
+            CL.Error |= Cl.SetKernelArg(CL.FCBackward, 2, weightsGPU);
+            CL.Error |= Cl.SetKernelArg(CL.FCBackward, 3, (IntPtr)sizeof(int), Input.NumberOfUnits);
+            CL.Error |= Cl.SetKernelArg(CL.FCBackward, 4, (IntPtr)sizeof(int), Output.NumberOfUnits);
+            CL.CheckErr(CL.Error, "FullyConnected.BackPropagate(): Cl.SetKernelArg");
+
+            // Run kernel
+            IntPtr[] globalWorkSizePtr = new IntPtr[] { (IntPtr)(Input.NumberOfUnits) };
+            IntPtr[] localWorkSizePtr = new IntPtr[] { (IntPtr)Math.Min(128, Input.NumberOfUnits) }; // may need some fine-tuning
+            CL.Error = Cl.EnqueueNDRangeKernel(CL.Queue, CL.FCBackward, 1, null, globalWorkSizePtr, localWorkSizePtr, 0, null, out CL.Event);
+            CL.CheckErr(CL.Error, "FullyConnected.BackPropagate(): Cl.EnqueueNDRangeKernel");
+
+#else
+            this.Input.DeltaHost = Utils.MultiplyMatrixTranspByVector(this.weights, this.Output.DeltaHost);
+#endif
         }
 
         public override void UpdateParameters(double learningRate, double momentumCoefficient)
         {
 
+#if OPENCL_ENABLED
+
+            // Set kernel arguments
+            CL.Error |= Cl.SetKernelArg(CL.FCUpdateParameters, 0, weightsGPU);
+            CL.Error |= Cl.SetKernelArg(CL.FCUpdateParameters, 1, biasesGPU);
+            CL.Error |= Cl.SetKernelArg(CL.FCUpdateParameters, 2, weightsUpdateSpeedGPU);
+            CL.Error |= Cl.SetKernelArg(CL.FCUpdateParameters, 3, biasesUpdateSpeedGPU);
+            CL.Error |= Cl.SetKernelArg(CL.FCUpdateParameters, 4, Input.ActivationsGPU);
+            CL.Error |= Cl.SetKernelArg(CL.FCUpdateParameters, 5, Output.DeltaGPU);
+            CL.Error |= Cl.SetKernelArg(CL.FCUpdateParameters, 6, (IntPtr)sizeof(int), Input.NumberOfUnits);
+            CL.Error |= Cl.SetKernelArg(CL.FCUpdateParameters, 7, (IntPtr)sizeof(int), Output.NumberOfUnits);
+            CL.Error |= Cl.SetKernelArg(CL.FCUpdateParameters, 8, (IntPtr)sizeof(float), (float) learningRate);
+            CL.Error |= Cl.SetKernelArg(CL.FCUpdateParameters, 9, (IntPtr)sizeof(float), (float) momentumCoefficient);
+            CL.CheckErr(CL.Error, "FullyConnected.UpdateParameters(): Cl.SetKernelArg");
+
+            // Run kernel
+            IntPtr[] globalWorkSizePtr = new IntPtr[] { (IntPtr)(Output.NumberOfUnits), (IntPtr)(Input.NumberOfUnits) };
+            IntPtr[] localWorkSizePtr = new IntPtr[] { (IntPtr)Math.Min(128, Output.NumberOfUnits), (IntPtr)Math.Min(128, Input.NumberOfUnits) }; // may need some fine-tuning
+            CL.Error = Cl.EnqueueNDRangeKernel(CL.Queue, CL.FCUpdateParameters, 2, null, globalWorkSizePtr, localWorkSizePtr, 0, null, out CL.Event);
+            CL.CheckErr(CL.Error, "FullyConnected.UpdateParameters(): Cl.EnqueueNDRangeKernel");
+
+#else
             // Update weights
             for (int i = 0; i < this.weights.GetLength(0); i++)
             {
@@ -203,17 +263,18 @@ namespace JaNet
             for (int i = 0; i < this.biases.GetLength(0); i++)
             {
                 this.biasesUpdateSpeed[i] *= (float)momentumCoefficient;
-                this.biasesUpdateSpeed[i] -= this.output.DeltaHost[i];
+                this.biasesUpdateSpeed[i] -= (float) learningRate * this.output.DeltaHost[i];
 
-                this.biases[i] += (float)(learningRate * this.biasesUpdateSpeed[i]);
+                this.biases[i] += this.biasesUpdateSpeed[i];
             }
-
+#endif
         }
 
         #endregion
 
 
         #region Debugging/helper methods
+
         public override void DisplayParameters()
         {
             Console.WriteLine("\n\n ======== LAYER =========\n\n");

@@ -1,17 +1,17 @@
-﻿#define OPENCL_ENABLED
+﻿//#define OPENCL_ENABLED
 
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using OpenCL.Net;
 
 namespace JaNet
 {
     class trafficNetCLProgram
     {
-        static int errorCode = 0;
-
+        
         static void Main(string[] args)
         {
 
@@ -34,11 +34,16 @@ namespace JaNet
             const string kernelsPath = "C:/Users/jacopo/Dropbox/Chalmers/MSc thesis/JaNet/Kernels";
             CL.LoadKernels(kernelsPath);
 
+            
+
+            
+
+            
 
             /*****************************************************
              * (1) Instantiate a neural network and add layers
              * 
-             * OPTIONS: (implemented)
+             * OPTIONS:
              * ConvolutionalLayer(filterSize, numberOfFilters, strideLength, zeroPadding) // zero padding not implemented yet
              * FullyConnectedLayer(numberOfUnits)
              * Tanh(beta)
@@ -53,7 +58,7 @@ namespace JaNet
 
             //network.AddLayer(new Tanh(tanhBeta));
             network.AddLayer(new FullyConnectedLayer(37));
-            network.AddLayer(new ReLU());
+            //network.AddLayer(new ReLU());
             //network.AddLayer(new Tanh(tanhBeta));
             //network.AddLayer(new FullyConnectedLayer(100));
             //network.AddLayer(new ReLU());
@@ -116,26 +121,12 @@ namespace JaNet
             //errorMNIST = NetworkTrainer.TrainMNIST(network, reducedMNIST);
 
 
-#if OPENCL_ENABLED
-            Console.WriteLine("Test #define");
-#else
-            Console.WriteLine("Test else");
-#endif
-
-
             /*****************************************************
              * (4) Test network
              ****************************************************/
            
 
 
-
-
-
-
-
-            /*****************************************************/
-            // GENERAL TO-DO LIST:
 
             }
     }

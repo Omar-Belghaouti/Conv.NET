@@ -11,14 +11,12 @@ namespace JaNet
         #region SoftMax layer class fields (private)
 
 
-        /* Additional fields, inherited from "Layer" class:
-        * 
-        * protected Neurons input;
-        * protected Neurons output;
-        * 
-        * protected Layer nextLayer;
-        * protected string layerType;
-        */
+#if OPENCL_ENABLED
+        private IntPtr[] globalWorkSizePtr;
+        private IntPtr[] localWorkSizePtr;
+        // in this case nInput = nOutput  ==>  only need to set one global/local work size 
+        // (i.e. no need to distinguish between forward and backward pass)
+#endif
 
         #endregion
 
@@ -26,7 +24,7 @@ namespace JaNet
         #region Setup methods (to be called once)
 
         /// <summary>
-        /// Constructor of Tanh layer. Specify beta parameter as argument.
+        /// Constructor of Softmax layer.
         /// </summary>
         /// <param name="Beta"></param>
         public SoftMax()
@@ -59,7 +57,21 @@ namespace JaNet
 
         public override void InitializeParameters()
         {
-            // This layer doesn't learn: No parameters to initialize.
+            SetWorkGroupSizes();
+        }
+
+        private void SetWorkGroupSizes()
+        {
+            // Work group sizes will be set as follows:
+            //      global work size = total number of processes needed
+            //      local work size = largest divisor of global work size <= maxWorkGroupSize of device in context
+            // (this is probably suboptimal, but improvements are most likely negligible compared to improvements elsewhere, e.g. in the kernels code)
+
+            this.globalWorkSizePtr = new IntPtr[] { (IntPtr)(Output.NumberOfUnits) };
+            int tmpLocalWorkSize = Output.NumberOfUnits;
+            while (tmpLocalWorkSize > CL.maxWorkGroupSize || tmpLocalWorkSize > CL.maxWorkItemSizes[0])
+                tmpLocalWorkSize /= 2;
+            this.localWorkSizePtr = new IntPtr[] { (IntPtr)(tmpLocalWorkSize) };
         }
 
         #endregion

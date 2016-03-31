@@ -50,10 +50,14 @@ namespace JaNet
 
         #region Kernels (public)
 
+        // FullyConnected layer
         public static Kernel FCForward;
         public static Kernel FCBackward;
         public static Kernel FCUpdateParameters;
 
+        // ReLU layer
+        public static Kernel ReLUForward;
+        public static Kernel ReLUBackward;
 
         #endregion
 
@@ -176,6 +180,8 @@ namespace JaNet
 
         public static void LoadKernels(string kernelsPath)
         {
+            // FullyConnected layer
+
             string fcForwardName = "FCForward";
             FCForward = LoadBuildKernel(kernelsPath + "/" + fcForwardName + ".cl", fcForwardName);
 
@@ -185,6 +191,13 @@ namespace JaNet
             string fcUpdateParametersName = "FCUpdateParameters";
             FCUpdateParameters = LoadBuildKernel(kernelsPath + "/" + fcUpdateParametersName + ".cl", fcUpdateParametersName);
 
+            // ReLU layer
+
+            string reluForwardName = "ReLUForward";
+            ReLUForward = LoadBuildKernel(kernelsPath + "/" + reluForwardName + ".cl", reluForwardName);
+
+            string reluBackwardName = "FCBackward";
+            ReLUBackward = LoadBuildKernel(kernelsPath + "/" + reluBackwardName + ".cl", reluBackwardName);
 
         }
 

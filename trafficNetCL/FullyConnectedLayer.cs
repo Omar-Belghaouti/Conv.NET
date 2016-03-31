@@ -21,7 +21,6 @@ namespace JaNet
         private float[] biasesUpdateSpeed;
 
 #if OPENCL_ENABLED
-
         private Mem weightsGPU;
         private Mem biasesGPU;
 
@@ -29,17 +28,12 @@ namespace JaNet
         private Mem biasesUpdateSpeedGPU;
 
         // Global and local work-group sizes (for OpenCL kernels) - will be set in SetWorkGroupSizes();
-        private IntPtr[] forwardGlobalWorkSizePtr; //  = new IntPtr[] { (IntPtr)(Output.NumberOfUnits) };
-        private IntPtr[] forwardLocalWorkSizePtr; // = new IntPtr[] { (IntPtr)Math.Min(128, Output.NumberOfUnits) }; // may need some fine-tuning
+        private IntPtr[] forwardGlobalWorkSizePtr;
+        private IntPtr[] forwardLocalWorkSizePtr;
         private IntPtr[] backwardGlobalWorkSizePtr;
         private IntPtr[] backwardLocalWorkSizePtr;
-        private IntPtr[] updateGlobalWorkSizePtr; // = new IntPtr[] { (IntPtr)(Output.NumberOfUnits), (IntPtr)(Input.NumberOfUnits) };
-        private IntPtr[] updateLocalWorkSizePtr; // = new IntPtr[] { (IntPtr)Math.Min(128, Output.NumberOfUnits), (IntPtr)Math.Min(128, Input.NumberOfUnits) }; // may need some fine-tuning
-
-
-#else
-
-
+        private IntPtr[] updateGlobalWorkSizePtr;
+        private IntPtr[] updateLocalWorkSizePtr;
 #endif
 
         #endregion
@@ -146,21 +140,46 @@ namespace JaNet
             this.weightsUpdateSpeedGPU = (Mem)Cl.CreateBuffer(CL.Context, MemFlags.ReadWrite, (IntPtr)weightBufferSize, out CL.Error);
             this.biasesUpdateSpeedGPU = (Mem)Cl.CreateBuffer(CL.Context, MemFlags.ReadWrite, (IntPtr)biasesBufferSize, out CL.Error);
             CL.CheckErr(CL.Error, "InitializeParameters(): Cl.CreateBuffer");
+
+            SetWorkGroupSizes();
 #endif
         }
 
 
         private void SetWorkGroupSizes()
         {
-            
+            // Work group sizes will be set as follows:
+            //      global work size = total number of processes needed
+            //      local work size = largest divisor of global work size <= maxWorkGroupSize of device in context
+            // (this is probably suboptimal, but improvements are most likely negligible compared to improvements elsewhere, e.g. in the kernels code)
+
             // FeedForward
-            this.forwardGlobalWorkSizePtr = new IntPtr[] { (IntPtr)(Output.NumberOfUnits) };
-            
+            this.forwardGlobalWorkSizePtr = new IntPtr[] { (IntPtr)(Output.NumberOfUnits) }; 
+            int tmpFwLocalWorkSize = Output.NumberOfUnits; // 
+            while (tmpFwLocalWorkSize > CL.maxWorkGroupSize || tmpFwLocalWorkSize > CL.maxWorkItemSizes[0]) 
+                tmpFwLocalWorkSize /= 2;
+            this.forwardLocalWorkSizePtr = new IntPtr[] { (IntPtr)(tmpFwLocalWorkSize) };
 
             // BackPropagate
-
-
+            this.backwardGlobalWorkSizePtr = new IntPtr[] { (IntPtr)(Input.NumberOfUnits) };
+            int tmpBwLocalWorkSize = Input.NumberOfUnits;
+            while (tmpBwLocalWorkSize > CL.maxWorkGroupSize || tmpBwLocalWorkSize > CL.maxWorkItemSizes[0]) 
+                tmpBwLocalWorkSize /= 2;
+            this.backwardLocalWorkSizePtr = new IntPtr[] { (IntPtr)(tmpBwLocalWorkSize) };
+           
             // UpdateParameters
+            this.updateGlobalWorkSizePtr = new IntPtr[] { (IntPtr)(Output.NumberOfUnits), (IntPtr)(Input.NumberOfUnits) };
+            int[] tmpUpdLocalWorkSize = new int[] { Output.NumberOfUnits, Input.NumberOfUnits };
+            while (tmpUpdLocalWorkSize[0] > CL.maxWorkItemSizes[0])
+                    tmpUpdLocalWorkSize[0] /= 2;
+            while (tmpUpdLocalWorkSize[1] > CL.maxWorkItemSizes[1])
+                tmpUpdLocalWorkSize[1] /= 2;
+            while (tmpUpdLocalWorkSize.Sum() > CL.maxWorkGroupSize)
+                tmpUpdLocalWorkSize[1] /= 2;
+            while (tmpUpdLocalWorkSize.Sum() > CL.maxWorkGroupSize)
+                tmpUpdLocalWorkSize[0] /= 2;
+            this.updateLocalWorkSizePtr = new IntPtr[] { (IntPtr)(tmpUpdLocalWorkSize[0]), (IntPtr)(tmpUpdLocalWorkSize[1]) };
+
         }
 
 
@@ -184,9 +203,15 @@ namespace JaNet
             CL.CheckErr(CL.Error, "FullyConnected.FeedForward(): Cl.SetKernelArg");
 
             // Run kernel
-            IntPtr[] globalWorkSizePtr = new IntPtr[] { (IntPtr)(Output.NumberOfUnits) };
-            IntPtr[] localWorkSizePtr = new IntPtr[] { (IntPtr)Math.Min(128, Output.NumberOfUnits) }; // may need some fine-tuning
-            CL.Error = Cl.EnqueueNDRangeKernel(CL.Queue, CL.FCForward, 1, null, globalWorkSizePtr, localWorkSizePtr, 0, null, out CL.Event);
+            CL.Error = Cl.EnqueueNDRangeKernel( CL.Queue, 
+                                                CL.FCForward, 
+                                                1, 
+                                                null, 
+                                                forwardGlobalWorkSizePtr, 
+                                                forwardLocalWorkSizePtr, 
+                                                0, 
+                                                null, 
+                                                out CL.Event);
             CL.CheckErr(CL.Error, "FullyConnected.FeedForward(): Cl.EnqueueNDRangeKernel");
 
 #else
@@ -212,15 +237,22 @@ namespace JaNet
             CL.CheckErr(CL.Error, "FullyConnected.BackPropagate(): Cl.SetKernelArg");
 
             // Run kernel
-            IntPtr[] globalWorkSizePtr = new IntPtr[] { (IntPtr)(Input.NumberOfUnits) };
-            IntPtr[] localWorkSizePtr = new IntPtr[] { (IntPtr)Math.Min(128, Input.NumberOfUnits) }; // may need some fine-tuning
-            CL.Error = Cl.EnqueueNDRangeKernel(CL.Queue, CL.FCBackward, 1, null, globalWorkSizePtr, localWorkSizePtr, 0, null, out CL.Event);
+            CL.Error = Cl.EnqueueNDRangeKernel( CL.Queue, 
+                                                CL.FCBackward, 
+                                                1, 
+                                                null, 
+                                                backwardGlobalWorkSizePtr, 
+                                                backwardLocalWorkSizePtr, 
+                                                0, 
+                                                null, 
+                                                out CL.Event);
             CL.CheckErr(CL.Error, "FullyConnected.BackPropagate(): Cl.EnqueueNDRangeKernel");
 
 #else
             this.Input.DeltaHost = Utils.MultiplyMatrixTranspByVector(this.weights, this.Output.DeltaHost);
 #endif
         }
+
 
         public override void UpdateParameters(double learningRate, double momentumCoefficient)
         {
@@ -241,9 +273,15 @@ namespace JaNet
             CL.CheckErr(CL.Error, "FullyConnected.UpdateParameters(): Cl.SetKernelArg");
 
             // Run kernel
-            IntPtr[] globalWorkSizePtr = new IntPtr[] { (IntPtr)(Output.NumberOfUnits), (IntPtr)(Input.NumberOfUnits) };
-            IntPtr[] localWorkSizePtr = new IntPtr[] { (IntPtr)Math.Min(128, Output.NumberOfUnits), (IntPtr)Math.Min(128, Input.NumberOfUnits) }; // may need some fine-tuning
-            CL.Error = Cl.EnqueueNDRangeKernel(CL.Queue, CL.FCUpdateParameters, 2, null, globalWorkSizePtr, localWorkSizePtr, 0, null, out CL.Event);
+            CL.Error = Cl.EnqueueNDRangeKernel( CL.Queue, 
+                                                CL.FCUpdateParameters, 
+                                                2, 
+                                                null, 
+                                                updateGlobalWorkSizePtr, 
+                                                updateLocalWorkSizePtr, 
+                                                0, 
+                                                null, 
+                                                out CL.Event);
             CL.CheckErr(CL.Error, "FullyConnected.UpdateParameters(): Cl.EnqueueNDRangeKernel");
 
 #else

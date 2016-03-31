@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using OpenCL.Net;
 
 namespace JaNet
 {
@@ -10,14 +11,12 @@ namespace JaNet
     {
         #region ReLU layer class fields (private)
 
-        /* Additional fields, inherited from "Layer" class:
-        * 
-        * protected Neurons input;
-        * protected Neurons output;
-        * 
-        * protected Layer nextLayer;
-        * protected string layerType;
-        */
+#if OPENCL_ENABLED
+        private IntPtr[] globalWorkSizePtr;
+        private IntPtr[] localWorkSizePtr; 
+        // in this case nInput = nOutput  ==>  only need to set one global/local work size 
+        // (i.e. no need to distinguish between forward and backward pass)
+#endif
 
         #endregion
 
@@ -25,9 +24,8 @@ namespace JaNet
         #region Setup methods (to be called once)
 
         /// <summary>
-        /// Constructor of Tanh layer. Specify beta parameter as argument.
+        /// Constructor of ReLU layer.
         /// </summary>
-        /// <param name="Beta"></param>
         public ReLU()
         {
             //Console.WriteLine("Adding a ReLU layer...");
@@ -57,7 +55,21 @@ namespace JaNet
 
         public override void InitializeParameters()
         {
-            // This layer doesn't learn: No parameters to initialize.
+            SetWorkGroupSizes();
+        }
+
+        private void SetWorkGroupSizes()
+        {
+            // Work group sizes will be set as follows:
+            //      global work size = total number of processes needed
+            //      local work size = largest divisor of global work size <= maxWorkGroupSize of device in context
+            // (this is probably suboptimal, but improvements are most likely negligible compared to improvements elsewhere, e.g. in the kernels code)
+
+            this.globalWorkSizePtr = new IntPtr[] { (IntPtr)(Output.NumberOfUnits) };
+            int tmpLocalWorkSize = Output.NumberOfUnits;
+            while (tmpLocalWorkSize > CL.maxWorkGroupSize || tmpLocalWorkSize > CL.maxWorkItemSizes[0])
+                tmpLocalWorkSize /= 2;
+            this.localWorkSizePtr = new IntPtr[] { (IntPtr)(tmpLocalWorkSize) };
         }
 
         #endregion
@@ -67,6 +79,26 @@ namespace JaNet
 
         public override void FeedForward()
         {
+#if OPENCL_ENABLED
+            // Set kernel arguments
+            CL.Error  = Cl.SetKernelArg(CL.ReLUForward, 0, Output.ActivationsGPU);
+            CL.Error |= Cl.SetKernelArg(CL.ReLUForward, 1, Input.ActivationsGPU);
+            CL.Error |= Cl.SetKernelArg(CL.ReLUForward, 2, (IntPtr)sizeof(int), Output.NumberOfUnits);
+            CL.CheckErr(CL.Error, "ReLU.FeedForward(): Cl.SetKernelArg");
+
+            // Run kernel
+            CL.Error = Cl.EnqueueNDRangeKernel( CL.Queue,
+                                                CL.ReLUForward,
+                                                1,
+                                                null,
+                                                globalWorkSizePtr,
+                                                localWorkSizePtr,
+                                                0,
+                                                null,
+                                                out CL.Event);
+            CL.CheckErr(CL.Error, "FullyConnected.FeedForward(): Cl.EnqueueNDRangeKernel");
+
+#else
             float[] tmpOutput = new float[this.numberOfUnits];
             for (int i = 0; i < this.numberOfUnits; i++)
             {
@@ -76,25 +108,38 @@ namespace JaNet
                     tmpOutput[i] = 0.0F;
             }
             this.output.SetHost(tmpOutput);
+#endif
         }
 
         public override void BackPropagate()
         {
+#if OPENCL_ENABLED
+            
+            // Set kernel arguments
+            CL.Error  = Cl.SetKernelArg(CL.ReLUBackward, 0, Input.DeltaGPU);
+            CL.Error |= Cl.SetKernelArg(CL.ReLUBackward, 1, Output.DeltaGPU);
+            CL.Error |= Cl.SetKernelArg(CL.ReLUBackward, 2, Input.ActivationsGPU);
+            CL.Error |= Cl.SetKernelArg(CL.ReLUBackward, 3, (IntPtr)sizeof(int), Input.NumberOfUnits);
+            CL.CheckErr(CL.Error, "ReLU.BackPropagate(): Cl.SetKernelArg");
+
+            // Run kernel
+            CL.Error = Cl.EnqueueNDRangeKernel( CL.Queue,
+                                                CL.ReLUBackward,
+                                                1,
+                                                null,
+                                                globalWorkSizePtr,
+                                                localWorkSizePtr,
+                                                0,
+                                                null,
+                                                out CL.Event);
+            CL.CheckErr(CL.Error, "ReLU.BackPropagate(): Cl.EnqueueNDRangeKernel");
+
+#else
             for (int i = 0; i < this.numberOfUnits; i++)
                 this.input.DeltaHost[i] = this.input.GetHost()[i] > 0 ? this.output.DeltaHost[i] : 0.0F;
-        }
+#endif
 
-        /*
-        public override void BackPropBatchCPU()
-        {
-            float[] tmpDelta = new float[numberOfUnits];
-            for (int i = 0; i < this.numberOfUnits; i++)
-                this.Input.DeltaHost[i] = this.Input.GetHost()[i] > 0 ? this.Output.DeltaHost[i] : 0.0F;
-
-            this.Input.DeltaHost = this.Input.DeltaHost.Zip(tmpDelta, (x, y) => x + y).ToArray();
         }
-        */
-        
 
         #endregion
 

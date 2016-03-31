@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using OpenCL.Net;
 
 namespace JaNet
 {
@@ -12,6 +13,9 @@ namespace JaNet
 
 
 #if OPENCL_ENABLED
+
+        Mem auxiliaryFloatBuffer; // needed by forward pass
+
         private IntPtr[] globalWorkSizePtr;
         private IntPtr[] localWorkSizePtr;
         // in this case nInput = nOutput  ==>  only need to set one global/local work size 
@@ -57,7 +61,12 @@ namespace JaNet
 
         public override void InitializeParameters()
         {
+#if OPENCL_ENABLED
+            this.auxiliaryFloatBuffer = (Mem)Cl.CreateBuffer(CL.Context, MemFlags.ReadWrite, (IntPtr)sizeof(float), out CL.Error);
+            CL.CheckErr(CL.Error, "Cl.CreateBuffer auxiliaryFloatBuffer");
+
             SetWorkGroupSizes();
+#endif
         }
 
         private void SetWorkGroupSizes()
@@ -81,6 +90,29 @@ namespace JaNet
 
         public override void FeedForward()
         {
+#if OPENCL_ENABLED
+
+            // Set kernel arguments
+            CL.Error  = Cl.SetKernelArg(CL.SoftmaxForward, 0, Output.ActivationsGPU);
+            CL.Error |= Cl.SetKernelArg(CL.SoftmaxForward, 1, Input.ActivationsGPU);
+            CL.Error |= Cl.SetKernelArg(CL.SoftmaxForward, 2, auxiliaryFloatBuffer);
+            CL.Error |= Cl.SetKernelArg(CL.SoftmaxForward, 3, (IntPtr)sizeof(int), Output.NumberOfUnits);
+            CL.CheckErr(CL.Error, "Softmax.FeedForward(): Cl.SetKernelArg");
+
+            // Run kernel
+            CL.Error = Cl.EnqueueNDRangeKernel( CL.Queue,
+                                                CL.SoftmaxForward,
+                                                1,
+                                                null,
+                                                globalWorkSizePtr,
+                                                localWorkSizePtr,
+                                                0,
+                                                null,
+                                                out CL.Event);
+            CL.CheckErr(CL.Error, "Softmax.FeedForward(): Cl.EnqueueNDRangeKernel");
+
+#else
+
             // use rescaling trick to improve numerical stability
             float maxInput = this.input.GetHost()[0];
             for (int i = 1; i < this.numberOfUnits; i++)
@@ -101,6 +133,7 @@ namespace JaNet
             }
 
             this.output.SetHost(tmpOutput);
+#endif
         }
 
 

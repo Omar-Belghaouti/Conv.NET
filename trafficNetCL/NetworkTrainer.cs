@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Diagnostics;
 using System.Threading.Tasks;
+using OpenCL.Net;
 
 namespace JaNet
 {
@@ -23,6 +24,7 @@ namespace JaNet
 
         
         #endregion
+
 
         #region NetworkTrainer properties
 
@@ -286,8 +288,16 @@ namespace JaNet
             bool isOutputEpoch = true;
             int epochsRemainingToOutput = 0;
             
+
             float[] outputScores = new float[trainingSet.NumberOfClasses];
             float[] labelArray = new float[trainingSet.NumberOfClasses];
+
+#if OPENCL_ENABLED
+            IntPtr inputBufferBytesSize = (IntPtr)(sizeof(float) * trainingSet.GetDataPoint(0).Length);
+            IntPtr outputBufferBytesSize = (IntPtr)(sizeof(float) * trainingSet.NumberOfClasses);
+            Mem outputScoresGPU = (Mem)Cl.CreateBuffer(CL.Context, MemFlags.ReadWrite, outputBufferBytesSize, outputScores, out CL.Error);
+            CL.CheckErr(CL.Error, "Cl.CreateBuffer outputScoresGPU");
+#endif
 
             int epoch = 0;
 
@@ -302,14 +312,32 @@ namespace JaNet
                     for (int iWithinMiniBatch = 0; iWithinMiniBatch < miniBatchSize; iWithinMiniBatch++)
                     {
                         iDataPoint = randomIntSequence[iStartMiniBatch + iWithinMiniBatch];
-
+#if OPENCL_ENABLED
+                        Cl.EnqueueCopyBuffer(   CL.Queue, 
+                                                trainingSet.DataGPU(iDataPoint), 
+                                                network.Layers[0].Input.ActivationsGPU, 
+                                                (IntPtr)null,
+                                                (IntPtr)null, 
+                                                inputBufferBytesSize,
+                                                0,
+                                                null,
+                                                out CL.Event);
+                        CL.CheckErr(CL.Error, "NetworkTrainer.TrainMNIST(): Cl.EnqueueCopyBuffer");
+#else
                         network.Layers[0].Input.SetHost(trainingSet.GetDataPoint(iDataPoint));
-
+#endif
+                        
                         // Run forward
                         for (int l = 0; l < network.NumberOfLayers; l++)
                         {
                             network.Layers[l].FeedForward();
                         }
+
+                        // ==========
+                        // CHECKPOINT
+                        // ==========
+
+                        /*
                         outputScores = network.Layers.Last().Output.GetHost();
                         labelArray = trainingSet.GetLabelArray(iDataPoint);
 
@@ -324,24 +352,26 @@ namespace JaNet
                         {
                             network.Layers[l].BackPropagate();
                         }
-                        
+                        */
 
                     } // end loop over mini-batches
 
                     // Now update parameters using cumulated deltas
                     
+                    /*
                     for (int l = network.Layers.Count - 1; l >= 0; l--)
                     {
                         network.Layers[l].UpdateParameters(learningRate, momentumMultiplier);
                     }
-                    
+                    */
 
                     // And finally wipe out all cumulated deltas (NOTE: can NOT merge this and previous loop!)
+                    /*
                     for (int l = network.Layers.Count - 1; l >= 0; l--)
                     {
                         network.Layers[l].ClearDelta();
                     }
-                    
+                    */
 
                 }
 

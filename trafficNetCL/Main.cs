@@ -58,7 +58,7 @@ namespace JaNet
 
             //network.AddLayer(new Tanh(tanhBeta));
             network.AddLayer(new FullyConnectedLayer(37));
-            //network.AddLayer(new ReLU());
+            network.AddLayer(new ReLU());
             //network.AddLayer(new Tanh(tanhBeta));
             //network.AddLayer(new FullyConnectedLayer(100));
             //network.AddLayer(new ReLU());
@@ -105,20 +105,21 @@ namespace JaNet
              * (3) Train network
              ****************************************************/
             //errorCode = NetworkTrainer.Train(net, trainingSet, validationSet);
-            
+
             /*
             double errorTraining;
             int finalEpoch;
             errorCode = NetworkTrainer.TrainSimpleTest(network, reducedMNIST, out errorTraining, out finalEpoch);
 
+            
             network.Layers[0].DisplayParameters();
             network.Layers[2].DisplayParameters();
             network.Layers[4].DisplayParameters();
             */
 
 
-            //double errorMNIST;
-            //errorMNIST = NetworkTrainer.TrainMNIST(network, reducedMNIST);
+            double errorMNIST;
+            errorMNIST = NetworkTrainer.TrainMNIST(network, reducedMNIST);
 
 
             /*****************************************************

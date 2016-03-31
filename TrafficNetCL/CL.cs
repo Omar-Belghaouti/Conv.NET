@@ -59,10 +59,13 @@ namespace JaNet
         public static Kernel ReLUForward;
         public static Kernel ReLUBackward;
 
+        // Softmax layer
+        public static Kernel SoftmaxForward;
+
         #endregion
 
 
-        #region OpenCL setup
+        #region OpenCL setup and finalization
 
         public static void Setup()
         {
@@ -135,6 +138,13 @@ namespace JaNet
 
         }
 
+
+        public static void Finalize() // bad practice?
+        {
+            Cl.ReleaseCommandQueue(_queue);
+        }
+
+
         #endregion
 
 
@@ -198,6 +208,11 @@ namespace JaNet
 
             string reluBackwardName = "FCBackward";
             ReLUBackward = LoadBuildKernel(kernelsPath + "/" + reluBackwardName + ".cl", reluBackwardName);
+
+            // Softmax layer
+
+            string softmaxForwardName = "SoftmaxForward";
+            SoftmaxForward = LoadBuildKernel(kernelsPath + "/" + softmaxForwardName + ".cl", softmaxForwardName);
 
         }
 

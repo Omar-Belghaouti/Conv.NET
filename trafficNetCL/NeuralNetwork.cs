@@ -5,6 +5,7 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Data;
 using System.Diagnostics;
+using OpenCL.Net;
 
 namespace JaNet
 {
@@ -83,25 +84,103 @@ namespace JaNet
         #endregion
 
 
-        #region Other methods
-        [Obsolete("Now implemented in class NetworkTrainer")]
-        public int RunForwardOne(float[] inputImage, out float[] outputClassScores)
+
+#if OPENCL_ENABLED
+        public void ForwardPass(Mem inputDataBatch, int inputBufferBytesSize)
         {
-            int errorCode = 0;
+            //TODO: generalise to miniBatchSize > 1
 
-            layers[0].Input.SetHost(inputImage);
-            for (int iLayer = 0; iLayer < nLayers - 1; iLayer++) // all layers but last
+            
+            // Copy data point in input buffer of the first layer
+            Cl.EnqueueCopyBuffer(   CL.Queue,
+                                    inputDataBatch,                      // source
+                                    layers[0].Input.ActivationsGPU, // destination
+                                    (IntPtr)null,
+                                    (IntPtr)null,
+                                    (IntPtr)inputBufferBytesSize,
+                                    0,
+                                    null,
+                                    out CL.Event);
+            CL.CheckErr(CL.Error, "NeuralNetwork.ForwardPass(): Cl.EnqueueCopyBuffer");
+
+            // Run network forward
+            for (int l = 0; l < nLayers; l++)
             {
-                layers[iLayer].FeedForward();
-                layers[iLayer + 1].Input = layers[iLayer].Output; // set input of next layer equals to output of this layer
+
+
+                /* ------------------------- DEBUGGING ---------------------------------------------
+
+                // Display input layer-by-layer
+
+                float[] layerInput = new float[layers[l].Input.NumberOfUnits];
+                CL.Error = Cl.EnqueueReadBuffer(CL.Queue,
+                                                layers[l].Input.ActivationsGPU, // source
+                                                Bool.True,
+                                                (IntPtr)0,
+                                                (IntPtr)(layers[l].Input.NumberOfUnits * sizeof(float)),
+                                                layerInput,  // destination
+                                                0,
+                                                null,
+                                                out CL.Event);
+                CL.CheckErr(CL.Error, "NeuralNetwork.ForwardPass Cl.clEnqueueReadBuffer layerInput");
+
+                Console.WriteLine("\nLayer {0} ({1}) input activations:",l , layers[l].Type);
+                for (int j = 0; j < layerInput.Length; j++)
+                    Console.Write("{0}  ", layerInput[j]);
+                Console.WriteLine();
+                Console.ReadKey();
+
+
+                ------------------------- END DEBUGGING --------------------------------------------- */
+
+
+                layers[l].FeedForward();
+
+
+                /* ------------------------- DEBUGGING ---------------------------------------------
+
+                // Display output layer-by-layer
+
+                float[] layerOutput = new float[layers[l].Output.NumberOfUnits];
+                CL.Error = Cl.EnqueueReadBuffer(CL.Queue,
+                                                layers[l].Output.ActivationsGPU, // source
+                                                Bool.True,
+                                                (IntPtr)0,
+                                                (IntPtr)(layers[l].Output.NumberOfUnits * sizeof(float)),
+                                                layerOutput,  // destination
+                                                0,
+                                                null,
+                                                out CL.Event);
+                CL.CheckErr(CL.Error, "NeuralNetwork.ForwardPass Cl.clEnqueueReadBuffer layerOutput");
+
+                Console.WriteLine("\nLayer {0} ({1}) output activations:", l, layers[l].Type);
+                for (int j = 0; j < layerOutput.Length; j++)
+                        Console.Write("{0}  ", layerOutput[j]);
+                Console.WriteLine();
+                Console.ReadKey();
+
+
+                ------------------------- END DEBUGGING --------------------------------------------- */
+
             }
-            layers[nLayers - 1].FeedForward(); // run output (softmax) layer
-            outputClassScores = (float[])layers[nLayers - 1].Output.GetHost();
-
-            return errorCode;
         }
+#else
+        public void ForwardPass(float[] inputData)
+        {
 
-        #endregion
+            //TODO: generalise to miniBatchSize > 1
+
+            layers[0].Input.SetHost(inputData);
+   
+            // Run network forward
+            for (int l = 0; l < nLayers; l++)
+            {
+                layers[l].FeedForward();
+            }
+        }
+#endif
+
+
 
 
     }

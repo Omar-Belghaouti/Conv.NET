@@ -11,6 +11,8 @@ namespace JaNet
 {
     class DataSet
     {
+        #region DataSet class fields
+
         private int size;
         private int nClasses;
 
@@ -18,20 +20,16 @@ namespace JaNet
         private List<int> labels;
         private List<float[]> labelArrays;
 
+#if OPENCL_ENABLED
         private List<Mem> dataGPU;
         private List<Mem> labelsGPU;
         private List<Mem> labelArraysGPU;
-        
+#endif
 
-        /*
-        public void DataAdd(float[] dataPoint, int label, float[] labelArray)
-        {
-            this.data.Add(dataPoint);
-            this.labels.Add(label);
-            this.labelArrays.Add(labelArray);
-            this.size += 1;
-        }
-         * */
+        #endregion
+
+
+        #region DataSet class properties
 
         public int Size
         {
@@ -58,6 +56,7 @@ namespace JaNet
             return this.labelArrays[Index];
         }
 
+#if OPENCL_ENABLED
         // Pseudo-indexers for GPU buffers
 
         public Mem DataGPU(int iExample)
@@ -74,6 +73,9 @@ namespace JaNet
         {
             return labelArraysGPU[iExample];
         }
+#endif
+
+        #endregion
 
 
         /// <summary>
@@ -167,7 +169,6 @@ namespace JaNet
                 Mem tmpBufferImage = (Mem)Cl.CreateBuffer(CL.Context, MemFlags.ReadWrite | MemFlags.CopyHostPtr, (IntPtr)imageBytesSize, image, out CL.Error);
                 CL.CheckErr(CL.Error, "DataSet(): Cl.CreateBuffer tmpBufferImage");
                 this.dataGPU.Add(tmpBufferImage);
-                Cl.ReleaseMemObject(tmpBufferImage); //...needed?!
 #endif
 
             }

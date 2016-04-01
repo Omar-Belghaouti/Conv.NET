@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using System.Diagnostics;
 using OpenCL.Net;
 
 namespace JaNet
@@ -61,6 +62,12 @@ namespace JaNet
 
         // Softmax layer
         public static Kernel SoftmaxForward;
+
+        // Cross-entropy gradient
+        public static Kernel CrossEntropyGradient;
+
+        // Classification
+        public static Kernel CheckClassification;
 
         #endregion
 
@@ -126,6 +133,10 @@ namespace JaNet
             _context = Cl.CreateContext(null, 1, new[] { _device }, ContextNotify, IntPtr.Zero, out Error);    //Second parameter is amount of devices
             CheckErr(Error, "CL.Setup: Cl.CreateContext");
 
+            // Create OpenCL command queue
+            _queue = Cl.CreateCommandQueue(_context, _device, (CommandQueueProperties)0, out Error);
+            CheckErr(Error, "CL.Setup: Cl.CreateCommandQueue");
+
             // Extract some device info
             maxWorkItemSizes = Cl.GetDeviceInfo(_device, DeviceInfo.MaxWorkItemSizes, out Error).CastToEnumerable<int>(new int[] { 0, 1, 2 }).ToList();
             Console.WriteLine("Max work item sizes: {0}, {1}, {2}", maxWorkItemSizes[0], maxWorkItemSizes[1], maxWorkItemSizes[2]);
@@ -139,10 +150,12 @@ namespace JaNet
         }
 
 
+        /*
         public static void Finalize() // bad practice?
         {
             Cl.ReleaseCommandQueue(_queue);
         }
+         * */
 
 
         #endregion
@@ -214,6 +227,15 @@ namespace JaNet
             string softmaxForwardName = "SoftmaxForward";
             SoftmaxForward = LoadBuildKernel(kernelsPath + "/" + softmaxForwardName + ".cl", softmaxForwardName);
 
+            // Cross-entropy gradient
+
+            string crossEntropyGradientName = "CrossEntropyGradient";
+            CrossEntropyGradient = LoadBuildKernel(kernelsPath + "/" + crossEntropyGradientName + ".cl", crossEntropyGradientName);
+
+            // Classification
+
+            string classificationName = "CheckClassification";
+            CheckClassification = LoadBuildKernel(kernelsPath + "/" + classificationName + ".cl", classificationName);
         }
 
         #endregion
@@ -226,6 +248,7 @@ namespace JaNet
             if (err != ErrorCode.Success)
             {
                 Console.WriteLine("ERROR: " + name + " (" + err.ToString() + ")");
+                Console.ReadKey();
             }
         }
 

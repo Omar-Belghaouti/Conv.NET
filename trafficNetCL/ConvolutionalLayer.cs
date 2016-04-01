@@ -165,10 +165,14 @@ namespace JaNet
 
         public override void FeedForward()
         {
+#if OPENCL_ENABLED
+            //TODO:
+            // implement forward pass with OpenCL
+#else
             this.inputAsMatrix = UnrollInput(input.GetHost());
             this.outputAsMatrix = Utils.MatrixMultiply(weights, inputAsMatrix);
             this.output.SetHost(OutputMatrixToVector(outputAsMatrix));
-            // Probably implementing all of this as a single OpenCL kernel would be a good idea
+#endif
         }
 
         public override void BackPropagate()

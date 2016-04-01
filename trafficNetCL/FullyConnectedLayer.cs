@@ -135,8 +135,8 @@ namespace JaNet
             int weightBufferSize = sizeof(float) * (this.Output.NumberOfUnits * this.Input.NumberOfUnits);
             int biasesBufferSize = sizeof(float) * this.Output.NumberOfUnits;
 
-            this.weightsGPU = (Mem)Cl.CreateBuffer(CL.Context, MemFlags.ReadWrite, (IntPtr)weightBufferSize, out CL.Error);
-            this.biasesGPU = (Mem)Cl.CreateBuffer(CL.Context, MemFlags.ReadWrite, (IntPtr)biasesBufferSize, out CL.Error);
+            this.weightsGPU = (Mem)Cl.CreateBuffer(CL.Context, MemFlags.ReadWrite | MemFlags.CopyHostPtr, (IntPtr)weightBufferSize, weights, out CL.Error);
+            this.biasesGPU = (Mem)Cl.CreateBuffer(CL.Context, MemFlags.ReadWrite | MemFlags.CopyHostPtr, (IntPtr)biasesBufferSize, biases, out CL.Error);
             this.weightsUpdateSpeedGPU = (Mem)Cl.CreateBuffer(CL.Context, MemFlags.ReadWrite, (IntPtr)weightBufferSize, out CL.Error);
             this.biasesUpdateSpeedGPU = (Mem)Cl.CreateBuffer(CL.Context, MemFlags.ReadWrite, (IntPtr)biasesBufferSize, out CL.Error);
             CL.CheckErr(CL.Error, "InitializeParameters(): Cl.CreateBuffer");
@@ -145,7 +145,7 @@ namespace JaNet
 #endif
         }
 
-
+#if OPENCL_ENABLED
         private void SetWorkGroupSizes()
         {
             // Work group sizes will be set as follows:
@@ -181,7 +181,7 @@ namespace JaNet
             this.updateLocalWorkSizePtr = new IntPtr[] { (IntPtr)(tmpUpdLocalWorkSize[0]), (IntPtr)(tmpUpdLocalWorkSize[1]) };
 
         }
-
+#endif
 
         #endregion
 

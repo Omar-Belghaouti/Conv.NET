@@ -69,6 +69,7 @@ namespace JaNet
 #endif
         }
 
+#if OPENCL_ENABLED
         private void SetWorkGroupSizes()
         {
             // Work group sizes will be set as follows:
@@ -82,7 +83,7 @@ namespace JaNet
                 tmpLocalWorkSize /= 2;
             this.localWorkSizePtr = new IntPtr[] { (IntPtr)(tmpLocalWorkSize) };
         }
-
+#endif
         #endregion
 
 
@@ -139,9 +140,7 @@ namespace JaNet
 
         public override void BackPropagate()
         {
-            if (this.Input.DeltaHost.Length != this.Output.DeltaHost.Length)
-                throw new System.InvalidOperationException("Softmax layer: mismatch in length of delta arrays.");
-
+            throw new System.InvalidOperationException("Called BackPropagate() method of SoftMax layer. Don't do it! Just feed the gradient back to the previous layer!");
             // NO backprop here!!
             // Compute directly input.Delta from cross-entropy cost: faster and numerically more stable
         }

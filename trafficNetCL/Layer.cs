@@ -131,11 +131,13 @@ namespace JaNet
         {
         }
 
+        /*
         public virtual void ClearDelta()
         {
             Array.Clear(this.input.DeltaHost, 0, this.input.NumberOfUnits);
             Array.Clear(this.output.DeltaHost, 0, this.output.NumberOfUnits);
         }
+        */
 
         
 
@@ -149,6 +151,7 @@ namespace JaNet
 
         }
 
+        /*
         public virtual void DisplayDeltas()
         {
 
@@ -166,6 +169,7 @@ namespace JaNet
             }
 
         }
+         * */
 
         #endregion
 

@@ -71,19 +71,27 @@ namespace JaNet
 
         public override void FeedForward()
         {
+#if OPENCL_ENABLED
+            // TO-DO...
+
+#else
             float[] tmpOutput = new float[this.numberOfUnits];
             for (int i = 0; i < this.numberOfUnits; i++)
             {
                 tmpOutput[i] = (float)Math.Tanh(beta*this.input.GetHost()[i]);
             }
             this.output.SetHost(tmpOutput);
+#endif
         }
 
         public override void BackPropagate()
         {
+#if OPENCL_ENABLED
+
+#else
             for (int i = 0; i < this.numberOfUnits; i++)
                 this.input.DeltaHost[i] = this.output.DeltaHost[i] * (float) (beta * (1 - Math.Pow((double)this.output.GetHost()[i], 2)) );
-
+#endif
         }
 
         /*

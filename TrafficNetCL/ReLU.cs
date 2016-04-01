@@ -55,9 +55,12 @@ namespace JaNet
 
         public override void InitializeParameters()
         {
+#if OPENCL_ENABLED
             SetWorkGroupSizes();
+#endif
         }
 
+#if OPENCL_ENABLED
         private void SetWorkGroupSizes()
         {
             // Work group sizes will be set as follows:
@@ -71,6 +74,7 @@ namespace JaNet
                 tmpLocalWorkSize /= 2;
             this.localWorkSizePtr = new IntPtr[] { (IntPtr)(tmpLocalWorkSize) };
         }
+#endif
 
         #endregion
 
@@ -96,7 +100,7 @@ namespace JaNet
                                                 0,
                                                 null,
                                                 out CL.Event);
-            CL.CheckErr(CL.Error, "FullyConnected.FeedForward(): Cl.EnqueueNDRangeKernel");
+            CL.CheckErr(CL.Error, "ReLU.FeedForward(): Cl.EnqueueNDRangeKernel");
 
 #else
             float[] tmpOutput = new float[this.numberOfUnits];

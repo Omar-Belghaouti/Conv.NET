@@ -16,7 +16,7 @@ namespace JaNet
 #if OPENCL_ENABLED
         private Mem activationsGPU;
         private Mem deltaGPU;
-//#else
+#else
         private float[] activations;
         private float[] delta;
 #endif
@@ -43,7 +43,7 @@ namespace JaNet
             get { return this.deltaGPU; }
             set { this.deltaGPU = value; }
         }
-//#else       
+#else       
         public float[] GetHost()
         {
             return activations;
@@ -86,7 +86,7 @@ namespace JaNet
             CL.CheckErr(CL.Error, "Neurons constructor: Cl.CreateBuffer");
 #else
 
-            this.unitsActivations = new float[nUnits];
+            this.activations = new float[nUnits];
             this.delta = new float[nUnits];
 #endif
         

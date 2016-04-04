@@ -8,6 +8,8 @@ using OpenCL.Net;
 
 namespace JaNet
 {
+
+#if OPENCL_ENABLED
     static class CL
     {
 
@@ -219,7 +221,7 @@ namespace JaNet
             string reluForwardName = "ReLUForward";
             ReLUForward = LoadBuildKernel(kernelsPath + "/" + reluForwardName + ".cl", reluForwardName);
 
-            string reluBackwardName = "FCBackward";
+            string reluBackwardName = "ReLUBackward";
             ReLUBackward = LoadBuildKernel(kernelsPath + "/" + reluBackwardName + ".cl", reluBackwardName);
 
             // Softmax layer
@@ -258,7 +260,24 @@ namespace JaNet
             Console.WriteLine("OpenCL Notification: " + errInfo);
         }
 
+        public static void ClearBuffer(Mem buffer, int bufferSize)
+        {
+            float[] zeros = new float[bufferSize];
+            CL.Error = Cl.EnqueueWriteBuffer(   CL.Queue,
+                                                buffer,
+                                                OpenCL.Net.Bool.True,
+                                                (IntPtr)0,
+                                                (IntPtr)(sizeof(float) * bufferSize),
+                                                zeros,
+                                                0,
+                                                null,
+                                                out CL.Event);
+            CL.CheckErr(CL.Error, "CL.ClearBuffer: Cl.EnqueueWriteBuffer");
+        }
+
         #endregion
 
     }
+
+#endif
 }

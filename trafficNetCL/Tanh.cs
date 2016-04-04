@@ -72,7 +72,7 @@ namespace JaNet
         public override void FeedForward()
         {
 #if OPENCL_ENABLED
-            // TO-DO...
+            // TODO: (implement)
 
 #else
             float[] tmpOutput = new float[this.numberOfUnits];
@@ -87,7 +87,7 @@ namespace JaNet
         public override void BackPropagate()
         {
 #if OPENCL_ENABLED
-
+            // TODO: (implement)
 #else
             for (int i = 0; i < this.numberOfUnits; i++)
                 this.input.DeltaHost[i] = this.output.DeltaHost[i] * (float) (beta * (1 - Math.Pow((double)this.output.GetHost()[i], 2)) );

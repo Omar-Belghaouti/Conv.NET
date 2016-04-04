@@ -70,11 +70,11 @@ namespace JaNet
 
             // Setup output
             double tmp = (double)(inputWidth - filterSize + 2 * zeroPadding) / (double)strideLength + 1;
-            if (Math.Abs(tmp % 1) > GlobalVar.EPSILON)
+            if (Math.Abs(tmp % 1) > Global.EPSILON)
                 throw new System.ArgumentException("Input width, filter size, zero padding and stride length do not fit well. Check the values!");
             this.outputWidth = (int) tmp;
             tmp = (double)(inputHeight - filterSize + 2 * zeroPadding) / (double)strideLength + 1;
-            if (Math.Abs(tmp % 1) > GlobalVar.EPSILON)
+            if (Math.Abs(tmp % 1) > Global.EPSILON)
                 throw new System.ArgumentException("Input height, filter size, zero padding and stride length do not fit well. Check the values!");
             this.outputHeight = (int)tmp;
             this.outputDepth = nFilters;
@@ -101,11 +101,11 @@ namespace JaNet
             // Setup output
             double tmp = (double)(inputWidth - filterSize + 2 * zeroPadding) / (double)strideLength + 1;
             Console.WriteLine("Output width = {0}", tmp);
-            if (Math.Abs(tmp % 1) > GlobalVar.EPSILON)
+            if (Math.Abs(tmp % 1) > Global.EPSILON)
                 throw new System.ArgumentException("Input width, filter size, zero padding and stride length do not fit well. Check the values!");
             this.outputWidth = (int) tmp;
             tmp = (double)(inputHeight - filterSize + 2 * zeroPadding) / (double)strideLength + 1;
-            if (Math.Abs(tmp % 1) > GlobalVar.EPSILON)
+            if (Math.Abs(tmp % 1) > Global.EPSILON)
                 throw new System.ArgumentException("Input height, filter size, zero padding and stride length do not fit well. Check the values!");
             this.outputHeight = (int) tmp;
             this.outputDepth = nFilters;
@@ -125,7 +125,6 @@ namespace JaNet
             this.weights = new float[nFilters, inputDepth * filterSize * filterSize];
             this.biases = new float[nFilters];
 
-            Random rng = new Random();
             double weightsStdDev = Math.Sqrt(2.0 / this.input.NumberOfUnits);
             double uniformRand1;
             double uniformRand2;
@@ -135,8 +134,8 @@ namespace JaNet
             {
                 for (int iCol = 0; iCol < weights.GetLength(1); iCol++)
                 {
-                    uniformRand1 = rng.NextDouble();
-                    uniformRand2 = rng.NextDouble();
+                    uniformRand1 = Global.rng.NextDouble();
+                    uniformRand2 = Global.rng.NextDouble();
                     // Use a Box-Muller transform to get a random normal(0,1)
                     tmp = Math.Sqrt(-2.0 * Math.Log(uniformRand1)) * Math.Sin(2.0 * Math.PI * uniformRand2);
                     tmp = weightsStdDev * tmp; // rescale using stdDev

@@ -21,7 +21,7 @@ namespace JaNet
         protected Layer nextLayer;
 
         protected int numberOfUnits;
-
+        protected int id;
         protected string type;
 
         // Used in convolutional and pooling layers:
@@ -32,7 +32,6 @@ namespace JaNet
         protected int outputWidth;
         protected int outputHeight; // assumed equal to outputWidth for now
         protected int outputDepth;
-
 
         #endregion
 
@@ -52,6 +51,12 @@ namespace JaNet
         
         public virtual Layer NextLayer {
             set { this.nextLayer = value; } 
+        }
+
+        public int ID
+        {
+            get { return id; }
+            set { this.id = value; }
         }
 
         public string Type
@@ -151,25 +156,6 @@ namespace JaNet
 
         }
 
-        /*
-        public virtual void DisplayDeltas()
-        {
-
-
-            Console.WriteLine("Layer INPUT deltas:");
-            for (int i = 0; i < this.input.NumberOfUnits; i++)
-            {
-                Console.Write("{0}  ", this.input.DeltaHost[i]);
-            }
-
-            Console.WriteLine("\nLayer OUTPUT deltas:");
-            for (int i = 0; i < this.output.NumberOfUnits; i++)
-            {
-                Console.Write("{0}  ", this.output.DeltaHost[i]);
-            }
-
-        }
-         * */
 
         #endregion
 

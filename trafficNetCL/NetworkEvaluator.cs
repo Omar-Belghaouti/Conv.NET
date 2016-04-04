@@ -16,6 +16,9 @@ namespace JaNet
         private static int inputBufferBytesSize;
         private static IntPtr[] classificationGlobalWorkSize;
         private static IntPtr[] classificationLocalWorkSize;
+
+        private static Mem assignedClassBuffer;
+
 #endif
 
 #if OPENCL_ENABLED
@@ -24,6 +27,12 @@ namespace JaNet
             inputBufferBytesSize = sizeof(float) * dataSet.GetDataPoint(0).Length;
             classificationGlobalWorkSize = new IntPtr[] { (IntPtr)(miniBatchSize * dataSet.NumberOfClasses) };
             classificationLocalWorkSize = new IntPtr[] { (IntPtr)(dataSet.NumberOfClasses) };
+
+            assignedClassBuffer = (Mem)Cl.CreateBuffer( CL.Context, 
+                                                        MemFlags.ReadWrite, 
+                                                        (IntPtr)(sizeof(int) * NetworkTrainer.MiniBatchSize), 
+                                                        out CL.Error);
+            CL.CheckErr(CL.Error, "NetworkEvaluator.SetupCLObjects: Cl.CreateBuffer assignedClassBuffer");
         }
 #endif
 
@@ -69,32 +78,50 @@ namespace JaNet
         {
             double classificationError = 0;
 
-            // FORWARD PASS (all data points)
-
+            // loop through all data points in dataSet
             for (int i = 0; i < dataSet.Size; i++)
             {
+                // FEED INPUT DATA
+
 #if OPENCL_ENABLED
-                //TODO: generalise to miniBatchSize > 1
-                //TODO: fix
-                network.ForwardPass(dataSet.DataGPU(i), inputBufferBytesSize);
+
+                // Copy by reference
+                network.Layers[0].Input.ActivationsGPU = dataSet.DataGPU(i);
+
+
+                // Copy data point in input buffer of the first layer (by value)
+                /*
+                Cl.EnqueueCopyBuffer(   CL.Queue,
+                                        dataSet.DataGPU(i),        // source
+                                        network.Layers[0].Input.ActivationsGPU, // destination
+                                        (IntPtr)null,
+                                        (IntPtr)null,
+                                        (IntPtr)inputBufferBytesSize,
+                                        0,
+                                        null,
+                                        out CL.Event);
+                CL.CheckErr(CL.Error, "NetworkEvaluator: Cl.EnqueueCopyBuffer inputData");
+                 * */
 #else
-                //TODO: generalise to miniBatchSize > 1
-                network.ForwardPass(dataSet.GetDataPoint(i));
+                network.Layers[0].Input.SetHost(dataSet.GetDataPoint(i));
 #endif
+                
+
+                // FORWARD PASS
+                
+                network.ForwardPass();
 
                 // COUNT CLASSIFICATION ERRORS
 
 #if OPENCL_ENABLED
 
-                Mem assignedClassBuffer = (Mem)Cl.CreateBuffer( CL.Context, 
-                                                                MemFlags.ReadWrite, 
-                                                                (IntPtr)(sizeof(int) * NetworkTrainer.MiniBatchSize), 
-                                                                out CL.Error);
-                CL.CheckErr(CL.Error, "NetworkEvaluator.ComputeClassificationError: Cl.CreateBuffer assignedClassBuffer");
 
+                // TODO: fix kernel for checking correct classification
+                // (done on the host at the moment)
+
+                /*
                 CL.Error  = Cl.SetKernelArg(CL.CheckClassification, 0, assignedClassBuffer);
                 CL.Error |= Cl.SetKernelArg(CL.CheckClassification, 1, network.Layers.Last().Output.ActivationsGPU);
-                //CL.Error |= Cl.SetKernelArg(CL.CheckClassification, 2, dataSet.LabelsGPU(i));
                 CL.Error |= Cl.SetKernelArg(CL.CheckClassification, 2, (IntPtr)sizeof(int), dataSet.NumberOfClasses);
                 CL.CheckErr(CL.Error, "NetworkEvaluator.ComputeClassificationError: Cl.SetKernelArg");
 
@@ -120,13 +147,10 @@ namespace JaNet
                                                 null, 
                                                 out CL.Event);
                 CL.CheckErr(CL.Error, "NetworkEvaluator.ComputeClassificationError: Cl.clEnqueueReadBuffer assignedClass");
+                */
 
 
-                /* ------------------------- DEBUGGING ---------------------------------------------
-
-                // Display assigned class and correct class
-
-                int assignedClass = new int();
+                
                 float[] classScores = new float[dataSet.NumberOfClasses];
                 CL.Error = Cl.EnqueueReadBuffer(CL.Queue,
                                                 network.Layers.Last().Output.ActivationsGPU, // source
@@ -139,24 +163,40 @@ namespace JaNet
                                                 out CL.Event);
                 CL.CheckErr(CL.Error, "NetworkEvaluator.ComputeClassificationError Cl.clEnqueueReadBuffer classScores");
 
-                assignedClass = Utils.IndexOfMax(classScores);
+                int assignedClass = Utils.IndexOfMax(classScores);
 
-                Console.WriteLine("\nData point {0}: \n\tAssigned class = {1}\n\tTrue class = {2}", i, assignedClass, dataSet.GetLabel(i));
-                Console.ReadKey();
-
-
-                ------------------------- END DEBUGGING --------------------------------------------- */
+                //Console.WriteLine("\nData point {0}: \n\tAssigned class = {1}\n\tTrue class = {2}", i, assignedClass, dataSet.GetLabel(i));
+                //Console.ReadKey();
 
 
-                classificationError += (assignedClass == dataSet.GetLabel(i)) ? 0 : 1;
+                /* ------------------------- END DEBUGGING --------------------------------------------- */
+
+
+                /* ------------------------- DEBUGGING --------------------------------------------- */
+
+                //if (assignedClass == dataSet.GetLabel(i))
+                //    correctClassifications += (i.ToString() + " ");
+
+                /* ------------------------- END DEBUGGING --------------------------------------------- */
+
+
+                
 
 #else
+                float[] classScores = network.Layers.Last().Output.GetHost();
+                int assignedClass = Utils.IndexOfMax(classScores);
+                
 
-                int outputClassMaxScore = Utils.IndexOfMax(network.Layers.Last().Output.GetHost());
-                if (outputClassMaxScore != dataSet.GetLabel(i))
-                    classificationError += 1;
 #endif
+                //Console.WriteLine("\nData point {0}: \n\tAssigned class = {1}\n\tTrue class = {2}", i, assignedClass, dataSet.GetLabel(i));
+                //Console.ReadKey();
+                //Console.WriteLine("\nScores:  {0}  {1}", classScores[0], classScores[1]);
+                //Console.ReadKey();
+                classificationError += (assignedClass == dataSet.GetLabel(i)) ? 0 : 1;
             }
+
+            //Console.WriteLine("Data points correctly classified: \n" + correctClassifications);
+            //Console.ReadKey();
 
             return classificationError / dataSet.Size;
         }

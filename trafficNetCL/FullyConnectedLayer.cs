@@ -96,7 +96,6 @@ namespace JaNet
             this.weights = new float[this.Output.NumberOfUnits, this.Input.NumberOfUnits];
             this.biases = new float[this.Output.NumberOfUnits];
 
-            Random rng = new Random(); //reuse this if you are generating many
             double weightsStdDev = Math.Sqrt(2.0/this.input.NumberOfUnits);
             double uniformRand1;
             double uniformRand2;
@@ -107,8 +106,8 @@ namespace JaNet
                 
                 for (int iCol = 0; iCol < this.weights.GetLength(1); iCol++)
                 {
-                    uniformRand1 = rng.NextDouble();
-                    uniformRand2 = rng.NextDouble();
+                    uniformRand1 = Global.rng.NextDouble();
+                    uniformRand2 = Global.rng.NextDouble();
                     // Use a Box-Muller transform to get a random normal(0,1)
                     tmp = Math.Sqrt(-2.0 * Math.Log(uniformRand1)) * Math.Sin(2.0 * Math.PI * uniformRand2);
                     tmp = weightsStdDev * tmp; // rescale
@@ -170,14 +169,24 @@ namespace JaNet
             // UpdateParameters
             this.updateGlobalWorkSizePtr = new IntPtr[] { (IntPtr)(Output.NumberOfUnits), (IntPtr)(Input.NumberOfUnits) };
             int[] tmpUpdLocalWorkSize = new int[] { Output.NumberOfUnits, Input.NumberOfUnits };
-            while (tmpUpdLocalWorkSize[0] > CL.maxWorkItemSizes[0])
+            // make each local work group dimension <= corresponding max work item size (depends on device)
+            while (tmpUpdLocalWorkSize[0] > CL.maxWorkItemSizes[0] && tmpUpdLocalWorkSize[0] % 2 == 0)
                     tmpUpdLocalWorkSize[0] /= 2;
-            while (tmpUpdLocalWorkSize[1] > CL.maxWorkItemSizes[1])
+            while (tmpUpdLocalWorkSize[1] > CL.maxWorkItemSizes[1] && tmpUpdLocalWorkSize[1] % 2 == 0)
                 tmpUpdLocalWorkSize[1] /= 2;
-            while (tmpUpdLocalWorkSize.Sum() > CL.maxWorkGroupSize)
+            // make entire local work group size (i.e. product of dimensions) <= of max work group size (depends on device)
+            while (tmpUpdLocalWorkSize[0] * tmpUpdLocalWorkSize[1] > CL.maxWorkGroupSize && tmpUpdLocalWorkSize[1] % 2 == 0)
+            {
                 tmpUpdLocalWorkSize[1] /= 2;
-            while (tmpUpdLocalWorkSize.Sum() > CL.maxWorkGroupSize)
+            }
+            while (tmpUpdLocalWorkSize[0] * tmpUpdLocalWorkSize[1] > CL.maxWorkGroupSize && tmpUpdLocalWorkSize[0] % 2 == 0)
+            {
                 tmpUpdLocalWorkSize[0] /= 2;
+                if (tmpUpdLocalWorkSize[0] == 1)
+                {
+                    throw new System.InvalidOperationException("I can't set a suitable local work group size! :(");
+                }
+            }
             this.updateLocalWorkSizePtr = new IntPtr[] { (IntPtr)(tmpUpdLocalWorkSize[0]), (IntPtr)(tmpUpdLocalWorkSize[1]) };
 
         }
@@ -194,7 +203,7 @@ namespace JaNet
 #if OPENCL_ENABLED
 
             // Set kernel arguments
-            CL.Error = Cl.SetKernelArg(CL.FCForward, 0, Output.ActivationsGPU);
+            CL.Error  = Cl.SetKernelArg(CL.FCForward, 0, Output.ActivationsGPU);
             CL.Error |= Cl.SetKernelArg(CL.FCForward, 1, Input.ActivationsGPU);
             CL.Error |= Cl.SetKernelArg(CL.FCForward, 2, weightsGPU);
             CL.Error |= Cl.SetKernelArg(CL.FCForward, 3, biasesGPU);
@@ -257,10 +266,160 @@ namespace JaNet
         public override void UpdateParameters(double learningRate, double momentumCoefficient)
         {
 
+            float[,] weightsBeforeUpdate = new float[output.NumberOfUnits, input.NumberOfUnits];
+
+#if DEBUGGING_STEPBYSTEP
+            /* ------------------------- DEBUGGING --------------------------------------------- */
+#if OPENCL_ENABLED
+            // Display weights before update
+            
+            CL.Error = Cl.EnqueueReadBuffer(CL.Queue,
+                                            weightsGPU, // source
+                                            Bool.True,
+                                            (IntPtr)0,
+                                            (IntPtr)(output.NumberOfUnits * input.NumberOfUnits * sizeof(float)),
+                                            weightsBeforeUpdate,  // destination
+                                            0,
+                                            null,
+                                            out CL.Event);
+            CL.CheckErr(CL.Error, "FullyConnectedLayer.UpdateParameters Cl.clEnqueueReadBuffer weightsBeforeUpdate");
+#else
+            weightsBeforeUpdate = weights;
+#endif
+            Console.WriteLine("\nWeights BEFORE update:");
+            for (int i = 0; i < weightsBeforeUpdate.GetLength(0); i++)
+            {
+                for (int j = 0; j < weightsBeforeUpdate.GetLength(1); j++)
+                    Console.Write("{0}  ", weightsBeforeUpdate[i, j]);
+                Console.WriteLine();
+            }
+            Console.WriteLine();
+            Console.ReadKey();
+
+            /* ------------------------- END DEBUGGING ---------------------------------------- */
+#endif
+
+#if DEBUGGING_STEPBYSTEP
+            /* ------------------------- DEBUGGING --------------------------------------------- */
+
+            // Display biases before update
+            float[] biasesBeforeUpdate = new float[output.NumberOfUnits];
+#if OPENCL_ENABLED
+            CL.Error = Cl.EnqueueReadBuffer(CL.Queue,
+                                            biasesGPU, // source
+                                            Bool.True,
+                                            (IntPtr)0,
+                                            (IntPtr)(output.NumberOfUnits * sizeof(float)),
+                                            biasesBeforeUpdate,  // destination
+                                            0,
+                                            null,
+                                            out CL.Event);
+            CL.CheckErr(CL.Error, "FullyConnectedLayer.UpdateParameters Cl.clEnqueueReadBuffer biasesBeforeUpdate");
+#else
+            biasesBeforeUpdate = biases;
+#endif
+            Console.WriteLine("\nBiases BEFORE update:");
+            for (int i = 0; i < biasesBeforeUpdate.Length; i++)
+            {
+                Console.Write("{0}  ", biasesBeforeUpdate[i]);
+            }
+            Console.WriteLine();
+            Console.ReadKey();
+            
+
+            /*------------------------- END DEBUGGING ---------------------------------------- */
+#endif
+
+#if DEBUGGING_STEPBYSTEP
+            /* ------------------------- DEBUGGING --------------------------------------------- */
+
+            // Display weight update speed before update
+            
+            float[,] tmpWeightsUpdateSpeed = new float[output.NumberOfUnits, input.NumberOfUnits];
+#if OPENCL_ENABLED
+            CL.Error = Cl.EnqueueReadBuffer(CL.Queue,
+                                            weightsUpdateSpeedGPU, // source
+                                            Bool.True,
+                                            (IntPtr)0,
+                                            (IntPtr)(output.NumberOfUnits * input.NumberOfUnits * sizeof(float)),
+                                            tmpWeightsUpdateSpeed,  // destination
+                                            0,
+                                            null,
+                                            out CL.Event);
+            CL.CheckErr(CL.Error, "FullyConnectedLayer.UpdateParameters Cl.clEnqueueReadBuffer weightsUpdateSpeed");
+#else
+            tmpWeightsUpdateSpeed = weightsUpdateSpeed;
+#endif
+            Console.WriteLine("\nWeight update speed BEFORE update:");
+            for (int i = 0; i < tmpWeightsUpdateSpeed.GetLength(0); i++)
+            {
+                for (int j = 0; j < tmpWeightsUpdateSpeed.GetLength(1); j++)
+                    Console.Write("{0}  ", tmpWeightsUpdateSpeed[i, j]);
+                Console.WriteLine();
+            }
+            Console.WriteLine();
+            Console.ReadKey();
+
+            // Display input activations before update
+
+            /*
+            float[] inputActivations = new float[input.NumberOfUnits];
+            CL.Error = Cl.EnqueueReadBuffer(CL.Queue,
+                                            input.ActivationsGPU, // source
+                                            Bool.True,
+                                            (IntPtr)0,
+                                            (IntPtr)(input.NumberOfUnits * sizeof(float)),
+                                            inputActivations,  // destination
+                                            0,
+                                            null,
+                                            out CL.Event);
+            CL.CheckErr(CL.Error, "FullyConnectedLayer.UpdateParameters Cl.clEnqueueReadBuffer inputActivations");
+
+            Console.WriteLine("\nInput activations BEFORE update:");
+
+            for (int j = 0; j < inputActivations.Length; j++)
+            {
+                Console.Write("{0}  ", inputActivations[j]);
+            }
+            Console.WriteLine();
+            Console.ReadKey();
+            
+
+
+            // Display output delta before update
+
+            float[] outputDelta = new float[output.NumberOfUnits];
+            CL.Error = Cl.EnqueueReadBuffer(CL.Queue,
+                                            output.DeltaGPU, // source
+                                            Bool.True,
+                                            (IntPtr)0,
+                                            (IntPtr)(output.NumberOfUnits * sizeof(float)),
+                                            outputDelta,  // destination
+                                            0,
+                                            null,
+                                            out CL.Event);
+            CL.CheckErr(CL.Error, "FullyConnectedLayer.UpdateParameters Cl.clEnqueueReadBuffer outputDelta");
+
+            Console.WriteLine("\nOutput delta BEFORE update:");
+
+            for (int i = 0; i < outputDelta.Length; i++)
+            {
+                Console.Write("{0}", outputDelta[i]);
+                Console.WriteLine();
+            }
+            Console.WriteLine();
+            Console.ReadKey();
+            */
+
+
+
+            /*------------------------- END DEBUGGING --------------------------------------------- */
+#endif
+
 #if OPENCL_ENABLED
 
             // Set kernel arguments
-            CL.Error |= Cl.SetKernelArg(CL.FCUpdateParameters, 0, weightsGPU);
+            CL.Error  = Cl.SetKernelArg(CL.FCUpdateParameters, 0, weightsGPU);
             CL.Error |= Cl.SetKernelArg(CL.FCUpdateParameters, 1, biasesGPU);
             CL.Error |= Cl.SetKernelArg(CL.FCUpdateParameters, 2, weightsUpdateSpeedGPU);
             CL.Error |= Cl.SetKernelArg(CL.FCUpdateParameters, 3, biasesUpdateSpeedGPU);
@@ -306,6 +465,102 @@ namespace JaNet
                 this.biases[i] += this.biasesUpdateSpeed[i];
             }
 #endif
+
+#if DEBUGGING_STEPBYSTEP
+            /* ------------------------- DEBUGGING --------------------------------------------- */
+
+            // Display weight update speed after update
+#if OPENCL_ENABLED
+            CL.Error = Cl.EnqueueReadBuffer(CL.Queue,
+                                            weightsUpdateSpeedGPU, // source
+                                            Bool.True,
+                                            (IntPtr)0,
+                                            (IntPtr)(output.NumberOfUnits * input.NumberOfUnits * sizeof(float)),
+                                            tmpWeightsUpdateSpeed,  // destination
+                                            0,
+                                            null,
+                                            out CL.Event);
+            CL.CheckErr(CL.Error, "FullyConnectedLayer.UpdateParameters Cl.clEnqueueReadBuffer weightsUpdateSpeed");
+#else
+            tmpWeightsUpdateSpeed = weightsUpdateSpeed;
+#endif
+            Console.WriteLine("\nWeight update speed AFTER update:");
+            for (int i = 0; i < tmpWeightsUpdateSpeed.GetLength(0); i++)
+            {
+                for (int j = 0; j < tmpWeightsUpdateSpeed.GetLength(1); j++)
+                    Console.Write("{0}  ", tmpWeightsUpdateSpeed[i, j]);
+                Console.WriteLine();
+            }
+            Console.WriteLine();
+            Console.ReadKey();
+            
+            /* ------------------------- END DEBUGGING --------------------------------------------- */
+#endif
+
+#if DEBUGGING_STEPBYSTEP
+            /* ------------------------- DEBUGGING --------------------------------------------- */
+
+            // Display weights after update
+            float[,] weightsAfterUpdate = new float[output.NumberOfUnits, input.NumberOfUnits];
+#if OPENCL_ENABLED
+            CL.Error = Cl.EnqueueReadBuffer(CL.Queue,
+                                            weightsGPU, // source
+                                            Bool.True,
+                                            (IntPtr)0,
+                                            (IntPtr)(output.NumberOfUnits * input.NumberOfUnits * sizeof(float)),
+                                            weightsAfterUpdate,  // destination
+                                            0,
+                                            null,
+                                            out CL.Event);
+            CL.CheckErr(CL.Error, "FullyConnectedLayer.UpdateParameters Cl.clEnqueueReadBuffer weightsAfterUpdate");
+#else
+            weightsAfterUpdate = weights;
+#endif
+            Console.WriteLine("\nWeights AFTER update:");
+            for (int i = 0; i < weightsAfterUpdate.GetLength(0); i++)
+            {
+                for (int j = 0; j < weightsAfterUpdate.GetLength(1); j++)
+                    Console.Write("{0}  ", weightsAfterUpdate[i, j]);
+                Console.WriteLine();
+            }
+            Console.WriteLine();
+            Console.ReadKey();
+            
+            /* ------------------------- END DEBUGGING --------------------------------------------- */
+#endif
+
+#if DEBUGGING_STEPBYSTEP
+            /* ------------------------- DEBUGGING --------------------------------------------- */
+
+            // Display biases after update
+            float[] biasesAfterUpdate = new float[output.NumberOfUnits];
+#if OPENCL_ENABLED
+            CL.Error = Cl.EnqueueReadBuffer(CL.Queue,
+                                            biasesGPU, // source
+                                            Bool.True,
+                                            (IntPtr)0,
+                                            (IntPtr)(output.NumberOfUnits * sizeof(float)),
+                                            biasesAfterUpdate,  // destination
+                                            0,
+                                            null,
+                                            out CL.Event);
+            CL.CheckErr(CL.Error, "FullyConnectedLayer.UpdateParameters Cl.clEnqueueReadBuffer biasesAfterUpdate");
+#else
+            biasesAfterUpdate = biases;
+#endif
+            Console.WriteLine("\nBiases AFTER update:");
+            for (int i = 0; i < biasesAfterUpdate.Length; i++)
+            {
+                Console.Write("{0}  ", biasesAfterUpdate[i]);
+            }
+            Console.WriteLine();
+            Console.ReadKey();
+
+
+            /*------------------------- END DEBUGGING ---------------------------------------- */
+#endif
+
+
         }
 
         #endregion
@@ -316,7 +571,51 @@ namespace JaNet
         public override void DisplayParameters()
         {
             Console.WriteLine("\n\n ======== LAYER =========\n\n");
+#if OPENCL_ENABLED
 
+            float[,] finalWeigths = new float[output.NumberOfUnits, input.NumberOfUnits];
+            CL.Error = Cl.EnqueueReadBuffer(CL.Queue,
+                                            weightsGPU, // source
+                                            Bool.True,
+                                            (IntPtr)0,
+                                            (IntPtr)(output.NumberOfUnits * input.NumberOfUnits * sizeof(float)),
+                                            finalWeigths,  // destination
+                                            0,
+                                            null,
+                                            out CL.Event);
+            CL.CheckErr(CL.Error, "FullyConnectedLayer.UpdateParameters Cl.clEnqueueReadBuffer finalWeigths");
+            Console.WriteLine("\nFinal weights:");
+            for (int i = 0; i < finalWeigths.GetLength(0); i++)
+            {
+                for (int j = 0; j < finalWeigths.GetLength(1); j++)
+                    Console.Write("{0}  ", finalWeigths[i, j]);
+                Console.WriteLine();
+            }
+            Console.WriteLine();
+
+
+            float[] finalBiases = new float[output.NumberOfUnits];
+            CL.Error = Cl.EnqueueReadBuffer(CL.Queue,
+                                            biasesGPU, // source
+                                            Bool.True,
+                                            (IntPtr)0,
+                                            (IntPtr)(output.NumberOfUnits * sizeof(float)),
+                                            finalBiases,  // destination
+                                            0,
+                                            null,
+                                            out CL.Event);
+            CL.CheckErr(CL.Error, "FullyConnectedLayer.UpdateParameters Cl.clEnqueueReadBuffer finalBiases");
+            Console.WriteLine("\nFinal biases:");
+            for (int i = 0; i < finalBiases.GetLength(0); i++)
+            {
+                Console.Write("{0}  ", finalBiases[i]);
+
+                Console.WriteLine();
+            }
+            Console.WriteLine();
+
+
+#else
             Console.WriteLine("\nFinal weights:");
             for (int i = 0; i < weights.GetLength(0); i++ )
             {
@@ -333,6 +632,7 @@ namespace JaNet
 
                 Console.WriteLine();
             }
+#endif
 
         }
         #endregion

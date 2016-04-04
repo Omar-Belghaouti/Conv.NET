@@ -139,6 +139,7 @@ namespace JaNet
         {
 
             // Initializations
+            int nLayers = network.NumberOfLayers;
             int[] randomIntSequence = new int[trainingSet.Size];
             int iDataPoint;
             bool stopFlag = false;
@@ -153,6 +154,12 @@ namespace JaNet
 
 #if OPENCL_ENABLED
             int inputBufferBytesSize = sizeof(float) * trainingSet.GetDataPoint(0).Length;
+
+            // Global and local work group size for gradient kernel
+            IntPtr[] gradientGlobalWorkSizePtr = new IntPtr[] { (IntPtr)(miniBatchSize * trainingSet.NumberOfClasses) };
+            IntPtr[] gradientLocalWorkSizePtr = new IntPtr[] { (IntPtr)(trainingSet.NumberOfClasses) };
+
+
 #endif
 
             int epoch = 0;
@@ -168,40 +175,166 @@ namespace JaNet
                     {
                         iDataPoint = randomIntSequence[iStartMiniBatch + iWithinMiniBatch];
 
-                        // FORWARD PASS
+                        // FEED INPUT DATA
 #if OPENCL_ENABLED
-                        //TODO: generalise to miniBatchSize > 1
-                        network.ForwardPass(trainingSet.DataGPU(iDataPoint), inputBufferBytesSize);
-#else
-                        //TODO: generalise to miniBatchSize > 1
-                        network.ForwardPass(trainingSet.GetDataPoint(iDataPoint));
-#endif
-                        // COMPUTE ERROR AND GRADIENT
 
+                        // Feed by reference
+                        network.Layers[0].Input.ActivationsGPU = trainingSet.DataGPU(iDataPoint);
+
+                        // Copy data point in input buffer of the first layer
+                        /*
+                        Cl.EnqueueCopyBuffer(CL.Queue,
+                                                trainingSet.DataGPU(iDataPoint),        // source
+                                                network.Layers[0].Input.ActivationsGPU, // destination
+                                                (IntPtr)null,
+                                                (IntPtr)null,
+                                                (IntPtr)inputBufferBytesSize,
+                                                0,
+                                                null,
+                                                out CL.Event);
+                        CL.CheckErr(CL.Error, "NetworkTrainer.TrainSimpleTest: Cl.EnqueueCopyBuffer inputData");
+                         */
+#else
+                        network.Layers[0].Input.SetHost(trainingSet.GetDataPoint(iDataPoint));
+#endif
+
+
+
+                        // FORWARD PASS
+                        network.ForwardPass();
+
+                        // COMPUTE ERROR AND GRADIENT
 #if OPENCL_ENABLED
-                        //TODO: implement this
+                        // Set kernel arguments
+                        CL.Error  = Cl.SetKernelArg(CL.CrossEntropyGradient, 0, network.Layers[nLayers - 1].Input.DeltaGPU);
+                        CL.Error |= Cl.SetKernelArg(CL.CrossEntropyGradient, 1, network.Layers[nLayers - 1].Output.ActivationsGPU);
+                        CL.Error |= Cl.SetKernelArg(CL.CrossEntropyGradient, 2, trainingSet.LabelArraysGPU(iDataPoint));
+                        CL.CheckErr(CL.Error, "TrainSimpleTest.CrossEntropyGradient: Cl.SetKernelArg");
+
+                        // Run kernel
+                        CL.Error = Cl.EnqueueNDRangeKernel(CL.Queue,
+                                                            CL.CrossEntropyGradient,
+                                                            1,
+                                                            null,
+                                                            gradientGlobalWorkSizePtr,
+                                                            gradientLocalWorkSizePtr,
+                                                            0,
+                                                            null,
+                                                            out CL.Event);
+                        CL.CheckErr(CL.Error, "TrainSimpleTest.CrossEntropyGradient: Cl.EnqueueNDRangeKernel");
 #else
                         outputScores = network.Layers.Last().Output.GetHost();
                         labelArray = trainingSet.GetLabelArray(iDataPoint);
-
-                        // Gradient of quadratic cost, using LINQ
-                        // network.Layers.Last().Output.Delta = outputScores.Zip(labelArray, (x, y) => (x - y)).ToArray();
-                        // network.Layers.Last().BackPropOneCPU();
 
                         // Gradient of cross-entropy cost (directly write in INPUT delta)
                         network.Layers.Last().Input.DeltaHost = outputScores.Zip(labelArray, (x, y) => (x - y)).ToArray();
 
 #endif
+                        
+#if DEBUGGING_STEPBYSTEP
+                        /* ------------------------- DEBUGGING --------------------------------------------- */
+                        // Display output activation
+#if OPENCL_ENABLED
+                        float[] outputScoresGPU = new float[network.Layers[nLayers - 1].Output.NumberOfUnits];
+                        CL.Error = Cl.EnqueueReadBuffer(CL.Queue,
+                                                        network.Layers[nLayers - 1].Output.ActivationsGPU, // source
+                                                        Bool.True,
+                                                        (IntPtr)0,
+                                                        (IntPtr)(network.Layers[nLayers - 1].Output.NumberOfUnits * sizeof(float)),
+                                                        outputScoresGPU,  // destination
+                                                        0,
+                                                        null,
+                                                        out CL.Event);
+                        CL.CheckErr(CL.Error, "NetworkTrainer Cl.clEnqueueReadBuffer outputScoresGPU");
 
-                        // BACKWARD PASS
+                        Console.WriteLine("\nOutput scores:");
+                        for (int j = 0; j < outputScoresGPU.Length; j++)
+                            Console.Write("{0}  ", outputScoresGPU[j]);
+                        Console.WriteLine();
+#else
+                        Console.WriteLine("\nOutput scores:");
+                        for (int j = 0; j < outputScores.Length; j++)
+                            Console.Write("{0}  ", outputScores[j]);
+                        Console.WriteLine();
+#endif
+                        /* ------------------------- END --------------------------------------------- */
+#endif
 
 
-                        // Now run backwards and update deltas (cumulating them), but DO NOT update parameters
-                        for (int l = network.Layers.Count - 2; l >= 0; l--) // propagate deltas in all layers (but the last) backwards (L-2 to 0)
-                        {
-                            network.Layers[l].BackPropagate();
-                            network.Layers[l].UpdateParameters(learningRate, momentumMultiplier);
-                        }
+#if DEBUGGING_STEPBYSTEP
+                        /* ------------------------- DEBUGGING --------------------------------------------- */
+
+                        // Display true data label CPU
+
+                        float[] labelArrayHost = new float[trainingSet.NumberOfClasses];
+                        labelArrayHost = trainingSet.GetLabelArray(iDataPoint);
+
+                        Console.WriteLine("\nData label array on HOST:");
+                        for (int j = 0; j < labelArrayHost.Length; j++)
+                            Console.Write("{0}  ", labelArrayHost[j]);
+                        Console.WriteLine();
+                        /* ------------------------- END --------------------------------------------- */
+#endif
+
+#if DEBUGGING_STEPBYSTEP
+                        /* ------------------------- DEBUGGING --------------------------------------------- */
+                        // Display true data label
+#if OPENCL_ENABLED
+                        float[] labelArrayGPU = new float[trainingSet.NumberOfClasses];
+                        CL.Error = Cl.EnqueueReadBuffer(CL.Queue,
+                                                        trainingSet.LabelArraysGPU(iDataPoint), // source
+                                                        Bool.True,
+                                                        (IntPtr)0,
+                                                        (IntPtr)(trainingSet.NumberOfClasses * sizeof(float)),
+                                                        labelArrayGPU,  // destination
+                                                        0,
+                                                        null,
+                                                        out CL.Event);
+                        CL.CheckErr(CL.Error, "NetworkTrainer Cl.clEnqueueReadBuffer labelArrayGPU");
+
+                        Console.WriteLine("\nData label array on DEVICE:");
+                        for (int j = 0; j < labelArrayGPU.Length; j++)
+                            Console.Write("{0}  ", labelArrayGPU[j]);
+                        Console.WriteLine();
+#endif
+                        /* ------------------------- END --------------------------------------------- */
+#endif
+
+#if DEBUGGING_STEPBYSTEP
+                        /* ------------------------- DEBUGGING --------------------------------------------- */
+                        // Display gradient
+
+                        float[] gradient = new float[network.Layers[nLayers - 1].Input.NumberOfUnits];
+#if OPENCL_ENABLED
+                        CL.Error = Cl.EnqueueReadBuffer(CL.Queue,
+                                                        network.Layers[nLayers - 1].Input.DeltaGPU, // source
+                                                        Bool.True,
+                                                        (IntPtr)0,
+                                                        (IntPtr)(network.Layers[nLayers - 1].Input.NumberOfUnits * sizeof(float)),
+                                                        gradient,  // destination
+                                                        0,
+                                                        null,
+                                                        out CL.Event);
+                        CL.CheckErr(CL.Error, "NetworkTrainer Cl.clEnqueueReadBuffer gradient");
+#else
+                        gradient = network.Layers.Last().Input.DeltaHost;
+#endif
+                        Console.WriteLine("\nGradient written to final layer:");
+                        for (int j = 0; j < gradient.Length; j++)
+                            Console.Write("{0}  ", gradient[j]);
+                        Console.WriteLine();
+                        Console.ReadKey();
+
+
+                        /*------------------------- END DEBUGGING --------------------------------------------- */
+#endif
+
+
+                        // BACKWARD PASS (includes parameter updating)
+
+                        network.BackwardPass(learningRate, momentumMultiplier);
+
+                        // TEST: try cleaning stuff
 
                     } // end loop over mini-batches
                 }
@@ -221,7 +354,6 @@ namespace JaNet
                 }
                 epochsRemainingToOutput--;
                 isOutputEpoch = epochsRemainingToOutput == 0;
-
                 
 
                 // TO-DO: also implement early stopping (stop if validation error starts increasing)
@@ -254,15 +386,16 @@ namespace JaNet
 
             // Create output buffer
             int inputBufferBytesSize = sizeof(float) * trainingSet.GetDataPoint(0).Length;
-            IntPtr outputBufferBytesSizePtr = (IntPtr)(sizeof(float) * trainingSet.NumberOfClasses);
-            Mem outputScoresGPU = (Mem)Cl.CreateBuffer(CL.Context, MemFlags.ReadWrite, outputBufferBytesSizePtr, out CL.Error);
-            CL.CheckErr(CL.Error, "Cl.CreateBuffer outputScoresGPU");
+            
+            //IntPtr outputBufferBytesSizePtr = (IntPtr)(sizeof(float) * trainingSet.NumberOfClasses);
+            //Mem outputScoresGPU = (Mem)Cl.CreateBuffer(CL.Context, MemFlags.ReadWrite, outputBufferBytesSizePtr, out CL.Error);
+            //CL.CheckErr(CL.Error, "Cl.CreateBuffer outputScoresGPU");
 
-            // Declare work group size for gradient kernel
+            // Global and local work group size for gradient kernel
             IntPtr[] gradientGlobalWorkSizePtr = new IntPtr[] { (IntPtr)(miniBatchSize * trainingSet.NumberOfClasses) }; 
             IntPtr[] gradientLocalWorkSizePtr = new IntPtr[] { (IntPtr)(trainingSet.NumberOfClasses) };
 
-            // Setup evaluator accordingly
+            // Setup evaluator appropriately
             NetworkEvaluator.SetupCLObjects(trainingSet, miniBatchSize);
 
 #else
@@ -285,26 +418,40 @@ namespace JaNet
                     {
                         iDataPoint = randomIntSequence[iStartMiniBatch + iWithinMiniBatch];
 
-                        // FORWARD PASS
+                        // FEED INPUT DATA
 
 #if OPENCL_ENABLED
-                        //TODO: generalise to miniBatchSize > 1
-                        network.ForwardPass(trainingSet.DataGPU(iDataPoint), inputBufferBytesSize);
+                        // Copy by reference
+                        network.Layers[0].Input.ActivationsGPU = trainingSet.DataGPU(iDataPoint);
+
+                        // Copy data point in input buffer of the first layer (by value)
+                        /*
+                        Cl.EnqueueCopyBuffer(CL.Queue,
+                                                trainingSet.DataGPU(iDataPoint),        // source
+                                                network.Layers[0].Input.ActivationsGPU, // destination
+                                                (IntPtr)null,
+                                                (IntPtr)null,
+                                                (IntPtr)inputBufferBytesSize,
+                                                0,
+                                                null,
+                                                out CL.Event);
+                        CL.CheckErr(CL.Error, "NeuralNetwork.ForwardPass(): Cl.EnqueueCopyBuffer");
+                        */
 #else
-                        //TODO: generalise to miniBatchSize > 1
-                        network.ForwardPass(trainingSet.GetDataPoint(iDataPoint));
+                        network.Layers[0].Input.SetHost(trainingSet.GetDataPoint(iDataPoint));
 #endif
+                        // FORWARD PASS
+
+                        network.ForwardPass();
+
 
                         // COMPUTE ERROR
-
-                        /*
 #if OPENCL_ENABLED
                         // Set kernel arguments
                         CL.Error  = Cl.SetKernelArg(CL.CrossEntropyGradient, 0, network.Layers[nLayers-1].Input.DeltaGPU);
                         CL.Error |= Cl.SetKernelArg(CL.CrossEntropyGradient, 1, network.Layers[nLayers-1].Output.ActivationsGPU);
                         CL.Error |= Cl.SetKernelArg(CL.CrossEntropyGradient, 2, trainingSet.LabelArraysGPU(iDataPoint));
                         CL.CheckErr(CL.Error, "TrainMNIST.CrossEntropyGradient: Cl.SetKernelArg");
-                        //Debugger.Launch();
 
                         // Run kernel
                         CL.Error = Cl.EnqueueNDRangeKernel( CL.Queue, 
@@ -324,14 +471,11 @@ namespace JaNet
                         network.Layers.Last().Input.DeltaHost = outputScores.Zip(labelArray, (x, y) => (x - y)).ToArray();
 #endif
 
-                        // BACKWARD PASS
                         
-                        for (int l = nLayers - 2; l >= 0; l--) // propagate deltas in all layers (but the last) backwards (L-2 to 0)
-                        {
-                            //network.Layers[l].BackPropagate();
-                            //network.Layers[l].UpdateParameters(learningRate, momentumMultiplier);
-                        }
-                         */ 
+
+                        // BACKWARD PASS (includes parameter updating)
+                        
+                        network.BackwardPass(learningRate, momentumMultiplier);
 
                     } // end loop over mini-batches
 
@@ -367,9 +511,6 @@ namespace JaNet
 
             return NetworkEvaluator.ComputeClassificationError(network, trainingSet);
         }
-
-
-
 
 
 

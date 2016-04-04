@@ -18,12 +18,12 @@ namespace JaNet
             /*****************************************************
              * (0a) Set hyperparameters
              ****************************************************/
-            NetworkTrainer.LearningRate = 0.01;
+            NetworkTrainer.LearningRate = 0.005;
             NetworkTrainer.MomentumMultiplier = 0.9;
-            NetworkTrainer.MaxTrainingEpochs = 100;
+            NetworkTrainer.MaxTrainingEpochs = 1000;
             NetworkTrainer.MiniBatchSize = 1; // not correctly implemented yet!! // for GTSRB can use any multiple of 2, 3, 5
             NetworkTrainer.ErrorTolerance = 0.001;
-            NetworkTrainer.ConsoleOutputLag = 1; // 1 = print every epoch, N = print every N epochs
+            NetworkTrainer.ConsoleOutputLag = 20; // 1 = print every epoch, N = print every N epochs
             //double tanhBeta = 0.5;
             
 
@@ -59,10 +59,14 @@ namespace JaNet
             //network.AddLayer(new ReLU());
 
             //network.AddLayer(new Tanh(tanhBeta));
-            network.AddLayer(new FullyConnectedLayer(10));
+            network.AddLayer(new FullyConnectedLayer(64));
             network.AddLayer(new ReLU());
+            network.AddLayer(new FullyConnectedLayer(64));
+            network.AddLayer(new ReLU());
+            //network.AddLayer(new FullyConnectedLayer(5));
+            //network.AddLayer(new ReLU());
             //network.AddLayer(new Tanh(tanhBeta));
-            //network.AddLayer(new FullyConnectedLayer(100));
+            //network.AddLayer(new FullyConnectedLayer(128));
             //network.AddLayer(new ReLU());
             //network.AddLayer(new Tanh(tanhBeta));
             network.AddLayer(new FullyConnectedLayer(10));
@@ -79,6 +83,7 @@ namespace JaNet
             //DataSet trainingSet = new DataSet(2, "C:/Users/jacopo/Dropbox/Chalmers/MSc thesis/JaNet/Data/train_data_centered_scaled.txt");
 
             // Reduced MNIST dataset (1000 data points, 100 per digit)
+            
             
             Console.WriteLine("\n=========================================");
             Console.WriteLine("    Importing data");
@@ -115,11 +120,11 @@ namespace JaNet
             
             //NetworkTrainer.TrainSimpleTest(network, trainingSet);
 
-            /*
-            network.Layers[0].DisplayParameters();
-            network.Layers[2].DisplayParameters();
-            network.Layers[4].DisplayParameters();
-            */
+            
+            //network.Layers[0].DisplayParameters();
+            //network.Layers[2].DisplayParameters();
+            //network.Layers[4].DisplayParameters();
+            
 
 
             double errorMNIST;

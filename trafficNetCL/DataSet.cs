@@ -96,6 +96,12 @@ namespace JaNet
             this.nClasses = nClasses;
             this.size = 0;
 
+#if OPENCL_ENABLED
+            this.dataGPU = new List<Mem>();
+            this.labelsGPU = new List<Mem>();
+            this.labelArraysGPU = new List<Mem>();
+#endif
+
             foreach (var line in System.IO.File.ReadAllLines(dataPath))
             {
                 var columns = line.Split('\t');
@@ -108,7 +114,6 @@ namespace JaNet
                     dataPoint[i] = float.Parse(columns[i], CultureInfo.InvariantCulture.NumberFormat);
                     //Console.Write("{0}  ", columns[i].Trim());
                 }
-
                 int label = Convert.ToInt16(columns[columns.Length - 1]);
                 if (label == -1)
                     label = 0;
@@ -120,11 +125,27 @@ namespace JaNet
                 this.labels.Add(label);
                 this.labelArrays.Add(labelArray);
                 this.size += 1;
+
+#if OPENCL_ENABLED
+                int pointBytesSize = sizeof(float) * dataPoint.Length;
+                Mem tmpBufferPoint = (Mem)Cl.CreateBuffer(CL.Context, MemFlags.ReadWrite | MemFlags.CopyHostPtr, (IntPtr)pointBytesSize, dataPoint, out CL.Error);
+                CL.CheckErr(CL.Error, "DataSet(): Cl.CreateBuffer tmpBufferImage");
+                this.dataGPU.Add(tmpBufferPoint);
+
+                Mem tmpBufferLabel = (Mem)Cl.CreateBuffer(CL.Context, MemFlags.ReadWrite | MemFlags.CopyHostPtr, (IntPtr)sizeof(int), label, out CL.Error);
+                CL.CheckErr(CL.Error, "DataSet(): Cl.CreateBuffer tmpBufferLabel");
+                this.labelsGPU.Add(tmpBufferLabel);
+
+                Mem tmpBufferLabelArray = (Mem)Cl.CreateBuffer(CL.Context, MemFlags.ReadWrite | MemFlags.CopyHostPtr, (IntPtr)(sizeof(int) * nClasses), labelArray, out CL.Error);
+                CL.CheckErr(CL.Error, "DataSet(): Cl.CreateBuffer tmpBufferLabelArray");
+                this.labelArraysGPU.Add(tmpBufferLabelArray);
+#endif         
             }
 
 
             Console.WriteLine("\tImported {0} data points. \n\tData is {1} dimensional.\n", this.size, this.GetDataPoint(0).Length);
         }
+
 
         /// <summary>
         /// Constructor 2: data and labels in two separate text files (paths as arguments)
@@ -187,12 +208,10 @@ namespace JaNet
                 Mem tmpBufferLabel = (Mem)Cl.CreateBuffer(CL.Context, MemFlags.ReadWrite | MemFlags.CopyHostPtr, (IntPtr)sizeof(int), label, out CL.Error);
                 CL.CheckErr(CL.Error, "DataSet(): Cl.CreateBuffer tmpBufferLabel");
                 this.labelsGPU.Add(tmpBufferLabel);
-                Cl.ReleaseMemObject(tmpBufferLabel); //...needed?!
 
                 Mem tmpBufferLabelArray = (Mem)Cl.CreateBuffer(CL.Context, MemFlags.ReadWrite | MemFlags.CopyHostPtr, (IntPtr)(sizeof(int) * nClasses), labelArray, out CL.Error);
                 CL.CheckErr(CL.Error, "DataSet(): Cl.CreateBuffer tmpBufferLabelArray");
                 this.labelArraysGPU.Add(tmpBufferLabelArray);
-                Cl.ReleaseMemObject(tmpBufferLabelArray); //...needed?!
 #endif                
             }
 

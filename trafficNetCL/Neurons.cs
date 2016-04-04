@@ -59,6 +59,7 @@ namespace JaNet
             get { return delta; }
             set { this.delta = value; }
         }
+
 #endif
 
         #endregion

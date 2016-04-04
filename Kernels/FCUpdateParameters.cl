@@ -5,10 +5,10 @@ FCUpdateParameters(	__global float * W,			// arg 0
 					__global float * b_speed, 	// arg 3
 					__global float * x,			// arg 4
 					__global float * deltaY,	// arg 5
-					int nInput,					// arg 6
-					int nOutput,				// arg 7
-					float learnRate,			// arg 8
-					float momCoeff				// arg 9
+					const int nInput,			// arg 6
+					const int nOutput,			// arg 7
+					const float learnRate,		// arg 8
+					const float momCoeff		// arg 9
 					)
 					
 {
@@ -17,15 +17,18 @@ FCUpdateParameters(	__global float * W,			// arg 0
 	
 	if(i < nOutput && j < nInput) // not necessary if global work size is set correctly (negligible, however) 
 	{
-		
-		W_speed[i,j] *= momCoeff; // speed decay
-		W_speed[i,j] -= learnRate * x[j] * deltaY[i]; // speed gradient-based update
+		int this_index = i*nInput+j;
+		W_speed[this_index] *= momCoeff; // speed decay
+		W_speed[this_index] -= learnRate * x[j] * deltaY[i]; // speed gradient-based update
 	
-		W[i,j] += W_speed[i,j];
+		W[this_index] += W_speed[this_index];
 		
-		b_speed[i] *= momCoeff; // speed decay
-		b_speed[i] -= learnRate * deltaY[i]; // speed gradient-based update
+		if (j == 0) // otherwise it will be updated nInput times
+		{
+			b_speed[i] *= momCoeff; // speed decay
+			b_speed[i] -= learnRate * deltaY[i]; // speed gradient-based update
 		
-		b[i] += b_speed[i];
+			b[i] += b_speed[i];
+		}
 	}
 }

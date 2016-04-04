@@ -115,10 +115,12 @@ namespace JaNet
 #endif
         }
 
+
+
         public override void BackPropagate()
         {
 #if OPENCL_ENABLED
-            
+
             // Set kernel arguments
             CL.Error  = Cl.SetKernelArg(CL.ReLUBackward, 0, Input.DeltaGPU);
             CL.Error |= Cl.SetKernelArg(CL.ReLUBackward, 1, Output.DeltaGPU);

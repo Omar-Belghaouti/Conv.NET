@@ -2,7 +2,7 @@ __kernel void
 ReLUBackward(	__global float * deltaX, 	// arg 0
 				__global float * deltaY, 	// arg 1
 				__global float * x,			// arg 2
-				int nInput) 				// arg 3
+				const int nInput) 			// arg 3
 {
 	int i=get_global_id(0);
 	

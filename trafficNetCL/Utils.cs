@@ -7,16 +7,17 @@ using System.Threading.Tasks;
 namespace JaNet
 {
 
-    public static class GlobalVar
+    public static class Global
     {
         public const double EPSILON = 0.000001;
+        public const int SEED = 2016;
+
+        public static Random rng = new Random(); //(SEED);
     }
 
 
     static class Utils
     {
-
-        static Random random = new Random();
 
         /// <summary>
         /// Returns index of maximum element in the given input array.
@@ -129,7 +130,7 @@ namespace JaNet
             
             while (n > 1)
             {
-                int randomIndex = random.Next(n--);
+                int randomIndex = Global.rng.Next(n--);
                 int temp = sequence[randomIndex];
                 sequence[randomIndex] = sequence[n];
                 sequence[n] = temp;
@@ -160,7 +161,7 @@ namespace JaNet
 
             while (n > 1)
             {
-                int randomIndex = random.Next(n--);
+                int randomIndex = Global.rng.Next(n--);
                 int temp = sequence[randomIndex];
                 sequence[randomIndex] = sequence[n];
                 sequence[n] = temp;

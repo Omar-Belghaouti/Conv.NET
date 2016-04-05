@@ -57,10 +57,8 @@ namespace JaNet
         /// <param name="nUnits"></param>
         public FullyConnectedLayer(int nUnits)
         {
-            this.numberOfUnits = nUnits;
             this.type = "FullyConnected";
-
-           
+            this.numberOfUnits = nUnits;
         }
 
         /// <summary>
@@ -266,9 +264,8 @@ namespace JaNet
         public override void UpdateParameters(double learningRate, double momentumCoefficient)
         {
 
-            float[,] weightsBeforeUpdate = new float[output.NumberOfUnits, input.NumberOfUnits];
-
 #if DEBUGGING_STEPBYSTEP
+            float[,] weightsBeforeUpdate = new float[output.NumberOfUnits, input.NumberOfUnits];
             /* ------------------------- DEBUGGING --------------------------------------------- */
 #if OPENCL_ENABLED
             // Display weights before update

@@ -1,4 +1,4 @@
-__kernel void Unroll ( 	__read_only __global float* A,
+__kernel void Im2col ( 	__read_only __global float* A,
 						__write_only __global float* B,
 						int A_width,
 						int B_width,

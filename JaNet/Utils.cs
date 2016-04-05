@@ -114,6 +114,8 @@ namespace JaNet
             return c;
         }
 
+
+
         /// <summary>
         /// Generates a random permutation of the set 0, 1, 2, ..., maxN-1 consecutive integers.
         /// </summary>
@@ -144,6 +146,7 @@ namespace JaNet
         /// </summary>
         /// <param name="maxN"></param>
         /// <returns></returns>
+        [Obsolete("Method replaced by GenerateRandomPermutation")]
         public static List<int[]> GenerateMiniBatches(int maxN, int miniBatchSize)
         {
 
@@ -186,5 +189,52 @@ namespace JaNet
         }
 
 
+    }
+
+    public class Sequence
+    {
+        private int[] data;
+        private int length;
+
+        // Constructor
+        public Sequence(int n)
+        {
+            data = new int[n];
+            length = n;
+
+            for (int i = 0; i < n; i++)
+                data[i] = i;
+        }
+
+        // Indexer
+        public int this[int i]
+        {
+            get {return data[i]; }
+        }
+
+        // Shuffle method
+        public void Shuffle()
+        {
+            int i = length;
+
+            while (i > 1)
+            {
+                int randomIndex = Global.rng.Next(i--);
+                int tmp = data[randomIndex];
+                data[randomIndex] = data[i];
+                data[i] = tmp;
+            }
+        }
+
+        // Get mini batch indices
+        public int[] GetMiniBatchIndices(int iBeginning, int miniBatchSize)
+        {
+            int[] miniBatchIndices = new int[miniBatchSize];
+
+            for (int i = 0; i < miniBatchSize; i++)
+                miniBatchIndices[i] = data[iBeginning + i];
+
+            return miniBatchIndices;
+        }
     }
 }

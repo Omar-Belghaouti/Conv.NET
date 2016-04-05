@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using OpenCL.Net;
 
 
 namespace JaNet
@@ -16,15 +17,39 @@ namespace JaNet
         private int nFilters; // K
         private int strideLength; // S
         private int zeroPadding; // P
+        private int nReceptiveFields;
 
-        private float[,] inputAsMatrix; // dimension [inputDepth*filterSize^2 , outputWidth*outputHeight]
+        private float[] paddedInput; // dimension [inputD * (inputH + 2*padding) * (inutW + 2*padding)]
+        private float[] paddedOutput; // depends...
+        private float[,] inputAsMatrix; // dimension [receptiveFieldSize , nReceptiveFields] = [inputDepth*filterSize^2 , outputWidth*outputHeight]
         private float[,] outputAsMatrix; // dimension [nFilters , outputWidth*outputHeight]
 
         private float[,] weights; // dimension [nFilters , inputDepth*filterSize^2]
         private float[] biases; // dimension [nFilters , 1]
 
-        private float[,] weightsUpdateSpeed; // dimension [nFilters , outputWidth*outputHeight]
+        private float[,] weightsUpdateSpeed; // dimension [nFilters , inputDepth*filterSize^2]
         private float[] biasesUpdateSpeed; // dimension [nFilters , 1]
+
+#if OPENCL_ENABLED
+        private int inputMatrixBytesSize;
+        private int outputMatrixBytesSize;
+        private Mem inputAsMatrixGPU;
+        private Mem outputAsMatrixGPU; // probably not needed
+
+        private Mem weightsGPU;
+        private Mem biasesGPU;
+
+        private Mem weightsUpdateSpeedGPU;
+        private Mem biasesUpdateSpeedGPU;
+
+        // Global and local work-group sizes (for OpenCL kernels) - will be set in SetWorkGroupSizes();
+        private IntPtr[] forwardGlobalWorkSizePtr;
+        private IntPtr[] forwardLocalWorkSizePtr;
+        private IntPtr[] backwardGlobalWorkSizePtr;
+        private IntPtr[] backwardLocalWorkSizePtr;
+        private IntPtr[] updateGlobalWorkSizePtr;
+        private IntPtr[] updateLocalWorkSizePtr;
+#endif
 
         #endregion
 
@@ -57,6 +82,50 @@ namespace JaNet
         }
 
 
+        /// <summary>
+        /// Set this as the first layer of the neural network.
+        /// </summary>
+        public override void SetAsFirstLayer(int InputWidth, int InputHeight, int InputDepth)
+        {
+            // Setup input
+            this.inputWidth = InputWidth;
+            this.inputHeight = InputHeight;
+            this.inputDepth = InputDepth;
+
+            this.input = new Neurons(InputDepth * InputWidth * InputHeight);
+
+            // Setup output
+            double tmp = (double)(inputWidth - filterSize + 2 * zeroPadding) / (double)strideLength + 1;
+            Console.WriteLine("Output width = {0}", tmp);
+            if (Math.Abs(tmp % 1) > Global.EPSILON)
+                throw new System.ArgumentException("Input width, filter size, zero padding and stride length do not fit well. Check the values!");
+            this.outputWidth = (int)tmp;
+
+            tmp = (double)(inputHeight - filterSize + 2 * zeroPadding) / (double)strideLength + 1;
+            if (Math.Abs(tmp % 1) > Global.EPSILON)
+                throw new System.ArgumentException("Input height, filter size, zero padding and stride length do not fit well. Check the values!");
+            this.outputHeight = (int)tmp;
+
+            this.outputDepth = nFilters;
+
+            this.output = new Neurons(nFilters * outputWidth * outputHeight);
+
+            // Setup I/O matrices
+#if OPENCL_ENABLED
+            inputMatrixBytesSize = sizeof(float) * (inputDepth * filterSize ^ 2 * outputWidth * outputHeight);
+            inputAsMatrixGPU = (Mem)Cl.CreateBuffer(CL.Context, MemFlags.ReadWrite, (IntPtr)inputMatrixBytesSize, out CL.Error);
+
+            outputMatrixBytesSize = sizeof(float) * (nFilters * outputWidth * outputHeight);
+            outputAsMatrixGPU = (Mem)Cl.CreateBuffer(CL.Context, MemFlags.ReadWrite, (IntPtr)inputMatrixBytesSize, out CL.Error);
+
+#else
+            this.inputAsMatrix = new float[inputDepth * filterSize * filterSize, outputWidth * outputHeight];
+            this.outputAsMatrix = new float[nFilters, outputWidth * outputHeight];
+#endif
+        }
+
+
+
         public override void ConnectTo(Layer PreviousLayer)
         {
             // Setup input
@@ -87,34 +156,7 @@ namespace JaNet
 
         
 
-        /// <summary>
-        /// Set this as the first layer of the neural network.
-        /// </summary>
-        public override void SetAsFirstLayer(int InputWidth, int InputHeight, int InputDepth)
-        {
-            // Setup input
-            this.inputWidth = InputWidth;
-            this.inputHeight = InputHeight;
-            this.inputDepth = InputDepth;
-            this.input = new Neurons(InputDepth * InputWidth * InputHeight);
 
-            // Setup output
-            double tmp = (double)(inputWidth - filterSize + 2 * zeroPadding) / (double)strideLength + 1;
-            Console.WriteLine("Output width = {0}", tmp);
-            if (Math.Abs(tmp % 1) > Global.EPSILON)
-                throw new System.ArgumentException("Input width, filter size, zero padding and stride length do not fit well. Check the values!");
-            this.outputWidth = (int) tmp;
-            tmp = (double)(inputHeight - filterSize + 2 * zeroPadding) / (double)strideLength + 1;
-            if (Math.Abs(tmp % 1) > Global.EPSILON)
-                throw new System.ArgumentException("Input height, filter size, zero padding and stride length do not fit well. Check the values!");
-            this.outputHeight = (int) tmp;
-            this.outputDepth = nFilters;
-            this.output = new Neurons(nFilters * outputWidth * outputHeight);
-
-            // Setup I/O matrices (to be removed! Use OpenCL buffer instead)
-            this.inputAsMatrix = new float[inputDepth * filterSize * filterSize, outputWidth * outputHeight];
-            this.outputAsMatrix = new float[nFilters, outputWidth * outputHeight];
-        }
 
 
         public override void InitializeParameters()

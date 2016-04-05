@@ -14,7 +14,7 @@ namespace JaNet
         #region NeuralNetwork class fields (private)
 
         private List<Layer> layers;
-        private int nLayers = 0;
+        private int nLayers;
 
         #endregion
 
@@ -42,6 +42,7 @@ namespace JaNet
         {
             //Console.WriteLine("--- New empty network created ---\n");
             this.layers = new List<Layer>(); // empty list of layers
+            this.nLayers = 0;
         }
 
         /// <summary>
@@ -83,6 +84,20 @@ namespace JaNet
         }
 
         #endregion
+
+
+        #region Training methods
+
+        public void FeedData(DataSet dataSet, int iDataPoint)
+        {
+#if OPENCL_ENABLED
+            layers[0].Input.ActivationsGPU = dataSet.DataGPU(iDataPoint); // Copied by reference
+#else
+            layers[0].Input.SetHost(dataSet.GetDataPoint(iDataPoint));
+#endif
+        }
+
+
 
 
         public void ForwardPass()
@@ -229,6 +244,8 @@ namespace JaNet
                 layers[l].UpdateParameters(learningRate, momentumMultiplier);
             }
         }
+
+        #endregion
 
     } 
 }

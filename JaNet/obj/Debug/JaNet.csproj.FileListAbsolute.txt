@@ -1,0 +1,7 @@
+C:\Users\jacopo\Desktop\New folder\trafficNetCL\bin\Debug\JaNet.exe.config
+C:\Users\jacopo\Desktop\New folder\trafficNetCL\bin\Debug\JaNet.exe
+C:\Users\jacopo\Desktop\New folder\trafficNetCL\bin\Debug\JaNet.pdb
+C:\Users\jacopo\Desktop\New folder\trafficNetCL\bin\Debug\OpenCL.Net.dll
+C:\Users\jacopo\Desktop\New folder\trafficNetCL\obj\Debug\JaNet.csprojResolveAssemblyReference.cache
+C:\Users\jacopo\Desktop\New folder\trafficNetCL\obj\Debug\JaNet.exe
+C:\Users\jacopo\Desktop\New folder\trafficNetCL\obj\Debug\JaNet.pdb

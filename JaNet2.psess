@@ -67,6 +67,11 @@
       <ProjName>JaNet</ProjName>
     </ProjBinary>
   </Binaries>
+  <Reports>
+    <Report>
+      <Path>JaNet160406.vsp</Path>
+    </Report>
+  </Reports>
   <Launches>
     <ProjBinary>
       <Path>:PB:{5679C427-B82C-437A-8DF6-3237A4169144}|JaNet\JaNet.csproj</Path>

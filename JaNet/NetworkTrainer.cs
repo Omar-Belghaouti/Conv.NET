@@ -12,20 +12,33 @@ namespace JaNet
     {
         #region NetworkTrainer fields
 
-        private static double learningRate;
-        private static double momentumMultiplier;
-        private static int maxTrainingEpochs;
-        private static int miniBatchSize;
-        private static double errorTolerance;
-        private static int consoleOutputLag;
+        // Neural network to train
+        private NeuralNetwork network;
 
-        //private static double errorTraining;
-        //private static double errorValidation;
+        // Data
+        private DataSet trainingSet;
+        private DataSet validationSet;
+
+        // Hyperparameters
+        private double learningRate;
+        private double momentumMultiplier;
+        private int maxTrainingEpochs;
+        private int miniBatchSize;
+        private double errorTolerance;
+        private int consoleOutputLag;
+
+        // Errors
+        private double lossTraining;
+        private double lossValidation;
+        private double errorTraining;
+        private double errorValidation;
 
 #if OPENCL_ENABLED
-        // Global and local work group size for gradient kernel
-        private static IntPtr[] gradientGlobalWorkSizePtr; 
-        private static IntPtr[] gradientLocalWorkSizePtr; 
+        // Kernel to compute cross entropy gradient
+        private Kernel CrossEntropyGradientKernel;
+
+        private IntPtr[] gradientGlobalWorkSizePtr; 
+        private IntPtr[] gradientLocalWorkSizePtr; 
 #endif
 
         
@@ -34,53 +47,88 @@ namespace JaNet
 
         #region NetworkTrainer properties
 
-        public static double LearningRate
+        public NeuralNetwork Network
+        {
+            get { return network; }
+            set { network = value; }
+        }
+
+        public DataSet TrainingSet
+        {
+            get { return trainingSet; }
+            set { trainingSet = value; }
+        }
+
+        public DataSet ValidationSet
+        {
+            get { return validationSet; }
+            set { validationSet = value; }
+        }
+
+        public double LearningRate
         {
             get { return learningRate; }
             set { learningRate = value; }
         }
 
-        public static double MomentumMultiplier
+        public double MomentumMultiplier
         {
             get { return momentumMultiplier; }
             set { momentumMultiplier = value; }
         }
 
-        public static int MaxTrainingEpochs
+        public int MaxTrainingEpochs
         {
             get { return maxTrainingEpochs; }
             set { maxTrainingEpochs = value; }
         }
 
-        public static int MiniBatchSize
+        public int MiniBatchSize
         {
             get { return miniBatchSize; }
             set { miniBatchSize = value; }
         }
 
-        public static double ErrorTolerance
+        public double ErrorTolerance
         {
             get { return errorTolerance; }
             set { errorTolerance = value; }
         }
 
-        public static int ConsoleOutputLag
+        public int ConsoleOutputLag
         {
             get { return consoleOutputLag; }
             set { consoleOutputLag = value; }
         }
 
-        /*
-        public static double ErrorTraining
+        public double LossTraining
+        {
+            get { return lossTraining; }
+        }
+
+        public double LossValidation
+        {
+            get { return lossValidation; }
+        }
+
+        public double ErrorTraining
         {
             get { return errorTraining; }
         }
 
-        public static double ErrorValidation
+        public double ErrorValidation
         {
             get { return errorValidation; }
         }
-        */
+        
+        #endregion
+
+
+        #region Constructor and setup
+        public NetworkTrainer()
+        {
+            // The constructor does nothing at the moment
+        }
         #endregion
 
 
@@ -321,59 +369,74 @@ namespace JaNet
 
         }
 #endif
-        
-        public static void TrainMNIST(NeuralNetwork network, DataSet trainingSet, DataSet validationSet)
+
+        public void Train()
         {
             // Initializations
-            int nLayers = network.NumberOfLayers;
             int nClasses = trainingSet.NumberOfClasses;
-            Sequence indicesSequence = new Sequence(trainingSet.Size);
-            int iDataPoint;
+            int epoch = 0;
             bool stopFlag = false;
-            double lossEpoch;
-            double errorEpoch;
             bool isOutputEpoch = true;
             int epochsRemainingToOutput = 0;
-            float[] outputScores = new float[nClasses]; // TODO: generalise to miniBatchSize > 1
-            float[] labelArray = new float[nClasses]; // TODO: generalise to miniBatchSize > 1
+            Sequence indicesSequence = new Sequence(trainingSet.Size);
+            int iDataPoint;
+            NetworkEvaluator networkEvaluator = new NetworkEvaluator();
 
 #if OPENCL_ENABLED
+            // Load and build gradient kernel
+            CrossEntropyGradientKernel = CL.LoadBuildKernel(CL.KernelsPath + "/CrossEntropyGradient.cl", "CrossEntropyGradient");
+
             gradientGlobalWorkSizePtr = new IntPtr[] { (IntPtr)(miniBatchSize * nClasses) };
             gradientLocalWorkSizePtr = new IntPtr[] { (IntPtr)(nClasses) };
 
-            NetworkEvaluator.SetupCL(trainingSet, miniBatchSize);
+            networkEvaluator.SetupCL(trainingSet.GetDataPoint(0).Length, nClasses, miniBatchSize);
 #endif
 
-            int epoch = 0;
 
             Stopwatch stopwatch = Stopwatch.StartNew();
-            do // loop over training epochs
+#if PROFILING
+            Stopwatch stopwatchFwd = Stopwatch.StartNew();
+            Stopwatch stopwatchGrad = Stopwatch.StartNew();
+            Stopwatch stopwatchBwd = Stopwatch.StartNew();
+#endif
+
+            while (epoch < maxTrainingEpochs && !stopFlag) // loop over training epochs
             {
+
+                /********************
+                 * Console output
+                 *******************/
+
                 isOutputEpoch = epochsRemainingToOutput == 0;
                 if (isOutputEpoch)
                 {
                     // Evaluate all training set
                     stopwatch.Restart();
-                    NetworkEvaluator.ComputeLossError(network, trainingSet, out lossEpoch, out errorEpoch);
-                    Console.WriteLine("\nTRAINING SET:\n\tLoss = {0}\n\tError = {1}\n\tEval runtime = {2}ms\n", lossEpoch, errorEpoch, stopwatch.ElapsedMilliseconds);
+                    networkEvaluator.ComputeLossError(network, trainingSet, out lossTraining, out errorTraining);
+                    Console.WriteLine("\nTRAINING SET:\n\tLoss = {0}\n\tError = {1}\n\tEval runtime = {2}ms\n", 
+                                        lossTraining, errorTraining, stopwatch.ElapsedMilliseconds);
 
                     // Evaluate all validation set
                     stopwatch.Restart();
-                    NetworkEvaluator.ComputeLossError(network, validationSet, out lossEpoch, out errorEpoch);
-                    Console.WriteLine("\nVALIDATION SET:\n\tLoss = {0}\n\tError = {1}\n\tEval runtime = {2}ms\n", lossEpoch, errorEpoch, stopwatch.ElapsedMilliseconds);
-                    
+                    networkEvaluator.ComputeLossError(network, validationSet, out lossValidation, out errorValidation);
+                    Console.WriteLine("\nVALIDATION SET:\n\tLoss = {0}\n\tError = {1}\n\tEval runtime = {2}ms\n", 
+                                        lossValidation, errorValidation, stopwatch.ElapsedMilliseconds);
 
-                    if (errorEpoch < errorTolerance)
+
+                    if (errorValidation < errorTolerance)
                     {
                         stopFlag = true;
                         break;
                     }
 
+                    // TODO: implement early stopping
                     epochsRemainingToOutput = consoleOutputLag;
                     isOutputEpoch = false;
                 }
-                
 
+                /********************
+                 * Training epoch
+                 *******************/
 
                 stopwatch.Restart();
 
@@ -381,7 +444,9 @@ namespace JaNet
 
                 indicesSequence.Shuffle(); // shuffle at every epoch
 
-                /* IF DEBUGGING FAILS, RESTORE FROM HERE...
+
+                // TODO: implement mini-batch training
+                /* 
                 // Run over mini-batches
                 for (int iStartMiniBatch = 0; iStartMiniBatch < trainingSet.Size; iStartMiniBatch += miniBatchSize)  
                 {
@@ -403,70 +468,62 @@ namespace JaNet
                         network.BackwardPass(learningRate, momentumMultiplier);
 
                     } // end loop over mini-batches
-
                 }
-                */ // TO HERE 
+                */ 
+                stopwatchFwd.Reset();
+                stopwatchGrad.Reset();
+                stopwatchBwd.Reset();
 
-
-
-                // Online training
+                // Online training:
                 for (int i = 0; i < trainingSet.Size; i++)
                 {
-                    iDataPoint = indicesSequence[i];
+                    iDataPoint = indicesSequence[i]; // random order
 
-                    // Feed input data
+                    // Feed input data (datum, actually)
                     network.FeedData(trainingSet, iDataPoint);
 
                     // Forward pass
+                    stopwatchFwd.Start();
                     network.ForwardPass();
+                    stopwatchFwd.Stop();
 
                     // Compute gradient
-                    CrossEntropyGradient(network, trainingSet, iDataPoint);
+                    stopwatchGrad.Start();
+                    CrossEntropyGradient(iDataPoint);
+                    stopwatchGrad.Stop();
 
                     // Backpropagate gradient and update parameters
+                    stopwatchBwd.Start();
                     network.BackwardPass(learningRate, momentumMultiplier);
+                    stopwatchBwd.Stop();
                 }
 
-                Console.Write("Epoch {0} - Training runtime = {1}ms", epoch, stopwatch.ElapsedMilliseconds);
-
-#if OPENCL_ENABLED
-                stopwatch.Restart();
-                CL.Error = Cl.Finish(CL.Queue);
-                CL.CheckErr(CL.Error, "Cl.Finish");
-                Console.Write(" - Queue finish runtime = {0}ms\n", stopwatch.ElapsedMilliseconds);
-#endif
-                Console.WriteLine();
-
+                Console.WriteLine("\nEpoch {0} - Training runtime = {1}ms", epoch, stopwatch.ElapsedMilliseconds);
                 
+                Console.WriteLine("Forward: {0}ms - Gradient: {1}ms - Backward: {2}ms", 
+                    stopwatchFwd.ElapsedMilliseconds, stopwatchGrad.ElapsedMilliseconds, stopwatchBwd.ElapsedMilliseconds);
 
-                
-                
-                // TO-DO: also implement early stopping (stop if validation error starts increasing)
                 epoch++;
-
-                
-
-            } while (epoch < maxTrainingEpochs && !stopFlag);
+            } 
 
             stopwatch.Stop();
-
         }
 
 
 
-        private static void CrossEntropyGradient(NeuralNetwork network, DataSet dataSet, int iDataPoint)
+        private void CrossEntropyGradient(int iDataPoint)
         {
-            // Compute gradient
 #if OPENCL_ENABLED
+
             // Set kernel arguments
-            CL.Error = Cl.SetKernelArg(CL.CrossEntropyGradient, 0, network.Layers[network.NumberOfLayers - 1].Input.DeltaGPU);
-            CL.Error |= Cl.SetKernelArg(CL.CrossEntropyGradient, 1, network.Layers[network.NumberOfLayers - 1].Output.ActivationsGPU);
-            CL.Error |= Cl.SetKernelArg(CL.CrossEntropyGradient, 2, dataSet.LabelArraysGPU(iDataPoint));
+            CL.Error = Cl.SetKernelArg(CrossEntropyGradientKernel, 0, network.Layers[network.NumberOfLayers - 1].Input.DeltaGPU);
+            CL.Error |= Cl.SetKernelArg(CrossEntropyGradientKernel, 1, network.Layers[network.NumberOfLayers - 1].Output.ActivationsGPU);
+            CL.Error |= Cl.SetKernelArg(CrossEntropyGradientKernel, 2, trainingSet.LabelArraysGPU(iDataPoint));
             CL.CheckErr(CL.Error, "TrainMNIST.CrossEntropyGradient: Cl.SetKernelArg");
 
             // Run kernel
-            CL.Error = Cl.EnqueueNDRangeKernel(CL.Queue,
-                                                CL.CrossEntropyGradient,
+            CL.Error = Cl.EnqueueNDRangeKernel( CL.Queue,
+                                                CrossEntropyGradientKernel,
                                                 1,
                                                 null,
                                                 gradientGlobalWorkSizePtr,
@@ -486,26 +543,6 @@ namespace JaNet
 #endif
         }
 
-
-        /// <summary>
-        /// Cross-entropy cost for a single example
-        /// </summary>
-        /// <param name="targetValues"></param>
-        /// <param name="networkOutputs"></param>
-        /// <param name="gradient"></param>
-        /// <returns></returns>
-        [Obsolete("Now implemented in NetworkEvaluator")]
-        static double CrossEntropyCost(float[] targetValues, float[] networkOutputs)
-        {
-            double cost = 0.0;
-
-            for (int k = 0; k < targetValues.Length; k++)
-            {
-                cost += targetValues[k] * Math.Log(networkOutputs[k]);
-            }
-
-            return cost;
-        }
 
 
         #region Deprecated methods

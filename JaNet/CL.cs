@@ -28,6 +28,7 @@ namespace JaNet
         public static ErrorCode Error;
         public static Event Event;
 
+        private static string kernelsPath;
         #endregion
 
 
@@ -64,25 +65,30 @@ namespace JaNet
         {
             get { return maxComputeUnits; }
         }
+
+        public static string KernelsPath
+        {
+            get { return kernelsPath; }
+        }
         #endregion
 
 
         #region Kernels (public)
 
         // FullyConnected layer
-        public static Kernel FCForward;
-        public static Kernel FCBackward;
-        public static Kernel FCUpdateParameters;
+        //public static Kernel FCForward;
+        //public static Kernel FCBackward;
+        //public static Kernel FCUpdateParameters;
 
         // ReLU layer
-        public static Kernel ReLUForward;
-        public static Kernel ReLUBackward;
+        //public static Kernel ReLUForward;
+        //public static Kernel ReLUBackward;
 
         // Softmax layer
-        public static Kernel SoftmaxForward;
+        //public static Kernel SoftmaxForward;
 
         // Cross-entropy gradient
-        public static Kernel CrossEntropyGradient;
+        //public static Kernel CrossEntropyGradient;
 
         // Classification
         public static Kernel CheckClassification;
@@ -92,7 +98,7 @@ namespace JaNet
 
         #region OpenCL setup and finalization
 
-        public static void Setup()
+        public static void Setup(string KernelsPath)
         {
             Console.WriteLine("\n=========================================");
             Console.WriteLine("    OpenCL setup");
@@ -165,6 +171,8 @@ namespace JaNet
             maxComputeUnits = Cl.GetDeviceInfo(device, DeviceInfo.MaxComputeUnits, out Error).CastTo<int>();
             Console.WriteLine("Max compute units: {0}", maxComputeUnits);
 
+            // Set kernel path
+            kernelsPath = KernelsPath;
         }
 
 
@@ -213,35 +221,6 @@ namespace JaNet
 
         public static void LoadKernels(string kernelsPath)
         {
-            // FullyConnected layer
-
-            string fcForwardName = "FCForward";
-            FCForward = LoadBuildKernel(kernelsPath + "/" + fcForwardName + ".cl", fcForwardName);
-
-            string fcBackwardName = "FCBackward";
-            FCBackward = LoadBuildKernel(kernelsPath + "/" + fcBackwardName + ".cl", fcBackwardName);
-
-            string fcUpdateParametersName = "FCUpdateParameters";
-            FCUpdateParameters = LoadBuildKernel(kernelsPath + "/" + fcUpdateParametersName + ".cl", fcUpdateParametersName);
-
-            // ReLU layer
-
-            string reluForwardName = "ReLUForward";
-            ReLUForward = LoadBuildKernel(kernelsPath + "/" + reluForwardName + ".cl", reluForwardName);
-
-            string reluBackwardName = "ReLUBackward";
-            ReLUBackward = LoadBuildKernel(kernelsPath + "/" + reluBackwardName + ".cl", reluBackwardName);
-
-            // Softmax layer
-
-            string softmaxForwardName = "SoftmaxForward";
-            SoftmaxForward = LoadBuildKernel(kernelsPath + "/" + softmaxForwardName + ".cl", softmaxForwardName);
-
-            // Cross-entropy gradient
-
-            string crossEntropyGradientName = "CrossEntropyGradient";
-            CrossEntropyGradient = LoadBuildKernel(kernelsPath + "/" + crossEntropyGradientName + ".cl", crossEntropyGradientName);
-
             // Classification
 
             string classificationName = "CheckClassification";

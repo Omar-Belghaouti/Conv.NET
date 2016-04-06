@@ -13,8 +13,9 @@ namespace JaNet
 
 
 #if OPENCL_ENABLED
+        private Kernel ForwardKernel;
 
-        Mem auxiliaryFloatBuffer; // needed by forward pass
+        private Mem auxiliaryFloatBuffer; // needed by forward pass
 
         private IntPtr[] globalWorkSizePtr;
         private IntPtr[] localWorkSizePtr;
@@ -33,9 +34,12 @@ namespace JaNet
         /// <param name="Beta"></param>
         public SoftMax()
         {
-            //Console.WriteLine("Adding a SoftMax layer...");
-
             this.type = "SoftMax";
+
+#if OPENCL_ENABLED
+            // Load and build kernel
+            ForwardKernel = CL.LoadBuildKernel(CL.KernelsPath + "/SoftmaxForward.cl", "SoftmaxForward");
+#endif
         }
 
         /// <summary>
@@ -94,15 +98,15 @@ namespace JaNet
 #if OPENCL_ENABLED
 
             // Set kernel arguments
-            CL.Error  = Cl.SetKernelArg(CL.SoftmaxForward, 0, Output.ActivationsGPU);
-            CL.Error |= Cl.SetKernelArg(CL.SoftmaxForward, 1, Input.ActivationsGPU);
-            CL.Error |= Cl.SetKernelArg(CL.SoftmaxForward, 2, auxiliaryFloatBuffer);
-            CL.Error |= Cl.SetKernelArg(CL.SoftmaxForward, 3, (IntPtr)sizeof(int), Output.NumberOfUnits);
+            CL.Error = Cl.SetKernelArg(ForwardKernel, 0, Output.ActivationsGPU);
+            CL.Error |= Cl.SetKernelArg(ForwardKernel, 1, Input.ActivationsGPU);
+            CL.Error |= Cl.SetKernelArg(ForwardKernel, 2, auxiliaryFloatBuffer);
+            CL.Error |= Cl.SetKernelArg(ForwardKernel, 3, (IntPtr)sizeof(int), Output.NumberOfUnits);
             CL.CheckErr(CL.Error, "Softmax.FeedForward(): Cl.SetKernelArg");
 
             // Run kernel
             CL.Error = Cl.EnqueueNDRangeKernel( CL.Queue,
-                                                CL.SoftmaxForward,
+                                                ForwardKernel,
                                                 1,
                                                 null,
                                                 globalWorkSizePtr,
@@ -111,6 +115,9 @@ namespace JaNet
                                                 null,
                                                 out CL.Event);
             CL.CheckErr(CL.Error, "Softmax.FeedForward(): Cl.EnqueueNDRangeKernel");
+
+            CL.Error = Cl.Finish(CL.Queue);
+            CL.CheckErr(CL.Error, "Cl.Finish");
 
             CL.Error = Cl.ReleaseEvent(CL.Event);
             CL.CheckErr(CL.Error, "Cl.ReleaseEvent");

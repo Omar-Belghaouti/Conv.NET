@@ -13,7 +13,6 @@ namespace JaNet
         #region Fields (private)
 
         // Host
-
         private float[,] weights;
         private float[] biases;
 
@@ -21,6 +20,11 @@ namespace JaNet
         private float[] biasesUpdateSpeed;
 
 #if OPENCL_ENABLED
+
+        private Kernel ForwardKernel;
+        private Kernel BackwardKernel;
+        private Kernel UpdateKernel;
+
         private Mem weightsGPU;
         private Mem biasesGPU;
 
@@ -59,6 +63,13 @@ namespace JaNet
         {
             this.type = "FullyConnected";
             this.numberOfUnits = nUnits;
+
+#if OPENCL_ENABLED
+            // Load and build kernels
+            ForwardKernel = CL.LoadBuildKernel(CL.KernelsPath + "/FCForward.cl", "FCForward");
+            BackwardKernel = CL.LoadBuildKernel(CL.KernelsPath + "/FCBackward.cl", "FCBackward");
+            UpdateKernel = CL.LoadBuildKernel(CL.KernelsPath + "/FCUpdateParameters.cl", "FCUpdateParameters");
+#endif
         }
 
         /// <summary>
@@ -199,19 +210,18 @@ namespace JaNet
         {
 
 #if OPENCL_ENABLED
-
             // Set kernel arguments
-            CL.Error  = Cl.SetKernelArg(CL.FCForward, 0, Output.ActivationsGPU);
-            CL.Error |= Cl.SetKernelArg(CL.FCForward, 1, Input.ActivationsGPU);
-            CL.Error |= Cl.SetKernelArg(CL.FCForward, 2, weightsGPU);
-            CL.Error |= Cl.SetKernelArg(CL.FCForward, 3, biasesGPU);
-            CL.Error |= Cl.SetKernelArg(CL.FCForward, 4, (IntPtr)sizeof(int), Input.NumberOfUnits);
-            CL.Error |= Cl.SetKernelArg(CL.FCForward, 5, (IntPtr)sizeof(int), Output.NumberOfUnits);
+            CL.Error = Cl.SetKernelArg(ForwardKernel, 0, Output.ActivationsGPU);
+            CL.Error |= Cl.SetKernelArg(ForwardKernel, 1, Input.ActivationsGPU);
+            CL.Error |= Cl.SetKernelArg(ForwardKernel, 2, weightsGPU);
+            CL.Error |= Cl.SetKernelArg(ForwardKernel, 3, biasesGPU);
+            CL.Error |= Cl.SetKernelArg(ForwardKernel, 4, (IntPtr)sizeof(int), Input.NumberOfUnits);
+            CL.Error |= Cl.SetKernelArg(ForwardKernel, 5, (IntPtr)sizeof(int), Output.NumberOfUnits);
             CL.CheckErr(CL.Error, "FullyConnected.FeedForward(): Cl.SetKernelArg");
 
             // Run kernel
-            CL.Error = Cl.EnqueueNDRangeKernel( CL.Queue, 
-                                                CL.FCForward, 
+            CL.Error = Cl.EnqueueNDRangeKernel( CL.Queue,
+                                                ForwardKernel, 
                                                 1, 
                                                 null, 
                                                 forwardGlobalWorkSizePtr, 
@@ -220,6 +230,9 @@ namespace JaNet
                                                 null,
                                                 out CL.Event);
             CL.CheckErr(CL.Error, "FullyConnected.FeedForward(): Cl.EnqueueNDRangeKernel");
+
+            CL.Error = Cl.Finish(CL.Queue);
+            CL.CheckErr(CL.Error, "Cl.Finish");
 
             CL.Error = Cl.ReleaseEvent(CL.Event);
             CL.CheckErr(CL.Error, "Cl.ReleaseEvent");
@@ -237,16 +250,16 @@ namespace JaNet
 #if OPENCL_ENABLED
 
             // Set kernel arguments
-            CL.Error |= Cl.SetKernelArg(CL.FCBackward, 0, Input.DeltaGPU);
-            CL.Error |= Cl.SetKernelArg(CL.FCBackward, 1, Output.DeltaGPU);
-            CL.Error |= Cl.SetKernelArg(CL.FCBackward, 2, weightsGPU);
-            CL.Error |= Cl.SetKernelArg(CL.FCBackward, 3, (IntPtr)sizeof(int), Input.NumberOfUnits);
-            CL.Error |= Cl.SetKernelArg(CL.FCBackward, 4, (IntPtr)sizeof(int), Output.NumberOfUnits);
+            CL.Error |= Cl.SetKernelArg(BackwardKernel, 0, Input.DeltaGPU);
+            CL.Error |= Cl.SetKernelArg(BackwardKernel, 1, Output.DeltaGPU);
+            CL.Error |= Cl.SetKernelArg(BackwardKernel, 2, weightsGPU);
+            CL.Error |= Cl.SetKernelArg(BackwardKernel, 3, (IntPtr)sizeof(int), Input.NumberOfUnits);
+            CL.Error |= Cl.SetKernelArg(BackwardKernel, 4, (IntPtr)sizeof(int), Output.NumberOfUnits);
             CL.CheckErr(CL.Error, "FullyConnected.BackPropagate(): Cl.SetKernelArg");
 
             // Run kernel
-            CL.Error = Cl.EnqueueNDRangeKernel( CL.Queue, 
-                                                CL.FCBackward, 
+            CL.Error = Cl.EnqueueNDRangeKernel( CL.Queue,
+                                                BackwardKernel, 
                                                 1, 
                                                 null, 
                                                 backwardGlobalWorkSizePtr, 
@@ -255,6 +268,9 @@ namespace JaNet
                                                 null, 
                                                 out CL.Event);
             CL.CheckErr(CL.Error, "FullyConnected.BackPropagate(): Cl.EnqueueNDRangeKernel");
+
+            CL.Error = Cl.Finish(CL.Queue);
+            CL.CheckErr(CL.Error, "Cl.Finish");
 
             CL.Error = Cl.ReleaseEvent(CL.Event);
             CL.CheckErr(CL.Error, "Cl.ReleaseEvent");
@@ -419,21 +435,21 @@ namespace JaNet
 #if OPENCL_ENABLED
 
             // Set kernel arguments
-            CL.Error  = Cl.SetKernelArg(CL.FCUpdateParameters, 0, weightsGPU);
-            CL.Error |= Cl.SetKernelArg(CL.FCUpdateParameters, 1, biasesGPU);
-            CL.Error |= Cl.SetKernelArg(CL.FCUpdateParameters, 2, weightsUpdateSpeedGPU);
-            CL.Error |= Cl.SetKernelArg(CL.FCUpdateParameters, 3, biasesUpdateSpeedGPU);
-            CL.Error |= Cl.SetKernelArg(CL.FCUpdateParameters, 4, Input.ActivationsGPU);
-            CL.Error |= Cl.SetKernelArg(CL.FCUpdateParameters, 5, Output.DeltaGPU);
-            CL.Error |= Cl.SetKernelArg(CL.FCUpdateParameters, 6, (IntPtr)sizeof(int), Input.NumberOfUnits);
-            CL.Error |= Cl.SetKernelArg(CL.FCUpdateParameters, 7, (IntPtr)sizeof(int), Output.NumberOfUnits);
-            CL.Error |= Cl.SetKernelArg(CL.FCUpdateParameters, 8, (IntPtr)sizeof(float), (float) learningRate);
-            CL.Error |= Cl.SetKernelArg(CL.FCUpdateParameters, 9, (IntPtr)sizeof(float), (float) momentumCoefficient);
+            CL.Error  = Cl.SetKernelArg(UpdateKernel, 0, weightsGPU);
+            CL.Error |= Cl.SetKernelArg(UpdateKernel, 1, biasesGPU);
+            CL.Error |= Cl.SetKernelArg(UpdateKernel, 2, weightsUpdateSpeedGPU);
+            CL.Error |= Cl.SetKernelArg(UpdateKernel, 3, biasesUpdateSpeedGPU);
+            CL.Error |= Cl.SetKernelArg(UpdateKernel, 4, Input.ActivationsGPU);
+            CL.Error |= Cl.SetKernelArg(UpdateKernel, 5, Output.DeltaGPU);
+            CL.Error |= Cl.SetKernelArg(UpdateKernel, 6, (IntPtr)sizeof(int), Input.NumberOfUnits);
+            CL.Error |= Cl.SetKernelArg(UpdateKernel, 7, (IntPtr)sizeof(int), Output.NumberOfUnits);
+            CL.Error |= Cl.SetKernelArg(UpdateKernel, 8, (IntPtr)sizeof(float), (float)learningRate);
+            CL.Error |= Cl.SetKernelArg(UpdateKernel, 9, (IntPtr)sizeof(float), (float)momentumCoefficient);
             CL.CheckErr(CL.Error, "FullyConnected.UpdateParameters(): Cl.SetKernelArg");
 
             // Run kernel
-            CL.Error = Cl.EnqueueNDRangeKernel( CL.Queue, 
-                                                CL.FCUpdateParameters, 
+            CL.Error = Cl.EnqueueNDRangeKernel( CL.Queue,
+                                                UpdateKernel, 
                                                 2, 
                                                 null, 
                                                 updateGlobalWorkSizePtr, 
@@ -442,6 +458,9 @@ namespace JaNet
                                                 null, 
                                                 out CL.Event);
             CL.CheckErr(CL.Error, "FullyConnected.UpdateParameters(): Cl.EnqueueNDRangeKernel");
+
+            CL.Error = Cl.Finish(CL.Queue);
+            CL.CheckErr(CL.Error, "Cl.Finish");
 
             CL.Error = Cl.ReleaseEvent(CL.Event);
             CL.CheckErr(CL.Error, "Cl.ReleaseEvent");

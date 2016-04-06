@@ -8,37 +8,45 @@ using OpenCL.Net;
 namespace JaNet
 {
 
-    static class NetworkEvaluator
+    class NetworkEvaluator
     {
-
+        #region Fields
 #if OPENCL_ENABLED
 
-        private static int inputBufferBytesSize;
-        private static IntPtr[] classificationGlobalWorkSize;
-        private static IntPtr[] classificationLocalWorkSize;
+        private int inputBufferBytesSize;
+        private IntPtr[] classificationGlobalWorkSize;
+        private IntPtr[] classificationLocalWorkSize;
 
-        private static Mem assignedClassBuffer;
+        private Mem assignedClassBuffer;
 
 #endif
+        #endregion
+
+        #region Properties
+
+        #endregion
+
 
 #if OPENCL_ENABLED
-        public static void SetupCL(DataSet dataSet, int miniBatchSize)
+        public void SetupCL(int dataDimension, int nClasses, int miniBatchSize)
         {
-            inputBufferBytesSize = sizeof(float) * dataSet.GetDataPoint(0).Length;
-            classificationGlobalWorkSize = new IntPtr[] { (IntPtr)(miniBatchSize * dataSet.NumberOfClasses) };
-            classificationLocalWorkSize = new IntPtr[] { (IntPtr)(dataSet.NumberOfClasses) };
+            inputBufferBytesSize = sizeof(float) * dataDimension;
+            classificationGlobalWorkSize = new IntPtr[] { (IntPtr)(miniBatchSize * nClasses) };
+            classificationLocalWorkSize = new IntPtr[] { (IntPtr)(nClasses) };
 
-            assignedClassBuffer = (Mem)Cl.CreateBuffer(CL.Context,
+            assignedClassBuffer = (Mem) Cl.CreateBuffer(CL.Context,
                                                         MemFlags.ReadWrite,
-                                                        (IntPtr)(sizeof(int) * NetworkTrainer.MiniBatchSize),
+                                                        (IntPtr)(sizeof(int) * miniBatchSize),
                                                         out CL.Error);
             CL.CheckErr(CL.Error, "NetworkEvaluator.SetupCLObjects: Cl.CreateBuffer assignedClassBuffer");
         }
 #endif
 
 
-        public static void ComputeLossError(NeuralNetwork network, DataSet dataSet, out double loss, out double error)
+        public void ComputeLossError(NeuralNetwork network, DataSet dataSet, out double loss, out double error)
         {
+            // pass network as argument if it doesn't work!
+
             loss = 0.0;
             error = 0.0;
 
@@ -69,6 +77,9 @@ namespace JaNet
                                                 null,
                                                 out CL.Event);
                 CL.CheckErr(CL.Error, "NetworkEvaluator.ComputeCost Cl.clEnqueueReadBuffer outputScores");
+
+                CL.Error = Cl.Finish(CL.Queue);
+                CL.CheckErr(CL.Error, "Cl.Finish");
 
                 CL.Error = Cl.ReleaseEvent(CL.Event);
                 CL.CheckErr(CL.Error, "Cl.ReleaseEvent");

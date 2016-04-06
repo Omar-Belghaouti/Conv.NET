@@ -210,6 +210,7 @@ namespace JaNet
             CL.CheckErr(CL.Error, "FullyConnected.FeedForward(): Cl.SetKernelArg");
 
             // Run kernel
+            Event fcForwardEvent = new Event();  
             CL.Error = Cl.EnqueueNDRangeKernel( CL.Queue, 
                                                 CL.FCForward, 
                                                 1, 
@@ -217,10 +218,11 @@ namespace JaNet
                                                 forwardGlobalWorkSizePtr, 
                                                 forwardLocalWorkSizePtr, 
                                                 0, 
-                                                null, 
-                                                out CL.Event);
+                                                null,
+                                                out fcForwardEvent);
             CL.CheckErr(CL.Error, "FullyConnected.FeedForward(): Cl.EnqueueNDRangeKernel");
 
+            Cl.ReleaseEvent(fcForwardEvent);
 #else
 
             float[] unbiasedOutput = Utils.MultiplyMatrixByVector(this.weights, this.Input.GetHost());
@@ -228,7 +230,6 @@ namespace JaNet
 
 #endif
         }
-
 
         public override void BackPropagate()
         {

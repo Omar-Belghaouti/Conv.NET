@@ -340,7 +340,7 @@ namespace JaNet
             double lossEpoch;
             double errorEpoch;
             bool isOutputEpoch = true;
-            int epochsRemainingToOutput = 0;
+            int epochsRemainingToOutput = 10000;
             float[] outputScores = new float[trainingSet.NumberOfClasses]; // TODO: generalise to miniBatchSize > 1
             float[] labelArray = new float[trainingSet.NumberOfClasses]; // TODO: generalise to miniBatchSize > 1
 
@@ -412,10 +412,10 @@ namespace JaNet
                     network.ForwardPass();
 
                     // Compute gradient
-                    CrossEntropyGradient(network, trainingSet, iDataPoint);
+                    //CrossEntropyGradient(network, trainingSet, iDataPoint);
 
                     // Backpropagate gradient and update parameters
-                    network.BackwardPass(learningRate, momentumMultiplier);
+                    //network.BackwardPass(learningRate, momentumMultiplier);
                 }
 
 

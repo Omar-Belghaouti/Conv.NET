@@ -9,7 +9,7 @@ using OpenCL.Net;
 
 namespace JaNet
 {
-    class trafficNetCLProgram
+    class JaNetProgram
     {
         
         static void Main(string[] args)
@@ -20,10 +20,10 @@ namespace JaNet
              ****************************************************/
             NetworkTrainer.LearningRate = 0.001;
             NetworkTrainer.MomentumMultiplier = 0.9;
-            NetworkTrainer.MaxTrainingEpochs = 20;
+            NetworkTrainer.MaxTrainingEpochs = 10;
             NetworkTrainer.MiniBatchSize = 1; // not correctly implemented yet!! // for GTSRB can use any multiple of 2, 3, 5
             NetworkTrainer.ErrorTolerance = 0.001;
-            NetworkTrainer.ConsoleOutputLag = 1000; // 1 = print every epoch, N = print every N epochs
+            NetworkTrainer.ConsoleOutputLag = 10000; // 1 = print every epoch, N = print every N epochs
             //double tanhBeta = 0.5;
             
 
@@ -59,16 +59,16 @@ namespace JaNet
             //network.AddLayer(new ReLU());
 
             //network.AddLayer(new Tanh(tanhBeta));
-            network.AddLayer(new FullyConnectedLayer(32));
-            network.AddLayer(new ReLU());
+            network.AddLayer(new FullyConnectedLayer(64));
+            //network.AddLayer(new ReLU());
             //network.AddLayer(new FullyConnectedLayer(16));
             //network.AddLayer(new ReLU());
             //network.AddLayer(new Tanh(tanhBeta));
             //network.AddLayer(new FullyConnectedLayer(128));
             //network.AddLayer(new ReLU());
             //network.AddLayer(new Tanh(tanhBeta));
-            network.AddLayer(new FullyConnectedLayer(10));
-            network.AddLayer(new SoftMax());
+            //network.AddLayer(new FullyConnectedLayer(10));
+            //network.AddLayer(new SoftMax());
 
 
             /*****************************************************
@@ -87,12 +87,12 @@ namespace JaNet
 
 
 
-            /*
+            
             // Reduced MNIST dataset (1000 data points, 100 per digit)
             DataSet dataSet = new DataSet(10,
                 "C:/Users/jacopo/Dropbox/Chalmers/MSc thesis/MNIST/mnistImagesSubset.dat",
                 "C:/Users/jacopo/Dropbox/Chalmers/MSc thesis/MNIST/mnistLabelsSubset.dat");
-            */
+            
 
 
             // Original MNIST dataset
@@ -106,11 +106,11 @@ namespace JaNet
 
             
             //Console.WriteLine("Importing test data...");
-            
+            /*
             DataSet dataSet = new DataSet(10,
                 "C:/Users/jacopo/Dropbox/Chalmers/MSc thesis/MNIST/mnistTestImages.dat",
                 "C:/Users/jacopo/Dropbox/Chalmers/MSc thesis/MNIST/mnistTestLabels.dat");
-            
+            */
 
             //network.Setup(2, 1, 1, 2); // toy dataset
             network.Setup(28, 28, 1, 10); // MNIST

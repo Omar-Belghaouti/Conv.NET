@@ -18,12 +18,12 @@ namespace JaNet
             /*****************************************************
              * (0a) Set hyperparameters
              ****************************************************/
-            NetworkTrainer.LearningRate = 0.001;
+            NetworkTrainer.LearningRate = 0.0001;
             NetworkTrainer.MomentumMultiplier = 0.9;
-            NetworkTrainer.MaxTrainingEpochs = 10;
+            NetworkTrainer.MaxTrainingEpochs = 1000;
             NetworkTrainer.MiniBatchSize = 1; // not correctly implemented yet!! // for GTSRB can use any multiple of 2, 3, 5
-            NetworkTrainer.ErrorTolerance = 0.001;
-            NetworkTrainer.ConsoleOutputLag = 10000; // 1 = print every epoch, N = print every N epochs
+            NetworkTrainer.ErrorTolerance = 0.0;
+            NetworkTrainer.ConsoleOutputLag = 5; // 1 = print every epoch, N = print every N epochs
             //double tanhBeta = 0.5;
             
 
@@ -59,16 +59,16 @@ namespace JaNet
             //network.AddLayer(new ReLU());
 
             //network.AddLayer(new Tanh(tanhBeta));
-            network.AddLayer(new FullyConnectedLayer(64));
-            //network.AddLayer(new ReLU());
+            network.AddLayer(new FullyConnectedLayer(32));
+            network.AddLayer(new ReLU());
             //network.AddLayer(new FullyConnectedLayer(16));
             //network.AddLayer(new ReLU());
             //network.AddLayer(new Tanh(tanhBeta));
             //network.AddLayer(new FullyConnectedLayer(128));
             //network.AddLayer(new ReLU());
             //network.AddLayer(new Tanh(tanhBeta));
-            //network.AddLayer(new FullyConnectedLayer(10));
-            //network.AddLayer(new SoftMax());
+            network.AddLayer(new FullyConnectedLayer(10));
+            network.AddLayer(new SoftMax());
 
 
             /*****************************************************
@@ -87,42 +87,37 @@ namespace JaNet
 
 
 
-            
+            /*
             // Reduced MNIST dataset (1000 data points, 100 per digit)
-            DataSet dataSet = new DataSet(10,
+            DataSet validationSet = new DataSet(10,
                 "C:/Users/jacopo/Dropbox/Chalmers/MSc thesis/MNIST/mnistImagesSubset.dat",
                 "C:/Users/jacopo/Dropbox/Chalmers/MSc thesis/MNIST/mnistLabelsSubset.dat");
-            
+            */
 
 
             // Original MNIST dataset
             
             //Console.WriteLine("Importing training data...");
-            /*
-            DataSet dataSet = new DataSet(10,
+            
+            DataSet trainingSet = new DataSet(10,
                 "C:/Users/jacopo/Dropbox/Chalmers/MSc thesis/MNIST/mnistTrainImages.dat",
                 "C:/Users/jacopo/Dropbox/Chalmers/MSc thesis/MNIST/mnistTrainLabels.dat");
-            */
+            
 
             
             //Console.WriteLine("Importing test data...");
-            /*
-            DataSet dataSet = new DataSet(10,
+            
+            DataSet validationSet = new DataSet(10,
                 "C:/Users/jacopo/Dropbox/Chalmers/MSc thesis/MNIST/mnistTestImages.dat",
                 "C:/Users/jacopo/Dropbox/Chalmers/MSc thesis/MNIST/mnistTestLabels.dat");
-            */
+            
 
             //network.Setup(2, 1, 1, 2); // toy dataset
             network.Setup(28, 28, 1, 10); // MNIST
 
-#if OPENCL_ENABLED
-            NetworkTrainer.SetupCL(dataSet);
-            NetworkEvaluator.SetupCL(dataSet, NetworkTrainer.MiniBatchSize);
-#endif
-
             /*****************************************************
              * (3) Train network
-             ****************************************************/
+             ****************\************************************/
             Console.WriteLine("\n=========================================");
             Console.WriteLine("    Network training");
             Console.WriteLine("=========================================\n");
@@ -137,7 +132,7 @@ namespace JaNet
             
 
 
-            NetworkTrainer.TrainMNIST(network, dataSet);
+            NetworkTrainer.TrainMNIST(network, trainingSet, validationSet);
 
             /*****************************************************
              * (4) Test network

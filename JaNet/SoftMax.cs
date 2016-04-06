@@ -79,7 +79,7 @@ namespace JaNet
 
             this.globalWorkSizePtr = new IntPtr[] { (IntPtr)(Output.NumberOfUnits) };
             int tmpLocalWorkSize = Output.NumberOfUnits;
-            while (tmpLocalWorkSize > CL.maxWorkGroupSize || tmpLocalWorkSize > CL.maxWorkItemSizes[0])
+            while (tmpLocalWorkSize > CL.MaxWorkGroupSize || tmpLocalWorkSize > CL.MaxWorkItemSizes[0])
                 tmpLocalWorkSize /= 2;
             this.localWorkSizePtr = new IntPtr[] { (IntPtr)(tmpLocalWorkSize) };
         }
@@ -112,6 +112,8 @@ namespace JaNet
                                                 out CL.Event);
             CL.CheckErr(CL.Error, "Softmax.FeedForward(): Cl.EnqueueNDRangeKernel");
 
+            CL.Error = Cl.ReleaseEvent(CL.Event);
+            CL.CheckErr(CL.Error, "Cl.ReleaseEvent");
 #else
 
             // use rescaling trick to improve numerical stability

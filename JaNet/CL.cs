@@ -5,6 +5,8 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Diagnostics;
 using OpenCL.Net;
+using OpenCL.Net.Extensions;
+
 
 namespace JaNet
 {
@@ -15,13 +17,13 @@ namespace JaNet
 
         #region CL helper class fields
 
-        private static Context _context;
-        private static Device _device;
-        private static CommandQueue _queue;
+        private static Context context;
+        private static Device device;
+        private static CommandQueue queue;
 
-        public static List<int> maxWorkItemSizes;
-        public static int maxWorkGroupSize;
-        public static int maxComputeUnits;
+        private static List<int> maxWorkItemSizes;
+        private static int maxWorkGroupSize;
+        private static int maxComputeUnits;
 
         public static ErrorCode Error;
         public static Event Event;
@@ -33,21 +35,35 @@ namespace JaNet
 
         public static Context Context
         {
-            get { return _context; }
-            set { _context = value; }
+            get { return context; }
+            set { context = value; }
         }
 
         public static Device Device
         {
-            get { return _device; }
+            get { return device; }
         }
 
         public static CommandQueue Queue
         {
-            get { return _queue; }
-            set { _queue = value; }
+            get { return queue; }
+            set { queue = value; }
         }
 
+        public static List<int> MaxWorkItemSizes
+        {
+            get { return maxWorkItemSizes; }
+        }
+
+        public static int MaxWorkGroupSize
+        {
+            get { return maxWorkGroupSize; }
+        }
+
+        public static int MaxComputeUnits
+        {
+            get { return maxComputeUnits; }
+        }
         #endregion
 
 
@@ -103,14 +119,14 @@ namespace JaNet
                 CheckErr(Error, "CL.Setup: Cl.GetPlatformInfo");
 
                 // Get all available devices for this platform and list them on screen
-                foreach (Device device in Cl.GetDeviceIDs(platform, DeviceType.All, out Error))
+                foreach (Device dev in Cl.GetDeviceIDs(platform, DeviceType.All, out Error))
                 {
                     CheckErr(Error, "CL.Setup: Cl.GetDeviceIDs");
-                    string deviceName = Cl.GetDeviceInfo(device, DeviceInfo.Name, out Error).ToString();
+                    string deviceName = Cl.GetDeviceInfo(dev, DeviceInfo.Name, out Error).ToString();
                     CheckErr(Error, "CL.Setup: Cl.GetDeviceInfo");
                     Console.WriteLine("Device {0}: {1}", nDevices, deviceName);
 
-                    devicesList.Add(device);
+                    devicesList.Add(dev);
                     deviceNames.Add(deviceName);
                     platformNames.Add(platformName);
                     nDevices++;
@@ -128,36 +144,28 @@ namespace JaNet
             deviceID = int.Parse(Console.ReadLine()); 
 
             // Select device according to user's choice
-            _device = devicesList[deviceID];
+            device = devicesList[deviceID];
             Console.WriteLine("\nUsing device {0}", deviceNames[deviceID]);
 
             // Create OpenCL context
-            _context = Cl.CreateContext(null, 1, new[] { _device }, ContextNotify, IntPtr.Zero, out Error);    //Second parameter is amount of devices
+            context = Cl.CreateContext(null, 1, new[] { device }, ContextNotify, IntPtr.Zero, out Error);    //Second parameter is amount of devices
             CheckErr(Error, "CL.Setup: Cl.CreateContext");
 
             // Create OpenCL command queue
-            _queue = Cl.CreateCommandQueue(_context, _device, (CommandQueueProperties)0, out Error);
+            queue = Cl.CreateCommandQueue(context, device, (CommandQueueProperties)0, out Error);
             CheckErr(Error, "CL.Setup: Cl.CreateCommandQueue");
 
             // Extract some device info
-            maxWorkItemSizes = Cl.GetDeviceInfo(_device, DeviceInfo.MaxWorkItemSizes, out Error).CastToEnumerable<int>(new int[] { 0, 1, 2 }).ToList();
+            maxWorkItemSizes = Cl.GetDeviceInfo(device, DeviceInfo.MaxWorkItemSizes, out Error).CastToEnumerable<int>(new int[] { 0, 1, 2 }).ToList();
             Console.WriteLine("Max work item sizes: {0}, {1}, {2}", maxWorkItemSizes[0], maxWorkItemSizes[1], maxWorkItemSizes[2]);
 
-            maxWorkGroupSize = Cl.GetDeviceInfo(_device, DeviceInfo.MaxWorkGroupSize, out Error).CastTo<int>();
+            maxWorkGroupSize = Cl.GetDeviceInfo(device, DeviceInfo.MaxWorkGroupSize, out Error).CastTo<int>();
             Console.WriteLine("Max work group size: {0}", maxWorkGroupSize);
 
-            maxComputeUnits = Cl.GetDeviceInfo(_device, DeviceInfo.MaxComputeUnits, out Error).CastTo<int>();
+            maxComputeUnits = Cl.GetDeviceInfo(device, DeviceInfo.MaxComputeUnits, out Error).CastTo<int>();
             Console.WriteLine("Max compute units: {0}", maxComputeUnits);
 
         }
-
-
-        /*
-        public static void Finalize() // bad practice?
-        {
-            Cl.ReleaseCommandQueue(_queue);
-        }
-         * */
 
 
         #endregion
@@ -178,20 +186,20 @@ namespace JaNet
             string kernelSource = System.IO.File.ReadAllText(kernelFilePath);
 
             // Create program
-            OpenCL.Net.Program clProgram = Cl.CreateProgramWithSource(_context, 1, new[] { kernelSource }, null, out Error);
+            OpenCL.Net.Program clProgram = Cl.CreateProgramWithSource(context, 1, new[] { kernelSource }, null, out Error);
             CheckErr(Error, "CL.LoadAndBuildKernel: Cl.CreateProgramWithSource");
 
             //Compile kernel source
-            Error = Cl.BuildProgram(clProgram, 1, new[] { _device }, string.Empty, null, IntPtr.Zero);
+            Error = Cl.BuildProgram(clProgram, 1, new[] { device }, string.Empty, null, IntPtr.Zero);
             CheckErr(Error, "CL.LoadAndBuildKernel: Cl.BuildProgram");
 
             //Check for any compilation errors
-            if (Cl.GetProgramBuildInfo(clProgram, _device, ProgramBuildInfo.Status, out Error).CastTo<BuildStatus>()
+            if (Cl.GetProgramBuildInfo(clProgram, device, ProgramBuildInfo.Status, out Error).CastTo<BuildStatus>()
                 != BuildStatus.Success)
             {
                 CheckErr(Error, "CL.LoadAndBuildKernel: Cl.GetProgramBuildInfo");
                 Console.WriteLine("Cl.GetProgramBuildInfo != Success");
-                Console.WriteLine(Cl.GetProgramBuildInfo(clProgram, _device, ProgramBuildInfo.Log, out Error));
+                Console.WriteLine(Cl.GetProgramBuildInfo(clProgram, device, ProgramBuildInfo.Log, out Error));
                 Console.ReadKey();
                 System.Environment.Exit(1);
             }

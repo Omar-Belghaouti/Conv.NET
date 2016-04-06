@@ -153,14 +153,14 @@ namespace JaNet
             // FeedForward
             this.forwardGlobalWorkSizePtr = new IntPtr[] { (IntPtr)(Output.NumberOfUnits) }; 
             int tmpFwLocalWorkSize = Output.NumberOfUnits; // 
-            while (tmpFwLocalWorkSize > CL.maxWorkGroupSize || tmpFwLocalWorkSize > CL.maxWorkItemSizes[0]) 
+            while (tmpFwLocalWorkSize > CL.MaxWorkGroupSize || tmpFwLocalWorkSize > CL.MaxWorkItemSizes[0]) 
                 tmpFwLocalWorkSize /= 2;
             this.forwardLocalWorkSizePtr = new IntPtr[] { (IntPtr)(tmpFwLocalWorkSize) };
 
             // BackPropagate
             this.backwardGlobalWorkSizePtr = new IntPtr[] { (IntPtr)(Input.NumberOfUnits) };
             int tmpBwLocalWorkSize = Input.NumberOfUnits;
-            while (tmpBwLocalWorkSize > CL.maxWorkGroupSize || tmpBwLocalWorkSize > CL.maxWorkItemSizes[0]) 
+            while (tmpBwLocalWorkSize > CL.MaxWorkGroupSize || tmpBwLocalWorkSize > CL.MaxWorkItemSizes[0]) 
                 tmpBwLocalWorkSize /= 2;
             this.backwardLocalWorkSizePtr = new IntPtr[] { (IntPtr)(tmpBwLocalWorkSize) };
            
@@ -168,16 +168,16 @@ namespace JaNet
             this.updateGlobalWorkSizePtr = new IntPtr[] { (IntPtr)(Output.NumberOfUnits), (IntPtr)(Input.NumberOfUnits) };
             int[] tmpUpdLocalWorkSize = new int[] { Output.NumberOfUnits, Input.NumberOfUnits };
             // make each local work group dimension <= corresponding max work item size (depends on device)
-            while (tmpUpdLocalWorkSize[0] > CL.maxWorkItemSizes[0] && tmpUpdLocalWorkSize[0] % 2 == 0)
+            while (tmpUpdLocalWorkSize[0] > CL.MaxWorkItemSizes[0] && tmpUpdLocalWorkSize[0] % 2 == 0)
                     tmpUpdLocalWorkSize[0] /= 2;
-            while (tmpUpdLocalWorkSize[1] > CL.maxWorkItemSizes[1] && tmpUpdLocalWorkSize[1] % 2 == 0)
+            while (tmpUpdLocalWorkSize[1] > CL.MaxWorkItemSizes[1] && tmpUpdLocalWorkSize[1] % 2 == 0)
                 tmpUpdLocalWorkSize[1] /= 2;
             // make entire local work group size (i.e. product of dimensions) <= of max work group size (depends on device)
-            while (tmpUpdLocalWorkSize[0] * tmpUpdLocalWorkSize[1] > CL.maxWorkGroupSize && tmpUpdLocalWorkSize[1] % 2 == 0)
+            while (tmpUpdLocalWorkSize[0] * tmpUpdLocalWorkSize[1] > CL.MaxWorkGroupSize && tmpUpdLocalWorkSize[1] % 2 == 0)
             {
                 tmpUpdLocalWorkSize[1] /= 2;
             }
-            while (tmpUpdLocalWorkSize[0] * tmpUpdLocalWorkSize[1] > CL.maxWorkGroupSize && tmpUpdLocalWorkSize[0] % 2 == 0)
+            while (tmpUpdLocalWorkSize[0] * tmpUpdLocalWorkSize[1] > CL.MaxWorkGroupSize && tmpUpdLocalWorkSize[0] % 2 == 0)
             {
                 tmpUpdLocalWorkSize[0] /= 2;
                 if (tmpUpdLocalWorkSize[0] == 1)
@@ -210,7 +210,6 @@ namespace JaNet
             CL.CheckErr(CL.Error, "FullyConnected.FeedForward(): Cl.SetKernelArg");
 
             // Run kernel
-            Event fcForwardEvent = new Event();  
             CL.Error = Cl.EnqueueNDRangeKernel( CL.Queue, 
                                                 CL.FCForward, 
                                                 1, 
@@ -219,10 +218,11 @@ namespace JaNet
                                                 forwardLocalWorkSizePtr, 
                                                 0, 
                                                 null,
-                                                out fcForwardEvent);
+                                                out CL.Event);
             CL.CheckErr(CL.Error, "FullyConnected.FeedForward(): Cl.EnqueueNDRangeKernel");
 
-            Cl.ReleaseEvent(fcForwardEvent);
+            CL.Error = Cl.ReleaseEvent(CL.Event);
+            CL.CheckErr(CL.Error, "Cl.ReleaseEvent");
 #else
 
             float[] unbiasedOutput = Utils.MultiplyMatrixByVector(this.weights, this.Input.GetHost());
@@ -256,6 +256,8 @@ namespace JaNet
                                                 out CL.Event);
             CL.CheckErr(CL.Error, "FullyConnected.BackPropagate(): Cl.EnqueueNDRangeKernel");
 
+            CL.Error = Cl.ReleaseEvent(CL.Event);
+            CL.CheckErr(CL.Error, "Cl.ReleaseEvent");
 #else
             this.Input.DeltaHost = Utils.MultiplyMatrixTranspByVector(this.weights, this.Output.DeltaHost);
 #endif
@@ -441,6 +443,8 @@ namespace JaNet
                                                 out CL.Event);
             CL.CheckErr(CL.Error, "FullyConnected.UpdateParameters(): Cl.EnqueueNDRangeKernel");
 
+            CL.Error = Cl.ReleaseEvent(CL.Event);
+            CL.CheckErr(CL.Error, "Cl.ReleaseEvent");
 #else
             // Update weights
             for (int i = 0; i < this.weights.GetLength(0); i++)

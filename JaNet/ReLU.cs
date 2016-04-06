@@ -70,7 +70,7 @@ namespace JaNet
 
             this.globalWorkSizePtr = new IntPtr[] { (IntPtr)(Output.NumberOfUnits) };
             int tmpLocalWorkSize = Output.NumberOfUnits;
-            while (tmpLocalWorkSize > CL.maxWorkGroupSize || tmpLocalWorkSize > CL.maxWorkItemSizes[0])
+            while (tmpLocalWorkSize > CL.MaxWorkGroupSize || tmpLocalWorkSize > CL.MaxWorkItemSizes[0])
                 tmpLocalWorkSize /= 2;
             this.localWorkSizePtr = new IntPtr[] { (IntPtr)(tmpLocalWorkSize) };
         }
@@ -102,6 +102,8 @@ namespace JaNet
                                                 out CL.Event);
             CL.CheckErr(CL.Error, "ReLU.FeedForward(): Cl.EnqueueNDRangeKernel");
 
+            CL.Error = Cl.ReleaseEvent(CL.Event);
+            CL.CheckErr(CL.Error, "Cl.ReleaseEvent");
 #else
             float[] tmpOutput = new float[this.numberOfUnits];
             for (int i = 0; i < this.numberOfUnits; i++)
@@ -140,6 +142,8 @@ namespace JaNet
                                                 out CL.Event);
             CL.CheckErr(CL.Error, "ReLU.BackPropagate(): Cl.EnqueueNDRangeKernel");
 
+            CL.Error = Cl.ReleaseEvent(CL.Event);
+            CL.CheckErr(CL.Error, "Cl.ReleaseEvent");
 #else
             for (int i = 0; i < this.numberOfUnits; i++)
                 this.input.DeltaHost[i] = this.input.GetHost()[i] > 0 ? this.output.DeltaHost[i] : 0.0F;

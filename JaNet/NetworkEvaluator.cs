@@ -55,7 +55,9 @@ namespace JaNet
                 // Run network forward
                 network.ForwardPass();
 
+                
                 // Find maximum output score (i.e. assigned class)
+                
 #if OPENCL_ENABLED
                 CL.Error = Cl.EnqueueReadBuffer(CL.Queue,
                                                 network.Layers.Last().Output.ActivationsGPU, // source
@@ -67,9 +69,14 @@ namespace JaNet
                                                 null,
                                                 out CL.Event);
                 CL.CheckErr(CL.Error, "NetworkEvaluator.ComputeCost Cl.clEnqueueReadBuffer outputScores");
+
+                CL.Error = Cl.ReleaseEvent(CL.Event);
+                CL.CheckErr(CL.Error, "Cl.ReleaseEvent");
 #else
                 outputScores = network.Layers.Last().Output.GetHost();
 #endif
+
+
 
                 /////////////// DEBUGGING (visualize true label vs network output)
                 /*
@@ -92,14 +99,15 @@ namespace JaNet
                 */
                 ///////////////////
 
-
+                
                 assignedClass = Utils.IndexOfMax(outputScores);
 
                 // Cumulate loss and error
                 loss -= Math.Log(outputScores[assignedClass]);
                 error += (assignedClass == dataSet.GetLabel(i)) ? 0 : 1;
+                
             }
-
+   
             error /= dataSet.Size;
         }
     }

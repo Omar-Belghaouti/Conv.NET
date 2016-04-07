@@ -26,6 +26,7 @@ namespace JaNet
         private int miniBatchSize;
         private double errorTolerance;
         private int consoleOutputLag;
+        private bool evaluateBeforeTraining;
 
         // Errors
         private double lossTraining;
@@ -120,7 +121,11 @@ namespace JaNet
         {
             get { return errorValidation; }
         }
-        
+
+        public bool EvaluateBeforeTraining
+        {
+            set { evaluateBeforeTraining = value; }
+        }
         #endregion
 
 
@@ -377,7 +382,7 @@ namespace JaNet
             int epoch = 0;
             bool stopFlag = false;
             bool isOutputEpoch = true;
-            int epochsRemainingToOutput = 0;
+            int epochsRemainingToOutput = (evaluateBeforeTraining == true) ? 0 : consoleOutputLag;
             Sequence indicesSequence = new Sequence(trainingSet.Size);
             int iDataPoint;
             NetworkEvaluator networkEvaluator = new NetworkEvaluator();
@@ -394,11 +399,11 @@ namespace JaNet
 
 
             Stopwatch stopwatch = Stopwatch.StartNew();
-#if PROFILING
+
             Stopwatch stopwatchFwd = Stopwatch.StartNew();
             Stopwatch stopwatchGrad = Stopwatch.StartNew();
             Stopwatch stopwatchBwd = Stopwatch.StartNew();
-#endif
+
 
             while (epoch < maxTrainingEpochs && !stopFlag) // loop over training epochs
             {
@@ -417,19 +422,24 @@ namespace JaNet
                                         lossTraining, errorTraining, stopwatch.ElapsedMilliseconds);
 
                     // Evaluate all validation set
-                    stopwatch.Restart();
-                    networkEvaluator.ComputeLossError(network, validationSet, out lossValidation, out errorValidation);
-                    Console.WriteLine("\nVALIDATION SET:\n\tLoss = {0}\n\tError = {1}\n\tEval runtime = {2}ms\n", 
-                                        lossValidation, errorValidation, stopwatch.ElapsedMilliseconds);
-
-
-                    if (errorValidation < errorTolerance)
+                    if (validationSet != null)
                     {
-                        stopFlag = true;
-                        break;
+                        stopwatch.Restart();
+                        networkEvaluator.ComputeLossError(network, validationSet, out lossValidation, out errorValidation);
+                        Console.WriteLine("\nVALIDATION SET:\n\tLoss = {0}\n\tError = {1}\n\tEval runtime = {2}ms\n",
+                                            lossValidation, errorValidation, stopwatch.ElapsedMilliseconds);
+                    
+
+
+                        if (errorValidation < errorTolerance)
+                        {
+                            stopFlag = true;
+                            break;
+                        }
                     }
 
                     // TODO: implement early stopping
+
                     epochsRemainingToOutput = consoleOutputLag;
                     isOutputEpoch = false;
                 }
@@ -487,6 +497,28 @@ namespace JaNet
                     network.ForwardPass();
                     stopwatchFwd.Stop();
 
+                    /* ------------------------- DEBUGGING --------------------------------------------- 
+                    // Display output activation
+                    float[] outputScoresGPU = new float[network.Layers.Last().Output.NumberOfUnits];
+                    CL.Error = Cl.EnqueueReadBuffer(CL.Queue,
+                                                    network.Layers.Last().Output.ActivationsGPU, // source
+                                                    Bool.True,
+                                                    (IntPtr)0,
+                                                    (IntPtr)(network.Layers.Last().Output.NumberOfUnits * sizeof(float)),
+                                                    outputScoresGPU,  // destination
+                                                    0,
+                                                    null,
+                                                    out CL.Event);
+                    CL.CheckErr(CL.Error, "NetworkTrainer Cl.clEnqueueReadBuffer outputScoresGPU");
+
+                    Console.WriteLine("\nOutput scores:");
+                    for (int j = 0; j < outputScoresGPU.Length; j++)
+                        Console.Write("{0}  ", outputScoresGPU[j]);
+                    Console.WriteLine();
+                    Console.ReadKey();
+                    /* ------------------------- END --------------------------------------------- */
+
+
                     // Compute gradient
                     stopwatchGrad.Start();
                     CrossEntropyGradient(iDataPoint);
@@ -532,6 +564,9 @@ namespace JaNet
                                                 null,
                                                 out CL.Event);
             CL.CheckErr(CL.Error, "TrainMNIST.CrossEntropyGradient: Cl.EnqueueNDRangeKernel");
+
+            CL.Error = Cl.Finish(CL.Queue);
+            CL.CheckErr(CL.Error, "Cl.Finish");
 
             CL.Error = Cl.ReleaseEvent(CL.Event);
             CL.CheckErr(CL.Error, "Cl.ReleaseEvent");

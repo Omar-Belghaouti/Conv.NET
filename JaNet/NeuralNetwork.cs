@@ -98,8 +98,6 @@ namespace JaNet
         }
 
 
-
-
         public void ForwardPass()
         {
             //TODO: generalise to miniBatchSize > 1
@@ -210,8 +208,10 @@ namespace JaNet
 
                 /* ------------------------- END DEBUGGING --------------------------------------------- */
 #endif
-
-                layers[l].BackPropagate();
+                if (l > 0) // no need to backprop first layer
+                {
+                    layers[l].BackPropagate();
+                }
 
 #if DEBUGGING_STEPBYSTEP
                 /* ------------------------- DEBUGGING --------------------------------------------- */

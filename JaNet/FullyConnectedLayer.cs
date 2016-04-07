@@ -143,10 +143,27 @@ namespace JaNet
             int weightBufferSize = sizeof(float) * (this.Output.NumberOfUnits * this.Input.NumberOfUnits);
             int biasesBufferSize = sizeof(float) * this.Output.NumberOfUnits;
 
-            this.weightsGPU = (Mem)Cl.CreateBuffer(CL.Context, MemFlags.ReadWrite | MemFlags.CopyHostPtr, (IntPtr)weightBufferSize, weights, out CL.Error);
-            this.biasesGPU = (Mem)Cl.CreateBuffer(CL.Context, MemFlags.ReadWrite | MemFlags.CopyHostPtr, (IntPtr)biasesBufferSize, biases, out CL.Error);
-            this.weightsUpdateSpeedGPU = (Mem)Cl.CreateBuffer(CL.Context, MemFlags.ReadWrite, (IntPtr)weightBufferSize, out CL.Error);
-            this.biasesUpdateSpeedGPU = (Mem)Cl.CreateBuffer(CL.Context, MemFlags.ReadWrite, (IntPtr)biasesBufferSize, out CL.Error);
+            this.weightsGPU = (Mem)Cl.CreateBuffer( CL.Context, 
+                                                    MemFlags.ReadWrite | MemFlags.CopyHostPtr, 
+                                                    (IntPtr)weightBufferSize, 
+                                                    weights, 
+                                                    out CL.Error);
+            this.biasesGPU = (Mem)Cl.CreateBuffer(  CL.Context, 
+                                                    MemFlags.ReadWrite | MemFlags.CopyHostPtr, 
+                                                    (IntPtr)biasesBufferSize, 
+                                                    biases, 
+                                                    out CL.Error);
+
+            this.weightsUpdateSpeedGPU = (Mem)Cl.CreateBuffer(  CL.Context, 
+                                                                MemFlags.ReadWrite | MemFlags.CopyHostPtr, 
+                                                                (IntPtr)weightBufferSize, 
+                                                                weightsUpdateSpeed,
+                                                                out CL.Error);
+            this.biasesUpdateSpeedGPU = (Mem)Cl.CreateBuffer(   CL.Context, 
+                                                                MemFlags.ReadWrite | MemFlags.CopyHostPtr, 
+                                                                (IntPtr)biasesBufferSize, 
+                                                                biasesUpdateSpeed,
+                                                                out CL.Error);
             CL.CheckErr(CL.Error, "InitializeParameters(): Cl.CreateBuffer");
 
             SetWorkGroupSizes();

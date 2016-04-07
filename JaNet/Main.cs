@@ -19,12 +19,13 @@ namespace JaNet
              ****************************************************/
             NetworkTrainer trainer = new NetworkTrainer();
 
-            trainer.LearningRate = 0.001;
+            trainer.LearningRate = 0.0001;
             trainer.MomentumMultiplier = 0.9;
             trainer.MaxTrainingEpochs = 1000;
             trainer.MiniBatchSize = 1; // not correctly implemented yet!! // for GTSRB can use any multiple of 2, 3, 5
             trainer.ErrorTolerance = 0.0;
-            trainer.ConsoleOutputLag = 5; // 1 = print every epoch, N = print every N epochs
+            trainer.ConsoleOutputLag = 1; // 1 = print every epoch, N = print every N epochs
+            trainer.EvaluateBeforeTraining = true;
             //double tanhBeta = 0.5;
 
             
@@ -56,7 +57,9 @@ namespace JaNet
             //network.AddLayer(new ReLU());
 
             //network.AddLayer(new Tanh(tanhBeta));
-            network.AddLayer(new FullyConnectedLayer(32));
+            network.AddLayer(new FullyConnectedLayer(64));
+            network.AddLayer(new ReLU());
+            network.AddLayer(new FullyConnectedLayer(64));
             network.AddLayer(new ReLU());
             //network.AddLayer(new FullyConnectedLayer(16));
             //network.AddLayer(new ReLU());
@@ -64,7 +67,7 @@ namespace JaNet
             //network.AddLayer(new FullyConnectedLayer(128));
             //network.AddLayer(new ReLU());
             //network.AddLayer(new Tanh(tanhBeta));
-            network.AddLayer(new FullyConnectedLayer(10));
+            network.AddLayer(new FullyConnectedLayer(43));
             network.AddLayer(new SoftMax());
 
             trainer.Network = network;
@@ -94,19 +97,21 @@ namespace JaNet
             // Original MNIST dataset
             
             //Console.WriteLine("Importing training data...");
-            
+            /*
             DataSet trainingSetMNIST = new DataSet(10,
                 "C:/Users/jacopo/Dropbox/Chalmers/MSc thesis/MNIST/mnistTrainImages.dat",
                 "C:/Users/jacopo/Dropbox/Chalmers/MSc thesis/MNIST/mnistTrainLabels.dat");
-            
+            */
 
             
             //Console.WriteLine("Importing test data...");
             
+            /*
             DataSet testSetMNIST = new DataSet(10,
                 "C:/Users/jacopo/Dropbox/Chalmers/MSc thesis/MNIST/mnistTestImages.dat",
                 "C:/Users/jacopo/Dropbox/Chalmers/MSc thesis/MNIST/mnistTestLabels.dat");
-            
+            */
+
             /*
             // Reduced MNIST dataset (1000 data points, 100 per digit)
             DataSet reducedMNIST = new DataSet(10,
@@ -114,12 +119,23 @@ namespace JaNet
                 "C:/Users/jacopo/Dropbox/Chalmers/MSc thesis/MNIST/mnistLabelsSubset.dat");
             */
 
+            // GTSRB training set (full)
+            
+            DataSet trainingGTSRB = new DataSet(43,
+                "C:/Users/jacopo/Dropbox/Chalmers/MSc thesis/GTSRB/Preprocessed/02_training_images.dat",
+                "C:/Users/jacopo/Dropbox/Chalmers/MSc thesis/GTSRB/Preprocessed/training_labels_full.dat");
+
+            DataSet testGTSRB = new DataSet(43,
+                "C:/Users/jacopo/Dropbox/Chalmers/MSc thesis/GTSRB/Preprocessed/02_test_images.dat",
+                "C:/Users/jacopo/Dropbox/Chalmers/MSc thesis/GTSRB/Preprocessed/test_labels_full.dat");
+
             //network.Setup(2, 1, 1, 2); // toy dataset
-            network.Setup(28, 28, 1, 10); // MNIST
+            //network.Setup(28, 28, 1, 10); // MNIST
+            network.Setup(32, 32, 1, 43); // GTSRB
 
 
-            trainer.TrainingSet = trainingSetMNIST;
-            trainer.ValidationSet = testSetMNIST;
+            trainer.TrainingSet = trainingGTSRB;
+            trainer.ValidationSet = testGTSRB;
 
             
             /*****************************************************

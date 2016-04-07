@@ -14,7 +14,7 @@ namespace JaNet
         #region NeuralNetwork class fields (private)
 
         private List<Layer> layers;
-        private int nLayers;
+        private int nLayers; // INCLUDES input layer
 
         #endregion
 
@@ -25,6 +25,7 @@ namespace JaNet
         {
             get { return layers; }
         }
+
         public int NumberOfLayers
         {
             get { return nLayers; }
@@ -33,30 +34,80 @@ namespace JaNet
         #endregion
 
 
-        #region Setup methods (to be called once)
+        #region Setup methods
 
         /// <summary>
-        /// NeuralNetwork class constructor.
+        /// NeuralNetwork class standard constructor.
         /// </summary>
         public NeuralNetwork()
         {
-            //Console.WriteLine("--- New empty network created ---\n");
+            Console.WriteLine("New empty network created.");
             this.layers = new List<Layer>(); // empty list of layers
             this.nLayers = 0;
         }
 
         /// <summary>
-        /// Add layer to NeuralNetwork object.
+        /// Add layer to NeuralNetwork instance.
         /// </summary>
-        /// <param name="layer"></param>
-        public void AddLayer(Layer layer)
+        /// <param name="newLayer"></param>
+        public void AddLayer(Layer newLayer)
         {
-            layer.ID = nLayers;
-            if (this.layers.Any()) // if layer list is not empty
-                this.layers.Last().NextLayer = layer; // set this layer as layer field of previous one
+            // Some error-handling
 
-            this.layers.Add(layer);
-            this.nLayers++;
+            if (!layers.Any() && newLayer.Type != "Input")
+            {
+                throw new ArgumentException("Need to add an InputLayer as 0th layer of the network.");
+            }
+
+            switch (newLayer.Type)
+            {
+                case "Input":
+                    {
+                        if (!layers.Any()) // if list of layers is empty
+                        {
+                            newLayer.ID = 0;
+                        }
+                        else // list is not empty
+                        {
+                            throw new ArgumentException("Adding an InputLayer to a non-empty network.");
+                        }
+                        break;
+                    }
+                case "Convolutional":
+                    {
+                        if (layers.Last().Type != "Convolutional" & layers.Last().Type != "Pooling")
+                        {
+                            throw new ArgumentException("You are connecting a convolutional layer to neither a convolutional nor a pooling layer.\nThat's probably not what you want to do, is it?");
+                        }
+                        break;
+                    }
+                case "Pooling":
+                    {
+                        if (layers.Last().Type != "Convolutional")
+                        {
+                            throw new ArgumentException("You are connecting a pooling layer to a non-convolutional layer.\nThat's probably not what you want to do, is it?");
+                        }
+                        break;
+                    }
+                default: // valid connection
+                    newLayer.ID = layers.Last().ID + 1;
+                    break;
+            }
+
+            Console.Write("\tAdding layer [" + newLayer.ID + "]: " + newLayer.Type + "...");
+            layers.Add(newLayer);
+            nLayers++;
+
+            if (nLayers == 1)
+            {
+                Console.Write(" OK\n");
+            }
+            else
+            {
+                layers[nLayers-1].ConnectTo(layers[nLayers - 2]); // connect last layer to second last
+                Console.Write(" OK\n");
+            }
+            
         }
 
         /// <summary>
@@ -64,6 +115,7 @@ namespace JaNet
         /// </summary>
         /// <param name="inputDimensions"></param>
         /// <param name="nOutputClasses"></param>
+        /*
         public void Setup(int inputWidth, int inputHeigth, int inputDepth, int nOutputClasses)
         {
             Console.WriteLine("\n=========================================");
@@ -82,19 +134,16 @@ namespace JaNet
                 
             }
         }
+         */
 
         #endregion
 
 
-        #region Training methods
+        #region Operating methods
 
         public void FeedData(DataSet dataSet, int iDataPoint)
         {
-#if OPENCL_ENABLED
-            layers[0].Input.ActivationsGPU = dataSet.DataGPU(iDataPoint); // Copied by reference
-#else
-            layers[0].Input.SetHost(dataSet.GetDataPoint(iDataPoint));
-#endif
+            layers[0].Feed(dataSet, iDataPoint);
         }
 
 

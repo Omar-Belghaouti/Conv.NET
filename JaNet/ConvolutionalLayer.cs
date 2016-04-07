@@ -15,14 +15,14 @@ namespace JaNet
 
         private int filterSize; // F
         private int nFilters; // K
-        private int strideLength; // S
+        private const int strideLength = 1; // S (only stride 1 supported!!)
         private int zeroPadding; // P
         private int nReceptiveFields;
 
         private float[] paddedInput; // dimension [inputD * (inputH + 2*padding) * (inutW + 2*padding)]
         private float[] paddedOutput; // dimension [inputD * (inputH + filterSize - 1) * (inutW + filterSize - 1)] <- this makes sure that backprop works
-        private float[,] inputAsMatrix; // dimension [receptiveFieldSize , nReceptiveFields] = [inputDepth*filterSize^2 , outputWidth*outputHeight]
-        private float[,] outputAsMatrix; // dimension [nFilters , outputWidth*outputHeight]
+        private float[,] receptiveFieldsMatrix; // dimension [receptiveFieldSize , nReceptiveFields] = [inputDepth*filterSize^2 , outputWidth*outputHeight]
+        
 
         private float[,] weights; // dimension [nFilters , inputDepth*filterSize^2]
         private float[] biases; // dimension [nFilters , 1]
@@ -31,10 +31,14 @@ namespace JaNet
         private float[] biasesUpdateSpeed; // dimension [nFilters , 1]
 
 #if OPENCL_ENABLED
-        private int inputMatrixBytesSize;
-        private int outputMatrixBytesSize;
-        private Mem inputAsMatrixGPU;
-        private Mem outputAsMatrixGPU; // probably not needed
+
+        private int paddedInputBytesSize;
+        private int paddedOutputBytesSize;
+        private Mem paddedInputGPU;
+        private Mem paddedOutputGPU;
+
+        private int receptiveFieldsMatrixBytesSize;
+        private Mem receptiveFieldsMatrixGPU;
 
         private Mem weightsGPU;
         private Mem biasesGPU;
@@ -77,7 +81,11 @@ namespace JaNet
 
             this.filterSize = FilterSize;
             this.nFilters = nOfFilters;
-            this.strideLength = StrideLength;
+            //this.strideLength = StrideLength;
+            if (StrideLength != 1)
+            {
+                throw new System.ArgumentException("Stride length > 1 not supported (...yet?)");
+            }
             this.zeroPadding = ZeroPadding;
         }
 
@@ -92,7 +100,7 @@ namespace JaNet
             this.inputHeight = InputHeight;
             this.inputDepth = InputDepth;
 
-            this.input = new Neurons(InputDepth * InputWidth * InputHeight);
+            this.inputNeurons = new Neurons(InputDepth * InputWidth * InputHeight);
 
             // Setup output
             double tmp = (double)(inputWidth - filterSize + 2 * zeroPadding) / (double)strideLength + 1;
@@ -108,30 +116,32 @@ namespace JaNet
 
             this.outputDepth = nFilters;
 
-            this.output = new Neurons(nFilters * outputWidth * outputHeight);
+            this.outputNeurons = new Neurons(nFilters * outputWidth * outputHeight);
 
-            // Setup I/O matrices
+            // Instantiate padded arrays
+
+
+            // Instantiate receptive field matrix
 #if OPENCL_ENABLED
-            inputMatrixBytesSize = sizeof(float) * (inputDepth * filterSize ^ 2 * outputWidth * outputHeight);
-            inputAsMatrixGPU = (Mem)Cl.CreateBuffer(CL.Context, MemFlags.ReadWrite, (IntPtr)inputMatrixBytesSize, out CL.Error);
+            receptiveFieldsMatrixBytesSize = sizeof(float) * (inputDepth * filterSize ^ 2 * outputWidth * outputHeight);
+            receptiveFieldsMatrixGPU = (Mem)Cl.CreateBuffer(CL.Context, MemFlags.ReadWrite, (IntPtr)receptiveFieldsMatrixBytesSize, out CL.Error);
 
-            outputMatrixBytesSize = sizeof(float) * (nFilters * outputWidth * outputHeight);
-            outputAsMatrixGPU = (Mem)Cl.CreateBuffer(CL.Context, MemFlags.ReadWrite, (IntPtr)inputMatrixBytesSize, out CL.Error);
+            //outputMatrixBytesSize = sizeof(float) * (nFilters * outputWidth * outputHeight);
+            //outputAsMatrixGPU = (Mem)Cl.CreateBuffer(CL.Context, MemFlags.ReadWrite, (IntPtr)inputMatrixBytesSize, out CL.Error);
 
 #else
-            this.inputAsMatrix = new float[inputDepth * filterSize * filterSize, outputWidth * outputHeight];
-            this.outputAsMatrix = new float[nFilters, outputWidth * outputHeight];
+            this.receptiveFieldsMatrix = new float[inputDepth * filterSize * filterSize, outputWidth * outputHeight];
+            //this.outputAsMatrix = new float[nFilters, outputWidth * outputHeight];
 #endif
         }
 
 
-
+        // TODO: fix this
+        /*
         public override void ConnectTo(Layer PreviousLayer)
         {
             // Setup input
             base.ConnectTo(PreviousLayer);
-            if ((PreviousLayer.Type != "Convolutional") & (PreviousLayer.Type != "Pooling"))
-                throw new System.InvalidOperationException("Attaching convolutional layer to a non-convolutional or non-pooling layer.");
             
             this.inputWidth = PreviousLayer.OutputWidth;
             this.inputHeight = PreviousLayer.OutputHeight;
@@ -153,9 +163,7 @@ namespace JaNet
             this.inputAsMatrix = new float[inputDepth * filterSize * filterSize, outputWidth * outputHeight ];
             this.outputAsMatrix = new float[nFilters, outputWidth * outputHeight];
         }
-
-        
-
+        */
 
 
 
@@ -167,7 +175,7 @@ namespace JaNet
             this.weights = new float[nFilters, inputDepth * filterSize * filterSize];
             this.biases = new float[nFilters];
 
-            double weightsStdDev = Math.Sqrt(2.0 / this.input.NumberOfUnits);
+            double weightsStdDev = Math.Sqrt(2.0 / this.inputNeurons.NumberOfUnits);
             double uniformRand1;
             double uniformRand2;
             double tmp;

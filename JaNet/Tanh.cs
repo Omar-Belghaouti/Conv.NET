@@ -46,8 +46,8 @@ namespace JaNet
         {
             base.ConnectTo(PreviousLayer);
 
-            this.numberOfUnits = PreviousLayer.Output.NumberOfUnits;
-            this.output = new Neurons(this.numberOfUnits);
+            this.nOutputUnits = PreviousLayer.Output.NumberOfUnits;
+            this.outputNeurons = new Neurons(this.nOutputUnits);
             
         }
 

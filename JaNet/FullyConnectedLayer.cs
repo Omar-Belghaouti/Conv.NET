@@ -47,7 +47,7 @@ namespace JaNet
 
         public int NumberOfUnits
         {
-            get { return numberOfUnits; }
+            get { return nOutputUnits; }
         }
 
         #endregion
@@ -62,7 +62,7 @@ namespace JaNet
         public FullyConnectedLayer(int nUnits)
         {
             this.type = "FullyConnected";
-            this.numberOfUnits = nUnits;
+            this.nOutputUnits = nUnits;
 
 #if OPENCL_ENABLED
             // Load and build kernels
@@ -80,8 +80,8 @@ namespace JaNet
         /// <param name="InputDepth"></param>
         public override void SetAsFirstLayer(int InputWidth, int InputHeight, int InputDepth)
         {
-            this.input = new Neurons(InputWidth * InputHeight * InputDepth);
-            this.output = new Neurons(this.numberOfUnits);
+            this.inputNeurons = new Neurons(InputWidth * InputHeight * InputDepth);
+            this.outputNeurons = new Neurons(this.nOutputUnits);
         }
 
         /// <summary>
@@ -91,7 +91,7 @@ namespace JaNet
         public override void ConnectTo(Layer PreviousLayer)
         {
             base.ConnectTo(PreviousLayer);
-            this.output = new Neurons(this.numberOfUnits);
+            this.outputNeurons = new Neurons(this.nOutputUnits);
         }
 
         
@@ -105,7 +105,7 @@ namespace JaNet
             this.weights = new float[this.Output.NumberOfUnits, this.Input.NumberOfUnits];
             this.biases = new float[this.Output.NumberOfUnits];
 
-            double weightsStdDev = Math.Sqrt(2.0/this.input.NumberOfUnits);
+            double weightsStdDev = Math.Sqrt(2.0/this.inputNeurons.NumberOfUnits);
             double uniformRand1;
             double uniformRand2;
             double tmp;
@@ -611,12 +611,12 @@ namespace JaNet
             Console.WriteLine("\n\n ======== LAYER =========\n\n");
 #if OPENCL_ENABLED
 
-            float[,] finalWeigths = new float[output.NumberOfUnits, input.NumberOfUnits];
+            float[,] finalWeigths = new float[outputNeurons.NumberOfUnits, inputNeurons.NumberOfUnits];
             CL.Error = Cl.EnqueueReadBuffer(CL.Queue,
                                             weightsGPU, // source
                                             Bool.True,
                                             (IntPtr)0,
-                                            (IntPtr)(output.NumberOfUnits * input.NumberOfUnits * sizeof(float)),
+                                            (IntPtr)(outputNeurons.NumberOfUnits * inputNeurons.NumberOfUnits * sizeof(float)),
                                             finalWeigths,  // destination
                                             0,
                                             null,
@@ -632,12 +632,12 @@ namespace JaNet
             Console.WriteLine();
 
 
-            float[] finalBiases = new float[output.NumberOfUnits];
+            float[] finalBiases = new float[outputNeurons.NumberOfUnits];
             CL.Error = Cl.EnqueueReadBuffer(CL.Queue,
                                             biasesGPU, // source
                                             Bool.True,
                                             (IntPtr)0,
-                                            (IntPtr)(output.NumberOfUnits * sizeof(float)),
+                                            (IntPtr)(outputNeurons.NumberOfUnits * sizeof(float)),
                                             finalBiases,  // destination
                                             0,
                                             null,

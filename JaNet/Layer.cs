@@ -15,42 +15,32 @@ namespace JaNet
 
         #region Layer base class fields (protected)
 
-        protected Neurons input;
-        protected Neurons output;
-
-        protected Layer nextLayer;
-
-        protected int numberOfUnits;
-        protected int id;
         protected string type;
+        protected int id;
 
-        // Used in convolutional and pooling layers:
+        protected int nInputUnits;
+        protected int nOutputUnits;
+
+        protected Neurons inputNeurons;
+        protected Neurons outputNeurons;
+
+        protected int inputDepth;  
+        protected int inputHeight; // assumed equal to inputWidth
         protected int inputWidth;
-        protected int inputHeight; // assumed equal to inputWidth for now
-        protected int inputDepth;
 
-        protected int outputWidth;
-        protected int outputHeight; // assumed equal to outputWidth for now
         protected int outputDepth;
+        protected int outputHeight; // assumed equal to outputWidth
+        protected int outputWidth;
 
         #endregion
 
 
         #region Layer base class properties (public)
 
-        public virtual Neurons Input
+        public string Type
         {
-            get { return input; }
-            set { input = value; }
-        }
-
-        public virtual Neurons Output
-        {
-            get { return output; }
-        }
-        
-        public virtual Layer NextLayer {
-            set { this.nextLayer = value; } 
+            get { return type; }
+            //set { this.type = value; } // shouldn't need this. TO-DELETE
         }
 
         public int ID
@@ -59,17 +49,20 @@ namespace JaNet
             set { this.id = value; }
         }
 
-        public string Type
+        public virtual Neurons Input
         {
-            get { return type; }
-            set { this.type = value; }
+            get { return inputNeurons; }
+            set { inputNeurons = value; }
         }
 
-        // Used in convolutional and pooling layers:
-
-        public int OutputWidth // allows setup of next layer
+        public virtual Neurons Output
         {
-            get { return outputWidth; }
+            get { return outputNeurons; }
+        }
+
+        public int OutputDepth // allows setup of next layer
+        {
+            get { return outputDepth; }
         }
 
         public int OutputHeight // allows setup of next layer
@@ -77,10 +70,11 @@ namespace JaNet
             get { return outputHeight; }
         }
 
-        public int OutputDepth // allows setup of next layer
+        public int OutputWidth // allows setup of next layer
         {
-            get { return outputDepth; }
+            get { return outputWidth; }
         }
+
         #endregion
 
 
@@ -116,7 +110,16 @@ namespace JaNet
         #endregion
 
 
-        #region Training methods (public abstract)
+        #region Training methods
+
+        /// <summary>
+        /// Feed data into the network. Only implemented by InputLayer.
+        /// </summary>
+        /// <param name="dataSet"></param>
+        /// <param name="iDataPoint"></param>
+        public virtual void Feed(DataSet dataSet, int iDataPoint)
+        {
+        }
 
         /// <summary>
         /// Run layer forward.

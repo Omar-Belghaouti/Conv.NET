@@ -9,7 +9,7 @@ using OpenCL.Net;
 
 namespace JaNet
 {
-    class DataSet
+    public class DataSet
     {
         #region DataSet class fields
 

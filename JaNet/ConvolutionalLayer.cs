@@ -20,7 +20,7 @@ namespace JaNet
         private int nReceptiveFields;
 
         private float[] paddedInput; // dimension [inputD * (inputH + 2*padding) * (inutW + 2*padding)]
-        private float[] paddedOutput; // depends...
+        private float[] paddedOutput; // dimension [inputD * (inputH + filterSize - 1) * (inutW + filterSize - 1)] <- this makes sure that backprop works
         private float[,] inputAsMatrix; // dimension [receptiveFieldSize , nReceptiveFields] = [inputDepth*filterSize^2 , outputWidth*outputHeight]
         private float[,] outputAsMatrix; // dimension [nFilters , outputWidth*outputHeight]
 

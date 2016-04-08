@@ -7,14 +7,13 @@ using OpenCL.Net;
 
 namespace JaNet
 {
+    // CLEAN
+
     class ReLU : Layer
     {
-        #region ReLU layer class fields (private)
+        #region Fields
 
 #if OPENCL_ENABLED
-
-        private Kernel ForwardKernel;
-        private Kernel BackwardKernel;
 
         private IntPtr[] globalWorkSizePtr;
         private IntPtr[] localWorkSizePtr; 
@@ -25,21 +24,14 @@ namespace JaNet
         #endregion
 
 
-        #region Setup methods (to be called once)
+        #region Setup methods
 
         /// <summary>
         /// Constructor of ReLU layer.
         /// </summary>
         public ReLU()
         {
-            //Console.WriteLine("Adding a ReLU layer...");
             this.type = "ReLU";
-
-#if OPENCL_ENABLED
-            // Load and build kernels
-            ForwardKernel = CL.LoadBuildKernel(CL.KernelsPath + "/ReLUForward.cl", "ReLUForward");
-            BackwardKernel = CL.LoadBuildKernel(CL.KernelsPath + "/ReLUBackward.cl", "ReLUBackward");
-#endif
         }
 
         /// <summary>
@@ -52,11 +44,6 @@ namespace JaNet
 
             this.nOutputUnits = PreviousLayer.Output.NumberOfUnits;
             this.outputNeurons = new Neurons(this.nOutputUnits);
-
-        }
-
-        public override void InitializeParameters()
-        {
 #if OPENCL_ENABLED
             SetWorkGroupSizes();
 #endif
@@ -72,7 +59,7 @@ namespace JaNet
 
             this.globalWorkSizePtr = new IntPtr[] { (IntPtr)(Output.NumberOfUnits) };
             int tmpLocalWorkSize = Output.NumberOfUnits;
-            while (tmpLocalWorkSize > CL.MaxWorkGroupSize || tmpLocalWorkSize > CL.MaxWorkItemSizes[0])
+            while (tmpLocalWorkSize > OpenCLSpace.MaxWorkGroupSize || tmpLocalWorkSize > OpenCLSpace.MaxWorkItemSizes[0])
                 tmpLocalWorkSize /= 2;
             this.localWorkSizePtr = new IntPtr[] { (IntPtr)(tmpLocalWorkSize) };
         }
@@ -87,28 +74,28 @@ namespace JaNet
         {
 #if OPENCL_ENABLED
             // Set kernel arguments
-            CL.Error = Cl.SetKernelArg(ForwardKernel, 0, Output.ActivationsGPU);
-            CL.Error |= Cl.SetKernelArg(ForwardKernel, 1, Input.ActivationsGPU);
-            CL.Error |= Cl.SetKernelArg(ForwardKernel, 2, (IntPtr)sizeof(int), Output.NumberOfUnits);
-            CL.CheckErr(CL.Error, "ReLU.FeedForward(): Cl.SetKernelArg");
+            OpenCLSpace.ClError = Cl.SetKernelArg(OpenCLSpace.ReLUForward, 0, Output.ActivationsGPU);
+            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.ReLUForward, 1, Input.ActivationsGPU);
+            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.ReLUForward, 2, (IntPtr)sizeof(int), Output.NumberOfUnits);
+            OpenCLSpace.CheckErr(OpenCLSpace.ClError, "ReLU.FeedForward(): Cl.SetKernelArg");
 
             // Run kernel
-            CL.Error = Cl.EnqueueNDRangeKernel( CL.Queue,
-                                                ForwardKernel,
+            OpenCLSpace.ClError = Cl.EnqueueNDRangeKernel( OpenCLSpace.Queue,
+                                                OpenCLSpace.ReLUForward,
                                                 1,
                                                 null,
                                                 globalWorkSizePtr,
                                                 localWorkSizePtr,
                                                 0,
                                                 null,
-                                                out CL.Event);
-            CL.CheckErr(CL.Error, "ReLU.FeedForward(): Cl.EnqueueNDRangeKernel");
+                                                out OpenCLSpace.ClEvent);
+            OpenCLSpace.CheckErr(OpenCLSpace.ClError, "ReLU.FeedForward(): Cl.EnqueueNDRangeKernel");
 
-            CL.Error = Cl.Finish(CL.Queue);
-            CL.CheckErr(CL.Error, "Cl.Finish");
+            OpenCLSpace.ClError = Cl.Finish(OpenCLSpace.Queue);
+            OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.Finish");
 
-            CL.Error = Cl.ReleaseEvent(CL.Event);
-            CL.CheckErr(CL.Error, "Cl.ReleaseEvent");
+            OpenCLSpace.ClError = Cl.ReleaseEvent(OpenCLSpace.ClEvent);
+            OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.ReleaseEvent");
 #else
             float[] tmpOutput = new float[this.numberOfUnits];
             for (int i = 0; i < this.numberOfUnits; i++)
@@ -129,29 +116,29 @@ namespace JaNet
 #if OPENCL_ENABLED
 
             // Set kernel arguments
-            CL.Error = Cl.SetKernelArg(BackwardKernel, 0, Input.DeltaGPU);
-            CL.Error |= Cl.SetKernelArg(BackwardKernel, 1, Output.DeltaGPU);
-            CL.Error |= Cl.SetKernelArg(BackwardKernel, 2, Input.ActivationsGPU);
-            CL.Error |= Cl.SetKernelArg(BackwardKernel, 3, (IntPtr)sizeof(int), Input.NumberOfUnits);
-            CL.CheckErr(CL.Error, "ReLU.BackPropagate(): Cl.SetKernelArg");
+            OpenCLSpace.ClError = Cl.SetKernelArg(OpenCLSpace.ReLUBackward, 0, Input.DeltaGPU);
+            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.ReLUBackward, 1, Output.DeltaGPU);
+            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.ReLUBackward, 2, Input.ActivationsGPU);
+            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.ReLUBackward, 3, (IntPtr)sizeof(int), Input.NumberOfUnits);
+            OpenCLSpace.CheckErr(OpenCLSpace.ClError, "ReLU.BackPropagate(): Cl.SetKernelArg");
 
             // Run kernel
-            CL.Error = Cl.EnqueueNDRangeKernel( CL.Queue,
-                                                BackwardKernel,
+            OpenCLSpace.ClError = Cl.EnqueueNDRangeKernel( OpenCLSpace.Queue,
+                                                OpenCLSpace.ReLUBackward,
                                                 1,
                                                 null,
                                                 globalWorkSizePtr,
                                                 localWorkSizePtr,
                                                 0,
                                                 null,
-                                                out CL.Event);
-            CL.CheckErr(CL.Error, "ReLU.BackPropagate(): Cl.EnqueueNDRangeKernel");
+                                                out OpenCLSpace.ClEvent);
+            OpenCLSpace.CheckErr(OpenCLSpace.ClError, "ReLU.BackPropagate(): Cl.EnqueueNDRangeKernel");
 
-            CL.Error = Cl.Finish(CL.Queue);
-            CL.CheckErr(CL.Error, "Cl.Finish");
+            OpenCLSpace.ClError = Cl.Finish(OpenCLSpace.Queue);
+            OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.Finish");
 
-            CL.Error = Cl.ReleaseEvent(CL.Event);
-            CL.CheckErr(CL.Error, "Cl.ReleaseEvent");
+            OpenCLSpace.ClError = Cl.ReleaseEvent(OpenCLSpace.ClEvent);
+            OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.ReleaseEvent");
 #else
             for (int i = 0; i < this.numberOfUnits; i++)
                 this.input.DeltaHost[i] = this.input.GetHost()[i] > 0 ? this.output.DeltaHost[i] : 0.0F;

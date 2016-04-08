@@ -10,6 +10,8 @@ namespace JaNet
 
     class NetworkEvaluator
     {
+        // CLEAN
+
         #region Fields
 #if OPENCL_ENABLED
 
@@ -22,26 +24,23 @@ namespace JaNet
 #endif
         #endregion
 
-        #region Properties
+        #region Constructor
 
-        #endregion
-
-
-#if OPENCL_ENABLED
-        public void SetupCL(int dataDimension, int nClasses, int miniBatchSize)
+        public NetworkEvaluator(int dataDimension, int nClasses, int miniBatchSize)
         {
-            inputBufferBytesSize = sizeof(float) * dataDimension;
-            classificationGlobalWorkSize = new IntPtr[] { (IntPtr)(miniBatchSize * nClasses) };
-            classificationLocalWorkSize = new IntPtr[] { (IntPtr)(nClasses) };
+#if OPENCL_ENABLED
+            this.inputBufferBytesSize = sizeof(float) * dataDimension;
+            this.classificationGlobalWorkSize = new IntPtr[] { (IntPtr)(miniBatchSize * nClasses) };
+            this.classificationLocalWorkSize = new IntPtr[] { (IntPtr)(nClasses) };
 
-            assignedClassBuffer = (Mem) Cl.CreateBuffer(CL.Context,
-                                                        MemFlags.ReadWrite,
-                                                        (IntPtr)(sizeof(int) * miniBatchSize),
-                                                        out CL.Error);
-            CL.CheckErr(CL.Error, "NetworkEvaluator.SetupCLObjects: Cl.CreateBuffer assignedClassBuffer");
-        }
+            this.assignedClassBuffer = (Mem)Cl.CreateBuffer(OpenCLSpace.Context,
+                                                            MemFlags.ReadWrite,
+                                                            (IntPtr)(sizeof(int) * miniBatchSize),
+                                                            out OpenCLSpace.ClError);
+            OpenCLSpace.CheckErr(OpenCLSpace.ClError, "NetworkEvaluator.SetupCLObjects: Cl.CreateBuffer assignedClassBuffer");
 #endif
-
+        }
+        #endregion
 
         public void ComputeLossError(NeuralNetwork network, DataSet dataSet, out double loss, out double error)
         {
@@ -50,11 +49,14 @@ namespace JaNet
             loss = 0.0;
             error = 0.0;
 
+            //TODO: do this using OpenCL
+
             float[] outputScores = new float[dataSet.NumberOfClasses];
             int assignedClass;
             int outputBufferBytesSize = dataSet.NumberOfClasses * sizeof(float);
 
-            // loop through all data points in dataSet
+            // loop through all data points in dataSet (one by one)
+            // TODO: once implemented in OpenCL, do not loop over data one by one, instead find an optimal batch size to do this faster
             for (int i = 0; i < dataSet.Size; i++)
             {
                 // Feed input data
@@ -67,22 +69,22 @@ namespace JaNet
                 // Find maximum output score (i.e. assigned class)
                 
 #if OPENCL_ENABLED
-                CL.Error = Cl.EnqueueReadBuffer(CL.Queue,
-                                                network.Layers.Last().Output.ActivationsGPU, // source
-                                                Bool.True,
-                                                (IntPtr)0,
-                                                (IntPtr)outputBufferBytesSize,
-                                                outputScores,  // destination
-                                                0,
-                                                null,
-                                                out CL.Event);
-                CL.CheckErr(CL.Error, "NetworkEvaluator.ComputeCost Cl.clEnqueueReadBuffer outputScores");
+                OpenCLSpace.ClError = Cl.EnqueueReadBuffer( OpenCLSpace.Queue,
+                                                            network.Layers.Last().Output.ActivationsGPU, // source
+                                                            Bool.True,
+                                                            (IntPtr)0,
+                                                            (IntPtr)outputBufferBytesSize,
+                                                            outputScores,  // destination
+                                                            0,
+                                                            null,
+                                                            out OpenCLSpace.ClEvent);
+                OpenCLSpace.CheckErr(OpenCLSpace.ClError, "NetworkEvaluator.ComputeCost Cl.clEnqueueReadBuffer outputScores");
 
-                CL.Error = Cl.Finish(CL.Queue);
-                CL.CheckErr(CL.Error, "Cl.Finish");
+                OpenCLSpace.ClError = Cl.Finish(OpenCLSpace.Queue);
+                OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.Finish");
 
-                CL.Error = Cl.ReleaseEvent(CL.Event);
-                CL.CheckErr(CL.Error, "Cl.ReleaseEvent");
+                OpenCLSpace.ClError = Cl.ReleaseEvent(OpenCLSpace.ClEvent);
+                OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.ReleaseEvent");
 #else
                 outputScores = network.Layers.Last().Output.GetHost();
 #endif

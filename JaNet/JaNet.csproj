@@ -60,7 +60,7 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="CL.cs" />
+    <Compile Include="OpenCLSpace.cs" />
     <Compile Include="InputLayer.cs" />
     <Compile Include="Neurons.cs" />
     <Compile Include="ReLU.cs" />
@@ -68,7 +68,7 @@
     <Compile Include="Utils.cs" />
     <Compile Include="DataSet.cs" />
     <Compile Include="NetworkEvaluator.cs" />
-    <Compile Include="NetworkTrainer.cs" />
+    <None Include="NetworkTrainer.cs" />
     <Compile Include="FullyConnectedLayer.cs" />
     <Compile Include="ConvolutionalLayer.cs" />
     <Compile Include="Layer.cs" />

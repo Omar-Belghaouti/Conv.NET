@@ -6,6 +6,8 @@ using System.Threading.Tasks;
 
 namespace JaNet
 {
+    // CLEAN
+
     /// <summary>
     /// This is a just a dummy layer to be set as the 0th layer of the network.
     /// It only contains output Neurons, which will be used to feed the data into the next layer.

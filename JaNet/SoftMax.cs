@@ -7,14 +7,12 @@ using OpenCL.Net;
 
 namespace JaNet
 {
+
     class SoftMax : Layer
     {
-        #region SoftMax layer class fields (private)
-
+        #region Fields
 
 #if OPENCL_ENABLED
-        private Kernel ForwardKernel;
-
         private Mem auxiliaryFloatBuffer; // needed by forward pass
 
         private IntPtr[] globalWorkSizePtr;
@@ -26,7 +24,7 @@ namespace JaNet
         #endregion
 
 
-        #region Setup methods (to be called once)
+        #region Setup methods
 
         /// <summary>
         /// Constructor of Softmax layer.
@@ -35,11 +33,6 @@ namespace JaNet
         public SoftMax()
         {
             this.type = "SoftMax";
-
-#if OPENCL_ENABLED
-            // Load and build kernel
-            ForwardKernel = CL.LoadBuildKernel(CL.KernelsPath + "/SoftmaxForward.cl", "SoftmaxForward");
-#endif
         }
 
         /// <summary>
@@ -53,14 +46,12 @@ namespace JaNet
             this.nOutputUnits = PreviousLayer.Output.NumberOfUnits;
             this.outputNeurons = new Neurons(this.nOutputUnits);
 
-        }
-
-
-        public override void InitializeParameters()
-        {
 #if OPENCL_ENABLED
-            this.auxiliaryFloatBuffer = (Mem)Cl.CreateBuffer(CL.Context, MemFlags.ReadWrite, (IntPtr)sizeof(float), out CL.Error);
-            CL.CheckErr(CL.Error, "Cl.CreateBuffer auxiliaryFloatBuffer");
+            this.auxiliaryFloatBuffer = (Mem)Cl.CreateBuffer(   OpenCLSpace.Context, 
+                                                                MemFlags.ReadWrite, 
+                                                                (IntPtr)sizeof(float), 
+                                                                out OpenCLSpace.ClError);
+            OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.CreateBuffer auxiliaryFloatBuffer");
 
             SetWorkGroupSizes();
 #endif
@@ -76,7 +67,7 @@ namespace JaNet
 
             this.globalWorkSizePtr = new IntPtr[] { (IntPtr)(Output.NumberOfUnits) };
             int tmpLocalWorkSize = Output.NumberOfUnits;
-            while (tmpLocalWorkSize > CL.MaxWorkGroupSize || tmpLocalWorkSize > CL.MaxWorkItemSizes[0])
+            while (tmpLocalWorkSize > OpenCLSpace.MaxWorkGroupSize || tmpLocalWorkSize > OpenCLSpace.MaxWorkItemSizes[0])
                 tmpLocalWorkSize /= 2;
             this.localWorkSizePtr = new IntPtr[] { (IntPtr)(tmpLocalWorkSize) };
         }
@@ -84,36 +75,36 @@ namespace JaNet
         #endregion
 
 
-        #region Training methods
+        #region Methods
 
         public override void FeedForward()
         {
 #if OPENCL_ENABLED
 
             // Set kernel arguments
-            CL.Error = Cl.SetKernelArg(ForwardKernel, 0, Output.ActivationsGPU);
-            CL.Error |= Cl.SetKernelArg(ForwardKernel, 1, Input.ActivationsGPU);
-            CL.Error |= Cl.SetKernelArg(ForwardKernel, 2, auxiliaryFloatBuffer);
-            CL.Error |= Cl.SetKernelArg(ForwardKernel, 3, (IntPtr)sizeof(int), Output.NumberOfUnits);
-            CL.CheckErr(CL.Error, "Softmax.FeedForward(): Cl.SetKernelArg");
+            OpenCLSpace.ClError = Cl.SetKernelArg(OpenCLSpace.SoftmaxForward, 0, Output.ActivationsGPU);
+            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.SoftmaxForward, 1, Input.ActivationsGPU);
+            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.SoftmaxForward, 2, auxiliaryFloatBuffer);
+            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.SoftmaxForward, 3, (IntPtr)sizeof(int), Output.NumberOfUnits);
+            OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Softmax.FeedForward(): Cl.SetKernelArg");
 
             // Run kernel
-            CL.Error = Cl.EnqueueNDRangeKernel( CL.Queue,
-                                                ForwardKernel,
+            OpenCLSpace.ClError = Cl.EnqueueNDRangeKernel( OpenCLSpace.Queue,
+                                                OpenCLSpace.SoftmaxForward,
                                                 1,
                                                 null,
                                                 globalWorkSizePtr,
                                                 localWorkSizePtr,
                                                 0,
                                                 null,
-                                                out CL.Event);
-            CL.CheckErr(CL.Error, "Softmax.FeedForward(): Cl.EnqueueNDRangeKernel");
+                                                out OpenCLSpace.ClEvent);
+            OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Softmax.FeedForward(): Cl.EnqueueNDRangeKernel");
 
-            CL.Error = Cl.Finish(CL.Queue);
-            CL.CheckErr(CL.Error, "Cl.Finish");
+            OpenCLSpace.ClError = Cl.Finish(OpenCLSpace.Queue);
+            OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.Finish");
 
-            CL.Error = Cl.ReleaseEvent(CL.Event);
-            CL.CheckErr(CL.Error, "Cl.ReleaseEvent");
+            OpenCLSpace.ClError = Cl.ReleaseEvent(OpenCLSpace.ClEvent);
+            OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.ReleaseEvent");
 #else
 
             // use rescaling trick to improve numerical stability

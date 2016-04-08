@@ -7,6 +7,8 @@ using OpenCL.Net;
 
 namespace JaNet
 {
+    // CLEAN
+
     /// <summary>
     /// Base layer class. All other layers will inherit from this.
     /// </summary>

@@ -23,6 +23,7 @@ namespace JaNet
 
         #endregion
 
+
         #region Neuron class properties (public)
 
         public int NumberOfUnits
@@ -67,12 +68,8 @@ namespace JaNet
 
         #region Constructors
 
-        public Neurons() // Generic constructor
-        {
-        }
-
         /// <summary>
-        /// Constructor. Use for CPU.
+        /// Neurons constructor.
         /// </summary>
         /// <param name="NumberOfUnits"></param>
         public Neurons(int NumberOfUnits)
@@ -80,11 +77,20 @@ namespace JaNet
             this.nUnits = NumberOfUnits;
 
 #if OPENCL_ENABLED
+            ErrorCode clError = new ErrorCode();
+
             int bufferSize = sizeof(float) * NumberOfUnits;
             
-            this.activationsGPU = (Mem)Cl.CreateBuffer(CL.Context, MemFlags.ReadWrite, (IntPtr)bufferSize, out CL.Error);
-            this.deltaGPU = (Mem)Cl.CreateBuffer(CL.Context, MemFlags.ReadWrite, (IntPtr)bufferSize, out CL.Error);
-            CL.CheckErr(CL.Error, "Neurons constructor: Cl.CreateBuffer");
+            this.activationsGPU = (Mem)Cl.CreateBuffer( OpenCLSpace.Context, 
+                                                        MemFlags.ReadWrite, 
+                                                        (IntPtr)bufferSize, 
+                                                        out clError);
+
+            this.deltaGPU = (Mem) Cl.CreateBuffer(  OpenCLSpace.Context, 
+                                                    MemFlags.ReadWrite, 
+                                                    (IntPtr)bufferSize, 
+                                                    out clError);
+            OpenCLSpace.CheckErr(clError, "Neurons constructor: Cl.CreateBuffer");
 #else
 
             this.activations = new float[nUnits];

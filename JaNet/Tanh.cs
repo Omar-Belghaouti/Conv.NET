@@ -8,6 +8,8 @@ namespace JaNet
 {
     class Tanh : Layer
     {
+        // TODO: fix entire class
+
         #region Tanh layer class fields (private)
 
         private double beta;
@@ -54,10 +56,12 @@ namespace JaNet
         /// <summary>
         /// Method to set this layer as the first layer of the network.
         /// </summary>
+        /*
         public override void SetAsFirstLayer(int InputWidth, int InputHeight, int InputDepth)
         {
             throw new System.InvalidOperationException("You are setting a sigmoid layer as first layer of the network...\nIs it really what you want to do?");
         }
+        */
 
         public override void InitializeParameters()
         {

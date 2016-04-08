@@ -89,7 +89,7 @@ namespace JaNet
             this.zeroPadding = ZeroPadding;
         }
 
-
+        /*
         /// <summary>
         /// Set this as the first layer of the neural network.
         /// </summary>
@@ -124,7 +124,7 @@ namespace JaNet
             // Instantiate receptive field matrix
 #if OPENCL_ENABLED
             receptiveFieldsMatrixBytesSize = sizeof(float) * (inputDepth * filterSize ^ 2 * outputWidth * outputHeight);
-            receptiveFieldsMatrixGPU = (Mem)Cl.CreateBuffer(CL.Context, MemFlags.ReadWrite, (IntPtr)receptiveFieldsMatrixBytesSize, out CL.Error);
+            receptiveFieldsMatrixGPU = (Mem)Cl.CreateBuffer(OpenCLSpace.Context, MemFlags.ReadWrite, (IntPtr)receptiveFieldsMatrixBytesSize, out OpenCLSpace.ClError);
 
             //outputMatrixBytesSize = sizeof(float) * (nFilters * outputWidth * outputHeight);
             //outputAsMatrixGPU = (Mem)Cl.CreateBuffer(CL.Context, MemFlags.ReadWrite, (IntPtr)inputMatrixBytesSize, out CL.Error);
@@ -134,7 +134,7 @@ namespace JaNet
             //this.outputAsMatrix = new float[nFilters, outputWidth * outputHeight];
 #endif
         }
-
+        */
 
         // TODO: fix this
         /*

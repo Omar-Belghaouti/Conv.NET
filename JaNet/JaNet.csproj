@@ -60,7 +60,7 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="CL.cs" />
+    <Compile Include="OpenCLSpace.cs" />
     <Compile Include="InputLayer.cs" />
     <Compile Include="Neurons.cs" />
     <Compile Include="ReLU.cs" />

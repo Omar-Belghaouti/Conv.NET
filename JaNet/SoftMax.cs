@@ -9,24 +9,25 @@ namespace JaNet
 {
     class SoftMax : Layer
     {
-        #region SoftMax layer class fields (private)
 
+        #region Fields
 
 #if OPENCL_ENABLED
-        private Kernel ForwardKernel;
-
-        private Mem auxiliaryFloatBuffer; // needed by forward pass
+        private Mem auxiliaryFloatBuffer; // needed by forward pass (TODO: check if this is REALLY needed)
 
         private IntPtr[] globalWorkSizePtr;
         private IntPtr[] localWorkSizePtr;
         // in this case nInput = nOutput  ==>  only need to set one global/local work size 
         // (i.e. no need to distinguish between forward and backward pass)
+
+        private ErrorCode clError;
+        private Event clEvent;
 #endif
 
         #endregion
 
 
-        #region Setup methods (to be called once)
+        #region Setup methods
 
         /// <summary>
         /// Constructor of Softmax layer.
@@ -35,11 +36,6 @@ namespace JaNet
         public SoftMax()
         {
             this.type = "SoftMax";
-
-#if OPENCL_ENABLED
-            // Load and build kernel
-            ForwardKernel = CL.LoadBuildKernel(CL.KernelsPath + "/SoftmaxForward.cl", "SoftmaxForward");
-#endif
         }
 
         /// <summary>
@@ -53,23 +49,17 @@ namespace JaNet
             this.nOutputUnits = PreviousLayer.Output.NumberOfUnits;
             this.outputNeurons = new Neurons(this.nOutputUnits);
 
-        }
-
-        /// <summary>
-        /// Method to set this layer as the first layer of the network.
-        /// </summary>
-        public override void SetAsFirstLayer(int InputWidth, int InputHeight, int InputDepth)
-        {
-            throw new System.InvalidOperationException("You are setting a SoftMax layer as first layer of the network...\nIs it really what you want to do?");
-        }
-
-        public override void InitializeParameters()
-        {
 #if OPENCL_ENABLED
-            this.auxiliaryFloatBuffer = (Mem)Cl.CreateBuffer(CL.Context, MemFlags.ReadWrite, (IntPtr)sizeof(float), out CL.Error);
-            CL.CheckErr(CL.Error, "Cl.CreateBuffer auxiliaryFloatBuffer");
+            this.clError = new ErrorCode();
+            this.clEvent = new Event();
 
             SetWorkGroupSizes();
+
+            this.auxiliaryFloatBuffer = (Mem) Cl.CreateBuffer(  OpenCLSpace.Context, 
+                                                                MemFlags.ReadWrite, 
+                                                                (IntPtr)sizeof(float), 
+                                                                out clError);
+            OpenCLSpace.CheckErr(clError, "Cl.CreateBuffer auxiliaryFloatBuffer");
 #endif
         }
 
@@ -83,44 +73,46 @@ namespace JaNet
 
             this.globalWorkSizePtr = new IntPtr[] { (IntPtr)(Output.NumberOfUnits) };
             int tmpLocalWorkSize = Output.NumberOfUnits;
-            while (tmpLocalWorkSize > CL.MaxWorkGroupSize || tmpLocalWorkSize > CL.MaxWorkItemSizes[0])
+            while (tmpLocalWorkSize > OpenCLSpace.MaxWorkGroupSize || tmpLocalWorkSize > OpenCLSpace.MaxWorkItemSizes[0])
                 tmpLocalWorkSize /= 2;
             this.localWorkSizePtr = new IntPtr[] { (IntPtr)(tmpLocalWorkSize) };
         }
 #endif
+
         #endregion
 
 
-        #region Training methods
+        #region Operating methods
 
         public override void FeedForward()
         {
 #if OPENCL_ENABLED
 
             // Set kernel arguments
-            CL.Error = Cl.SetKernelArg(ForwardKernel, 0, Output.ActivationsGPU);
-            CL.Error |= Cl.SetKernelArg(ForwardKernel, 1, Input.ActivationsGPU);
-            CL.Error |= Cl.SetKernelArg(ForwardKernel, 2, auxiliaryFloatBuffer);
-            CL.Error |= Cl.SetKernelArg(ForwardKernel, 3, (IntPtr)sizeof(int), Output.NumberOfUnits);
-            CL.CheckErr(CL.Error, "Softmax.FeedForward(): Cl.SetKernelArg");
+            clError = Cl.SetKernelArg(OpenCLSpace.SoftmaxForward, 0, Output.ActivationsGPU);
+            clError |= Cl.SetKernelArg(OpenCLSpace.SoftmaxForward, 1, Input.ActivationsGPU);
+            clError |= Cl.SetKernelArg(OpenCLSpace.SoftmaxForward, 2, auxiliaryFloatBuffer);
+            clError |= Cl.SetKernelArg(OpenCLSpace.SoftmaxForward, 3, (IntPtr)sizeof(int), Output.NumberOfUnits);
+            OpenCLSpace.CheckErr(clError, "Softmax.FeedForward(): Cl.SetKernelArg");
 
             // Run kernel
-            CL.Error = Cl.EnqueueNDRangeKernel( CL.Queue,
-                                                ForwardKernel,
+            clError = Cl.EnqueueNDRangeKernel( OpenCLSpace.Queue,
+                                                OpenCLSpace.SoftmaxForward,
                                                 1,
                                                 null,
                                                 globalWorkSizePtr,
                                                 localWorkSizePtr,
                                                 0,
                                                 null,
-                                                out CL.Event);
-            CL.CheckErr(CL.Error, "Softmax.FeedForward(): Cl.EnqueueNDRangeKernel");
+                                                out clEvent);
+            OpenCLSpace.CheckErr(clError, "Softmax.FeedForward(): Cl.EnqueueNDRangeKernel");
 
-            CL.Error = Cl.Finish(CL.Queue);
-            CL.CheckErr(CL.Error, "Cl.Finish");
+            clError = Cl.Finish(OpenCLSpace.Queue);
+            OpenCLSpace.CheckErr(clError, "Cl.Finish");
 
-            CL.Error = Cl.ReleaseEvent(CL.Event);
-            CL.CheckErr(CL.Error, "Cl.ReleaseEvent");
+
+            clError = Cl.ReleaseEvent(clEvent);
+            OpenCLSpace.CheckErr(clError, "Cl.ReleaseEvent");
 #else
 
             // use rescaling trick to improve numerical stability
@@ -149,13 +141,12 @@ namespace JaNet
 
         public override void BackPropagate()
         {
-            throw new System.InvalidOperationException("Called BackPropagate() method of SoftMax layer. Don't do it! Just feed the gradient back to the previous layer!");
+            throw new System.InvalidOperationException("Called BackPropagate() method of SoftMax layer. Don't do this! Just feed the gradient back to the previous layer!");
             // NO backprop here!!
             // Compute directly input.Delta from cross-entropy cost: faster and numerically more stable
         }
 
         #endregion
-
 
     }
 }

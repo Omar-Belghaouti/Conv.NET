@@ -21,10 +21,6 @@ namespace JaNet
 
 #if OPENCL_ENABLED
 
-        private Kernel ForwardKernel;
-        private Kernel BackwardKernel;
-        private Kernel UpdateKernel;
-
         private Mem weightsGPU;
         private Mem biasesGPU;
 
@@ -38,6 +34,9 @@ namespace JaNet
         private IntPtr[] backwardLocalWorkSizePtr;
         private IntPtr[] updateGlobalWorkSizePtr;
         private IntPtr[] updateLocalWorkSizePtr;
+
+        private ErrorCode clError;
+        private Event clEvent;
 #endif
 
         #endregion
@@ -45,7 +44,7 @@ namespace JaNet
 
         #region Properties (public)
 
-        public int NumberOfUnits
+        public int NumberOfUnits // alias for NOutputUnits (property of parent class)
         {
             get { return nOutputUnits; }
         }
@@ -53,7 +52,7 @@ namespace JaNet
         #endregion
 
 
-        #region Setup methods (to be called once)
+        #region Setup methods
 
         /// <summary>
         /// Constructor of fully connected layer type. Specify number of units as argument.
@@ -63,25 +62,6 @@ namespace JaNet
         {
             this.type = "FullyConnected";
             this.nOutputUnits = nUnits;
-
-#if OPENCL_ENABLED
-            // Load and build kernels
-            ForwardKernel = CL.LoadBuildKernel(CL.KernelsPath + "/FCForward.cl", "FCForward");
-            BackwardKernel = CL.LoadBuildKernel(CL.KernelsPath + "/FCBackward.cl", "FCBackward");
-            UpdateKernel = CL.LoadBuildKernel(CL.KernelsPath + "/FCUpdateParameters.cl", "FCUpdateParameters");
-#endif
-        }
-
-        /// <summary>
-        /// Set this layer as the first layer of the neural network.
-        /// </summary>
-        /// <param name="InputWidth"></param>
-        /// <param name="InputHeight"></param>
-        /// <param name="InputDepth"></param>
-        public override void SetAsFirstLayer(int InputWidth, int InputHeight, int InputDepth)
-        {
-            this.inputNeurons = new Neurons(InputWidth * InputHeight * InputDepth);
-            this.outputNeurons = new Neurons(this.nOutputUnits);
         }
 
         /// <summary>
@@ -92,16 +72,70 @@ namespace JaNet
         {
             base.ConnectTo(PreviousLayer);
             this.outputNeurons = new Neurons(this.nOutputUnits);
+
+#if OPENCL_ENABLED
+            clError = new ErrorCode();
+            clEvent = new Event();
+            SetWorkGroupSizes();
+#endif
         }
 
-        
-        public override void InitializeParameters() // only call after either "SetAsFirstLayer()" or "ConnectTo()"
+#if OPENCL_ENABLED
+        private void SetWorkGroupSizes()
         {
+            // Work group sizes will be set as follows:
+            //      global work size = total number of processes needed
+            //      local work size = largest divisor of global work size <= maxWorkGroupSize of device in OpenCLSpace.Context
+            // (this is probably suboptimal, but improvements are most likely negligible compared to improvements elsewhere, e.g. in the kernels code)
+
+            // FeedForward
+            this.forwardGlobalWorkSizePtr = new IntPtr[] { (IntPtr)(Output.NumberOfUnits) };
+            int tmpFwLocalWorkSize = Output.NumberOfUnits; // 
+            while (tmpFwLocalWorkSize > OpenCLSpace.MaxWorkGroupSize || tmpFwLocalWorkSize > OpenCLSpace.MaxWorkItemSizes[0])
+                tmpFwLocalWorkSize /= 2;
+            this.forwardLocalWorkSizePtr = new IntPtr[] { (IntPtr)(tmpFwLocalWorkSize) };
+
+            // BackPropagate
+            this.backwardGlobalWorkSizePtr = new IntPtr[] { (IntPtr)(Input.NumberOfUnits) };
+            int tmpBwLocalWorkSize = Input.NumberOfUnits;
+            while (tmpBwLocalWorkSize > OpenCLSpace.MaxWorkGroupSize || tmpBwLocalWorkSize > OpenCLSpace.MaxWorkItemSizes[0])
+                tmpBwLocalWorkSize /= 2;
+            this.backwardLocalWorkSizePtr = new IntPtr[] { (IntPtr)(tmpBwLocalWorkSize) };
+
+            // UpdateParameters
+            this.updateGlobalWorkSizePtr = new IntPtr[] { (IntPtr)(Output.NumberOfUnits), (IntPtr)(Input.NumberOfUnits) };
+            int[] tmpUpdLocalWorkSize = new int[] { Output.NumberOfUnits, Input.NumberOfUnits };
+            // make each local work group dimension <= corresponding max work item size (depends on device)
+            while (tmpUpdLocalWorkSize[0] > OpenCLSpace.MaxWorkItemSizes[0] && tmpUpdLocalWorkSize[0] % 2 == 0)
+                tmpUpdLocalWorkSize[0] /= 2;
+            while (tmpUpdLocalWorkSize[1] > OpenCLSpace.MaxWorkItemSizes[1] && tmpUpdLocalWorkSize[1] % 2 == 0)
+                tmpUpdLocalWorkSize[1] /= 2;
+            // make entire local work group size (i.e. product of dimensions) <= of max work group size (depends on device)
+            while (tmpUpdLocalWorkSize[0] * tmpUpdLocalWorkSize[1] > OpenCLSpace.MaxWorkGroupSize && tmpUpdLocalWorkSize[1] % 2 == 0)
+            {
+                tmpUpdLocalWorkSize[1] /= 2;
+            }
+            while (tmpUpdLocalWorkSize[0] * tmpUpdLocalWorkSize[1] > OpenCLSpace.MaxWorkGroupSize && tmpUpdLocalWorkSize[0] % 2 == 0)
+            {
+                tmpUpdLocalWorkSize[0] /= 2;
+                if (tmpUpdLocalWorkSize[0] == 1)
+                {
+                    throw new System.InvalidOperationException("I can't set a suitable local work group size! :(");
+                }
+            }
+            this.updateLocalWorkSizePtr = new IntPtr[] { (IntPtr)(tmpUpdLocalWorkSize[0]), (IntPtr)(tmpUpdLocalWorkSize[1]) };
+
+        }
+#endif
+        
+        public override void InitializeParameters() 
+        {
+            base.InitializeParameters(); // ensures this method is only call AFTER "ConnectTo()"
+
             // Weigths are initialized as normally distributed numbers with mean 0 and std equals to 2/sqrt(nInputUnits)
             // Biases are initialized as normally distributed numbers with mean 0 and std 1
 
-            // Host
-
+            // Host 
             this.weights = new float[this.Output.NumberOfUnits, this.Input.NumberOfUnits];
             this.biases = new float[this.Output.NumberOfUnits];
 
@@ -124,12 +158,7 @@ namespace JaNet
                     weights[iRow, iCol] = (float)tmp;
                 }
 
-                //uniformRand1 = rng.NextDouble();
-                //uniformRand2 = rng.NextDouble();
-                // Use a Box-Muller transform to get a random normal(0,1)
-                //tmp = Math.Sqrt(-2.0 * Math.Log(uniformRand1)) * Math.Sin(2.0 * Math.PI * uniformRand2);
-
-                biases[iRow] = 0.01F; // (float)tmp;
+                biases[iRow] = 0.01F;
                 
             }
 
@@ -140,119 +169,73 @@ namespace JaNet
 
 #if OPENCL_ENABLED
             
+            // Device
             int weightBufferSize = sizeof(float) * (this.Output.NumberOfUnits * this.Input.NumberOfUnits);
             int biasesBufferSize = sizeof(float) * this.Output.NumberOfUnits;
 
-            this.weightsGPU = (Mem)Cl.CreateBuffer( CL.Context, 
+            this.weightsGPU = (Mem)Cl.CreateBuffer( OpenCLSpace.Context, 
                                                     MemFlags.ReadWrite | MemFlags.CopyHostPtr, 
                                                     (IntPtr)weightBufferSize, 
-                                                    weights, 
-                                                    out CL.Error);
-            this.biasesGPU = (Mem)Cl.CreateBuffer(  CL.Context, 
+                                                    weights,
+                                                    out clError);
+            this.biasesGPU = (Mem)Cl.CreateBuffer(  OpenCLSpace.Context, 
                                                     MemFlags.ReadWrite | MemFlags.CopyHostPtr, 
                                                     (IntPtr)biasesBufferSize, 
-                                                    biases, 
-                                                    out CL.Error);
+                                                    biases,
+                                                    out clError);
 
-            this.weightsUpdateSpeedGPU = (Mem)Cl.CreateBuffer(  CL.Context, 
+            this.weightsUpdateSpeedGPU = (Mem)Cl.CreateBuffer(  OpenCLSpace.Context, 
                                                                 MemFlags.ReadWrite | MemFlags.CopyHostPtr, 
                                                                 (IntPtr)weightBufferSize, 
                                                                 weightsUpdateSpeed,
-                                                                out CL.Error);
-            this.biasesUpdateSpeedGPU = (Mem)Cl.CreateBuffer(   CL.Context, 
+                                                                out clError);
+            this.biasesUpdateSpeedGPU = (Mem)Cl.CreateBuffer(   OpenCLSpace.Context, 
                                                                 MemFlags.ReadWrite | MemFlags.CopyHostPtr, 
                                                                 (IntPtr)biasesBufferSize, 
                                                                 biasesUpdateSpeed,
-                                                                out CL.Error);
-            CL.CheckErr(CL.Error, "InitializeParameters(): Cl.CreateBuffer");
+                                                                out clError);
+            OpenCLSpace.CheckErr(clError, "InitializeParameters(): Cl.CreateBuffer");
 
-            SetWorkGroupSizes();
 #endif
         }
-
-#if OPENCL_ENABLED
-        private void SetWorkGroupSizes()
-        {
-            // Work group sizes will be set as follows:
-            //      global work size = total number of processes needed
-            //      local work size = largest divisor of global work size <= maxWorkGroupSize of device in context
-            // (this is probably suboptimal, but improvements are most likely negligible compared to improvements elsewhere, e.g. in the kernels code)
-
-            // FeedForward
-            this.forwardGlobalWorkSizePtr = new IntPtr[] { (IntPtr)(Output.NumberOfUnits) }; 
-            int tmpFwLocalWorkSize = Output.NumberOfUnits; // 
-            while (tmpFwLocalWorkSize > CL.MaxWorkGroupSize || tmpFwLocalWorkSize > CL.MaxWorkItemSizes[0]) 
-                tmpFwLocalWorkSize /= 2;
-            this.forwardLocalWorkSizePtr = new IntPtr[] { (IntPtr)(tmpFwLocalWorkSize) };
-
-            // BackPropagate
-            this.backwardGlobalWorkSizePtr = new IntPtr[] { (IntPtr)(Input.NumberOfUnits) };
-            int tmpBwLocalWorkSize = Input.NumberOfUnits;
-            while (tmpBwLocalWorkSize > CL.MaxWorkGroupSize || tmpBwLocalWorkSize > CL.MaxWorkItemSizes[0]) 
-                tmpBwLocalWorkSize /= 2;
-            this.backwardLocalWorkSizePtr = new IntPtr[] { (IntPtr)(tmpBwLocalWorkSize) };
-           
-            // UpdateParameters
-            this.updateGlobalWorkSizePtr = new IntPtr[] { (IntPtr)(Output.NumberOfUnits), (IntPtr)(Input.NumberOfUnits) };
-            int[] tmpUpdLocalWorkSize = new int[] { Output.NumberOfUnits, Input.NumberOfUnits };
-            // make each local work group dimension <= corresponding max work item size (depends on device)
-            while (tmpUpdLocalWorkSize[0] > CL.MaxWorkItemSizes[0] && tmpUpdLocalWorkSize[0] % 2 == 0)
-                    tmpUpdLocalWorkSize[0] /= 2;
-            while (tmpUpdLocalWorkSize[1] > CL.MaxWorkItemSizes[1] && tmpUpdLocalWorkSize[1] % 2 == 0)
-                tmpUpdLocalWorkSize[1] /= 2;
-            // make entire local work group size (i.e. product of dimensions) <= of max work group size (depends on device)
-            while (tmpUpdLocalWorkSize[0] * tmpUpdLocalWorkSize[1] > CL.MaxWorkGroupSize && tmpUpdLocalWorkSize[1] % 2 == 0)
-            {
-                tmpUpdLocalWorkSize[1] /= 2;
-            }
-            while (tmpUpdLocalWorkSize[0] * tmpUpdLocalWorkSize[1] > CL.MaxWorkGroupSize && tmpUpdLocalWorkSize[0] % 2 == 0)
-            {
-                tmpUpdLocalWorkSize[0] /= 2;
-                if (tmpUpdLocalWorkSize[0] == 1)
-                {
-                    throw new System.InvalidOperationException("I can't set a suitable local work group size! :(");
-                }
-            }
-            this.updateLocalWorkSizePtr = new IntPtr[] { (IntPtr)(tmpUpdLocalWorkSize[0]), (IntPtr)(tmpUpdLocalWorkSize[1]) };
-
-        }
-#endif
 
         #endregion
 
 
-        #region Training methods
+        #region Operating methods
 
         public override void FeedForward()
         {
-
 #if OPENCL_ENABLED
             // Set kernel arguments
-            CL.Error = Cl.SetKernelArg(ForwardKernel, 0, Output.ActivationsGPU);
-            CL.Error |= Cl.SetKernelArg(ForwardKernel, 1, Input.ActivationsGPU);
-            CL.Error |= Cl.SetKernelArg(ForwardKernel, 2, weightsGPU);
-            CL.Error |= Cl.SetKernelArg(ForwardKernel, 3, biasesGPU);
-            CL.Error |= Cl.SetKernelArg(ForwardKernel, 4, (IntPtr)sizeof(int), Input.NumberOfUnits);
-            CL.Error |= Cl.SetKernelArg(ForwardKernel, 5, (IntPtr)sizeof(int), Output.NumberOfUnits);
-            CL.CheckErr(CL.Error, "FullyConnected.FeedForward(): Cl.SetKernelArg");
+            clError  = Cl.SetKernelArg(OpenCLSpace.FCForward, 0, Output.ActivationsGPU);
+            clError |= Cl.SetKernelArg(OpenCLSpace.FCForward, 1, Input.ActivationsGPU);
+            clError |= Cl.SetKernelArg(OpenCLSpace.FCForward, 2, weightsGPU);
+            clError |= Cl.SetKernelArg(OpenCLSpace.FCForward, 3, biasesGPU);
+            clError |= Cl.SetKernelArg(OpenCLSpace.FCForward, 4, (IntPtr)sizeof(int), Input.NumberOfUnits);
+            clError |= Cl.SetKernelArg(OpenCLSpace.FCForward, 5, (IntPtr)sizeof(int), Output.NumberOfUnits);
+            OpenCLSpace.CheckErr(clError, "FullyConnected.FeedForward(): Cl.SetKernelArg");
 
             // Run kernel
-            CL.Error = Cl.EnqueueNDRangeKernel( CL.Queue,
-                                                ForwardKernel, 
+            clError = Cl.EnqueueNDRangeKernel(  OpenCLSpace.Queue,
+                                                OpenCLSpace.FCForward, 
                                                 1, 
                                                 null, 
                                                 forwardGlobalWorkSizePtr, 
                                                 forwardLocalWorkSizePtr, 
                                                 0, 
                                                 null,
-                                                out CL.Event);
-            CL.CheckErr(CL.Error, "FullyConnected.FeedForward(): Cl.EnqueueNDRangeKernel");
+                                                out clEvent);
+            OpenCLSpace.CheckErr(clError, "FullyConnected.FeedForward(): Cl.EnqueueNDRangeKernel");
 
-            CL.Error = Cl.Finish(CL.Queue);
-            CL.CheckErr(CL.Error, "Cl.Finish");
+            //Console.WriteLine("Checkpoint");
 
-            CL.Error = Cl.ReleaseEvent(CL.Event);
-            CL.CheckErr(CL.Error, "Cl.ReleaseEvent");
+            clError = Cl.Finish(OpenCLSpace.Queue);
+            OpenCLSpace.CheckErr(clError, "Cl.Finish");
+
+            clError = Cl.ReleaseEvent(clEvent);
+            OpenCLSpace.CheckErr(clError, "Cl.ReleaseEvent");
+
 #else
 
             float[] unbiasedOutput = Utils.MultiplyMatrixByVector(this.weights, this.Input.GetHost());
@@ -267,30 +250,30 @@ namespace JaNet
 #if OPENCL_ENABLED
 
             // Set kernel arguments
-            CL.Error |= Cl.SetKernelArg(BackwardKernel, 0, Input.DeltaGPU);
-            CL.Error |= Cl.SetKernelArg(BackwardKernel, 1, Output.DeltaGPU);
-            CL.Error |= Cl.SetKernelArg(BackwardKernel, 2, weightsGPU);
-            CL.Error |= Cl.SetKernelArg(BackwardKernel, 3, (IntPtr)sizeof(int), Input.NumberOfUnits);
-            CL.Error |= Cl.SetKernelArg(BackwardKernel, 4, (IntPtr)sizeof(int), Output.NumberOfUnits);
-            CL.CheckErr(CL.Error, "FullyConnected.BackPropagate(): Cl.SetKernelArg");
+            clError |= Cl.SetKernelArg(OpenCLSpace.FCBackward, 0, Input.DeltaGPU);
+            clError |= Cl.SetKernelArg(OpenCLSpace.FCBackward, 1, Output.DeltaGPU);
+            clError |= Cl.SetKernelArg(OpenCLSpace.FCBackward, 2, weightsGPU);
+            clError |= Cl.SetKernelArg(OpenCLSpace.FCBackward, 3, (IntPtr)sizeof(int), Input.NumberOfUnits);
+            clError |= Cl.SetKernelArg(OpenCLSpace.FCBackward, 4, (IntPtr)sizeof(int), Output.NumberOfUnits);
+            OpenCLSpace.CheckErr(clError, "FullyConnected.BackPropagate(): Cl.SetKernelArg");
 
             // Run kernel
-            CL.Error = Cl.EnqueueNDRangeKernel( CL.Queue,
-                                                BackwardKernel, 
+            clError = Cl.EnqueueNDRangeKernel( OpenCLSpace.Queue,
+                                                OpenCLSpace.FCBackward, 
                                                 1, 
                                                 null, 
                                                 backwardGlobalWorkSizePtr, 
                                                 backwardLocalWorkSizePtr, 
                                                 0, 
                                                 null, 
-                                                out CL.Event);
-            CL.CheckErr(CL.Error, "FullyConnected.BackPropagate(): Cl.EnqueueNDRangeKernel");
+                                                out clEvent);
+            OpenCLSpace.CheckErr(clError, "FullyConnected.BackPropagate(): Cl.EnqueueNDRangeKernel");
 
-            CL.Error = Cl.Finish(CL.Queue);
-            CL.CheckErr(CL.Error, "Cl.Finish");
+            //clError = Cl.Finish(OpenCLSpace.Queue);
+            OpenCLSpace.CheckErr(clError, "Cl.Finish");
 
-            CL.Error = Cl.ReleaseEvent(CL.Event);
-            CL.CheckErr(CL.Error, "Cl.ReleaseEvent");
+            clError = Cl.ReleaseEvent(clEvent);
+            OpenCLSpace.CheckErr(clError, "Cl.ReleaseEvent");
 #else
             this.Input.DeltaHost = Utils.MultiplyMatrixTranspByVector(this.weights, this.Output.DeltaHost);
 #endif
@@ -315,7 +298,7 @@ namespace JaNet
                                             0,
                                             null,
                                             out CL.Event);
-            CL.CheckErr(CL.Error, "FullyConnectedLayer.UpdateParameters Cl.clEnqueueReadBuffer weightsBeforeUpdate");
+            CL.OpenCLSpace.CheckErr(CL.Error, "FullyConnectedLayer.UpdateParameters Cl.clEnqueueReadBuffer weightsBeforeUpdate");
 #else
             weightsBeforeUpdate = weights;
 #endif
@@ -347,7 +330,7 @@ namespace JaNet
                                             0,
                                             null,
                                             out CL.Event);
-            CL.CheckErr(CL.Error, "FullyConnectedLayer.UpdateParameters Cl.clEnqueueReadBuffer biasesBeforeUpdate");
+            CL.OpenCLSpace.CheckErr(CL.Error, "FullyConnectedLayer.UpdateParameters Cl.clEnqueueReadBuffer biasesBeforeUpdate");
 #else
             biasesBeforeUpdate = biases;
 #endif
@@ -379,7 +362,7 @@ namespace JaNet
                                             0,
                                             null,
                                             out CL.Event);
-            CL.CheckErr(CL.Error, "FullyConnectedLayer.UpdateParameters Cl.clEnqueueReadBuffer weightsUpdateSpeed");
+            CL.OpenCLSpace.CheckErr(CL.Error, "FullyConnectedLayer.UpdateParameters Cl.clEnqueueReadBuffer weightsUpdateSpeed");
 #else
             tmpWeightsUpdateSpeed = weightsUpdateSpeed;
 #endif
@@ -406,7 +389,7 @@ namespace JaNet
                                             0,
                                             null,
                                             out CL.Event);
-            CL.CheckErr(CL.Error, "FullyConnectedLayer.UpdateParameters Cl.clEnqueueReadBuffer inputActivations");
+            CL.OpenCLSpace.CheckErr(CL.Error, "FullyConnectedLayer.UpdateParameters Cl.clEnqueueReadBuffer inputActivations");
 
             Console.WriteLine("\nInput activations BEFORE update:");
 
@@ -431,7 +414,7 @@ namespace JaNet
                                             0,
                                             null,
                                             out CL.Event);
-            CL.CheckErr(CL.Error, "FullyConnectedLayer.UpdateParameters Cl.clEnqueueReadBuffer outputDelta");
+            CL.OpenCLSpace.CheckErr(CL.Error, "FullyConnectedLayer.UpdateParameters Cl.clEnqueueReadBuffer outputDelta");
 
             Console.WriteLine("\nOutput delta BEFORE update:");
 
@@ -452,35 +435,35 @@ namespace JaNet
 #if OPENCL_ENABLED
 
             // Set kernel arguments
-            CL.Error  = Cl.SetKernelArg(UpdateKernel, 0, weightsGPU);
-            CL.Error |= Cl.SetKernelArg(UpdateKernel, 1, biasesGPU);
-            CL.Error |= Cl.SetKernelArg(UpdateKernel, 2, weightsUpdateSpeedGPU);
-            CL.Error |= Cl.SetKernelArg(UpdateKernel, 3, biasesUpdateSpeedGPU);
-            CL.Error |= Cl.SetKernelArg(UpdateKernel, 4, Input.ActivationsGPU);
-            CL.Error |= Cl.SetKernelArg(UpdateKernel, 5, Output.DeltaGPU);
-            CL.Error |= Cl.SetKernelArg(UpdateKernel, 6, (IntPtr)sizeof(int), Input.NumberOfUnits);
-            CL.Error |= Cl.SetKernelArg(UpdateKernel, 7, (IntPtr)sizeof(int), Output.NumberOfUnits);
-            CL.Error |= Cl.SetKernelArg(UpdateKernel, 8, (IntPtr)sizeof(float), (float)learningRate);
-            CL.Error |= Cl.SetKernelArg(UpdateKernel, 9, (IntPtr)sizeof(float), (float)momentumCoefficient);
-            CL.CheckErr(CL.Error, "FullyConnected.UpdateParameters(): Cl.SetKernelArg");
+            clError  = Cl.SetKernelArg(OpenCLSpace.FCUpdateParameters, 0, weightsGPU);
+            clError |= Cl.SetKernelArg(OpenCLSpace.FCUpdateParameters, 1, biasesGPU);
+            clError |= Cl.SetKernelArg(OpenCLSpace.FCUpdateParameters, 2, weightsUpdateSpeedGPU);
+            clError |= Cl.SetKernelArg(OpenCLSpace.FCUpdateParameters, 3, biasesUpdateSpeedGPU);
+            clError |= Cl.SetKernelArg(OpenCLSpace.FCUpdateParameters, 4, Input.ActivationsGPU);
+            clError |= Cl.SetKernelArg(OpenCLSpace.FCUpdateParameters, 5, Output.DeltaGPU);
+            clError |= Cl.SetKernelArg(OpenCLSpace.FCUpdateParameters, 6, (IntPtr)sizeof(int), Input.NumberOfUnits);
+            clError |= Cl.SetKernelArg(OpenCLSpace.FCUpdateParameters, 7, (IntPtr)sizeof(int), Output.NumberOfUnits);
+            clError |= Cl.SetKernelArg(OpenCLSpace.FCUpdateParameters, 8, (IntPtr)sizeof(float), (float)learningRate);
+            clError |= Cl.SetKernelArg(OpenCLSpace.FCUpdateParameters, 9, (IntPtr)sizeof(float), (float)momentumCoefficient);
+            OpenCLSpace.CheckErr(clError, "FullyConnected.UpdateParameters(): Cl.SetKernelArg");
 
             // Run kernel
-            CL.Error = Cl.EnqueueNDRangeKernel( CL.Queue,
-                                                UpdateKernel, 
+            clError = Cl.EnqueueNDRangeKernel( OpenCLSpace.Queue,
+                                                OpenCLSpace.FCUpdateParameters, 
                                                 2, 
                                                 null, 
                                                 updateGlobalWorkSizePtr, 
                                                 updateLocalWorkSizePtr, 
                                                 0, 
                                                 null, 
-                                                out CL.Event);
-            CL.CheckErr(CL.Error, "FullyConnected.UpdateParameters(): Cl.EnqueueNDRangeKernel");
+                                                out clEvent);
+            OpenCLSpace.CheckErr(clError, "FullyConnected.UpdateParameters(): Cl.EnqueueNDRangeKernel");
 
-            CL.Error = Cl.Finish(CL.Queue);
-            CL.CheckErr(CL.Error, "Cl.Finish");
+            //clError = Cl.Finish(OpenCLSpace.Queue);
+            OpenCLSpace.CheckErr(clError, "Cl.Finish");
 
-            CL.Error = Cl.ReleaseEvent(CL.Event);
-            CL.CheckErr(CL.Error, "Cl.ReleaseEvent");
+            clError = Cl.ReleaseEvent(clEvent);
+            OpenCLSpace.CheckErr(clError, "Cl.ReleaseEvent");
 #else
             // Update weights
             for (int i = 0; i < this.weights.GetLength(0); i++)
@@ -518,7 +501,7 @@ namespace JaNet
                                             0,
                                             null,
                                             out CL.Event);
-            CL.CheckErr(CL.Error, "FullyConnectedLayer.UpdateParameters Cl.clEnqueueReadBuffer weightsUpdateSpeed");
+            CL.OpenCLSpace.CheckErr(CL.Error, "FullyConnectedLayer.UpdateParameters Cl.clEnqueueReadBuffer weightsUpdateSpeed");
 #else
             tmpWeightsUpdateSpeed = weightsUpdateSpeed;
 #endif
@@ -550,7 +533,7 @@ namespace JaNet
                                             0,
                                             null,
                                             out CL.Event);
-            CL.CheckErr(CL.Error, "FullyConnectedLayer.UpdateParameters Cl.clEnqueueReadBuffer weightsAfterUpdate");
+            CL.OpenCLSpace.CheckErr(CL.Error, "FullyConnectedLayer.UpdateParameters Cl.clEnqueueReadBuffer weightsAfterUpdate");
 #else
             weightsAfterUpdate = weights;
 #endif
@@ -582,7 +565,7 @@ namespace JaNet
                                             0,
                                             null,
                                             out CL.Event);
-            CL.CheckErr(CL.Error, "FullyConnectedLayer.UpdateParameters Cl.clEnqueueReadBuffer biasesAfterUpdate");
+            CL.OpenCLSpace.CheckErr(CL.Error, "FullyConnectedLayer.UpdateParameters Cl.clEnqueueReadBuffer biasesAfterUpdate");
 #else
             biasesAfterUpdate = biases;
 #endif
@@ -604,6 +587,7 @@ namespace JaNet
         #endregion
 
 
+        // TODO: kill this
         #region Debugging/helper methods
 
         public override void DisplayParameters()
@@ -612,7 +596,7 @@ namespace JaNet
 #if OPENCL_ENABLED
 
             float[,] finalWeigths = new float[outputNeurons.NumberOfUnits, inputNeurons.NumberOfUnits];
-            CL.Error = Cl.EnqueueReadBuffer(CL.Queue,
+            clError = Cl.EnqueueReadBuffer(OpenCLSpace.Queue,
                                             weightsGPU, // source
                                             Bool.True,
                                             (IntPtr)0,
@@ -620,8 +604,8 @@ namespace JaNet
                                             finalWeigths,  // destination
                                             0,
                                             null,
-                                            out CL.Event);
-            CL.CheckErr(CL.Error, "FullyConnectedLayer.UpdateParameters Cl.clEnqueueReadBuffer finalWeigths");
+                                            out clEvent);
+            OpenCLSpace.CheckErr(clError, "FullyConnectedLayer.UpdateParameters Cl.clEnqueueReadBuffer finalWeigths");
             Console.WriteLine("\nFinal weights:");
             for (int i = 0; i < finalWeigths.GetLength(0); i++)
             {
@@ -633,7 +617,7 @@ namespace JaNet
 
 
             float[] finalBiases = new float[outputNeurons.NumberOfUnits];
-            CL.Error = Cl.EnqueueReadBuffer(CL.Queue,
+            clError = Cl.EnqueueReadBuffer(OpenCLSpace.Queue,
                                             biasesGPU, // source
                                             Bool.True,
                                             (IntPtr)0,
@@ -641,8 +625,8 @@ namespace JaNet
                                             finalBiases,  // destination
                                             0,
                                             null,
-                                            out CL.Event);
-            CL.CheckErr(CL.Error, "FullyConnectedLayer.UpdateParameters Cl.clEnqueueReadBuffer finalBiases");
+                                            out clEvent);
+            OpenCLSpace.CheckErr(clError, "FullyConnectedLayer.UpdateParameters Cl.clEnqueueReadBuffer finalBiases");
             Console.WriteLine("\nFinal biases:");
             for (int i = 0; i < finalBiases.GetLength(0); i++)
             {
@@ -673,8 +657,7 @@ namespace JaNet
 #endif
 
         }
-        #endregion
-
+        #endregion 
 
     }
 }

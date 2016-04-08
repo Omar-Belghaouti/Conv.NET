@@ -6,16 +6,20 @@ FCForward(	__global float * y, // arg 0
 			int nInput, 		// arg 4
 			int nOutput) 		// arg 5
 {
-	int i=get_global_id(0);
 
-	y[i] = 0.0; 
+	int i=get_global_id(0);
 	
 	if(i < nOutput) // not necessary if global work size is set correctly (negligible, however) 
 	{
+		float value = 0.0;
+		
 		for(int k = 0; k < nInput; k++)
 		{
-				y[i] += W[i*nInput + k] * x[k];
+				value += W[i*nInput + k] * x[k];
 		}
-		y[i] += b[i];
+		value += b[i];
+		
+		y[i] = value;
 	}
+
 }

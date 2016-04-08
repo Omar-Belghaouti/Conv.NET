@@ -49,6 +49,16 @@ namespace JaNet
             set { this.id = value; }
         }
 
+        public int NInputUnits
+        {
+            get { return nInputUnits; }
+        }
+
+        public int NOutputUnits
+        {
+            get { return nOutputUnits; }
+        }
+
         public virtual Neurons Input
         {
             get { return inputNeurons; }
@@ -78,16 +88,7 @@ namespace JaNet
         #endregion
 
 
-        #region Setup methods (public, to be called once)
-
-        /// <summary>
-        /// Set this as the first layer of the network.
-        /// </summary>
-        /// 
-        public virtual void SetAsFirstLayer(int InputWidth, int InputHeight, int InputDepth)
-        {
-
-        }
+        #region Setup methods
 
         /// <summary>
         /// Connect this layer to previous one.
@@ -105,12 +106,15 @@ namespace JaNet
         /// </summary>
         public virtual void InitializeParameters()
         {
+            // Base class: just make sure output neurons exist (i.e. this method is called AFTER method ConnectTo() )
+            if (outputNeurons == null)
+                throw new MissingFieldException("Cannot call InitializeParameters() if parameters do not exist yet! Make sure layer has been connected.");
         }
 
         #endregion
 
 
-        #region Training methods
+        #region Operating methods
 
         /// <summary>
         /// Feed data into the network. Only implemented by InputLayer.
@@ -139,19 +143,9 @@ namespace JaNet
         {
         }
 
-        /*
-        public virtual void ClearDelta()
-        {
-            Array.Clear(this.input.DeltaHost, 0, this.input.NumberOfUnits);
-            Array.Clear(this.output.DeltaHost, 0, this.output.NumberOfUnits);
-        }
-        */
-
-        
-
         #endregion
 
-
+        // TODO: kill this
         #region Debugging 
         
         public virtual void DisplayParameters()

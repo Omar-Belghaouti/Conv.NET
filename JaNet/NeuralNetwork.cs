@@ -110,32 +110,6 @@ namespace JaNet
             
         }
 
-        /// <summary>
-        /// Setup network: given input dim and each layer's parameters, automatically set dimensions of I/O 3D arrays and initialize weights and biases.
-        /// </summary>
-        /// <param name="inputDimensions"></param>
-        /// <param name="nOutputClasses"></param>
-        /*
-        public void Setup(int inputWidth, int inputHeigth, int inputDepth, int nOutputClasses)
-        {
-            Console.WriteLine("\n=========================================");
-            Console.WriteLine("    Network setup and initialization");
-            Console.WriteLine("=========================================\n");
-
-            Console.WriteLine("Setting up layer 0 (input layer): " + layers[0].Type);
-            layers[0].SetAsFirstLayer(inputWidth, inputHeigth, inputDepth); 
-            layers[0].InitializeParameters();
-
-            for (int i = 1; i < layers.Count; i++ ) // all other layers
-            {
-                Console.WriteLine("Setting up layer " + i.ToString() + ": " + layers[i].Type);
-                layers[i].ConnectTo(layers[i - 1]);
-                layers[i].InitializeParameters();
-                
-            }
-        }
-         */
-
         #endregion
 
 
@@ -152,9 +126,8 @@ namespace JaNet
             //TODO: generalise to miniBatchSize > 1
 
             // Run network forward
-            for (int l = 0; l < nLayers; l++)
+            for (int l = 1; l < nLayers; l++)
             {
-
 #if DEBUGGING_STEPBYSTEP
                 /* ------------------------- DEBUGGING --------------------------------------------- */
 
@@ -184,7 +157,6 @@ namespace JaNet
 
                 /* ------------------------- END DEBUGGING --------------------------------------------- */
 #endif
-
                 layers[l].FeedForward();
 
 #if DEBUGGING_STEPBYSTEP
@@ -216,8 +188,9 @@ namespace JaNet
 
                 /* ------------------------- END DEBUGGING --------------------------------------------- */
 #endif
-
             }
+            //Console.WriteLine("Checkpoint FW pass");
+            //Console.ReadKey();
         }
 
         /// <summary>
@@ -226,9 +199,8 @@ namespace JaNet
         /// </summary>
         public void BackwardPass(double learningRate, double momentumMultiplier)
         {
-            for (int l = nLayers - 2; l >= 0; l--) // propagate error signal backwards (layers L-2 to 0)
+            for (int l = nLayers - 2; l > 0; l--) // propagate error signal backwards (layers L-2 to 1)
             {
-
 #if DEBUGGING_STEPBYSTEP
                 /* ------------------------- DEBUGGING --------------------------------------------- */
 
@@ -257,7 +229,7 @@ namespace JaNet
 
                 /* ------------------------- END DEBUGGING --------------------------------------------- */
 #endif
-                if (l > 0) // no need to backprop first layer
+                if (l > 1) // no need to backprop layer 1
                 {
                     layers[l].BackPropagate();
                 }

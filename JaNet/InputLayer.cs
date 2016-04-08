@@ -26,7 +26,6 @@ namespace JaNet
             // TODO: remove this after implementing mini-batch training
             if (MiniBatchSize != 1)
                 throw new ArgumentException("Mini-batch training not implemented yet. Use MiniBatchSize = 1.");
-            this.nInputUnits = 0;
             this.nOutputUnits = MiniBatchSize * DataDepth * DataHeight * DataWidth;
 
             this.outputDepth = DataDepth;

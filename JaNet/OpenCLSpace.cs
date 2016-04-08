@@ -12,10 +12,13 @@ namespace JaNet
 {
 
 #if OPENCL_ENABLED
-    static class CL
-    {
 
-        #region CL helper class fields
+    static class OpenCLSpace
+    {
+        public static Event NewEvent;
+        public static ErrorCode NewClError;
+
+        #region Fields
 
         private static Context context;
         private static Device device;
@@ -25,14 +28,12 @@ namespace JaNet
         private static int maxWorkGroupSize;
         private static int maxComputeUnits;
 
-        public static ErrorCode Error;
-        public static Event Event;
-
         private static string kernelsPath;
+
         #endregion
 
 
-        #region CL helper class properties (public)
+        #region Properties
 
         public static Context Context
         {
@@ -66,29 +67,44 @@ namespace JaNet
             get { return maxComputeUnits; }
         }
 
+        /*
+        public static ErrorCode ClError
+        {
+            get { return clError; }
+            set { clError = value; }
+        }
+        public static Event ClEvent
+        {
+            get { return clEvent; }
+            set { clEvent = value; }
+        }
+         * */
+
         public static string KernelsPath
         {
             get { return kernelsPath; }
+            set { kernelsPath = value; }
         }
+
         #endregion
 
 
-        #region Kernels (public)
+        #region Kernels
 
         // FullyConnected layer
-        //public static Kernel FCForward;
-        //public static Kernel FCBackward;
-        //public static Kernel FCUpdateParameters;
+        public static Kernel FCForward;
+        public static Kernel FCBackward;
+        public static Kernel FCUpdateParameters;
 
         // ReLU layer
-        //public static Kernel ReLUForward;
-        //public static Kernel ReLUBackward;
+        public static Kernel ReLUForward;
+        public static Kernel ReLUBackward;
 
         // Softmax layer
-        //public static Kernel SoftmaxForward;
+        public static Kernel SoftmaxForward;
 
         // Cross-entropy gradient
-        //public static Kernel CrossEntropyGradient;
+        public static Kernel CrossEntropyGradient;
 
         // Classification
         public static Kernel CheckClassification;
@@ -96,14 +112,10 @@ namespace JaNet
         #endregion
 
 
-        #region OpenCL setup and finalization
+        #region OpenCL setup
 
-        public static void Setup(string KernelsPath)
+        public static void SetupSpace()
         {
-            Console.WriteLine("\n=========================================");
-            Console.WriteLine("    OpenCL setup");
-            Console.WriteLine("=========================================\n");
-            
             int deviceID; // will be asked to user
 
             List<Device> devicesList = new List<Device>();
@@ -111,25 +123,27 @@ namespace JaNet
             List<string> platformNames = new List<string>();
             int nDevices = 0;
 
+            ErrorCode clError;
+
             // Get list of available platforms
             Console.WriteLine("\nSearching for OpenCL-capable platforms... ");
-            Platform[] platforms = Cl.GetPlatformIDs(out Error);
-            CheckErr(Error, "CL.Setup: Cl.GetPlatformIDs");
+            Platform[] platforms = Cl.GetPlatformIDs(out clError);
+            CheckErr(clError, "CL.Setup: Cl.GetPlatformIDs");
             Console.WriteLine("{0} platforms found.\n", platforms.Length);
 
-            //Console.WriteLine("\n=============================================\n");
             foreach (Platform platform in platforms)
             {
-                string platformName = Cl.GetPlatformInfo(platform, PlatformInfo.Name, out Error).ToString();
+                // Get platform info
+                string platformName = Cl.GetPlatformInfo(platform, PlatformInfo.Name, out clError).ToString();
                 Console.WriteLine("Platform: " + platformName);
-                CheckErr(Error, "CL.Setup: Cl.GetPlatformInfo");
+                CheckErr(clError, "CL.Setup: Cl.GetPlatformInfo");
 
-                // Get all available devices for this platform and list them on screen
-                foreach (Device dev in Cl.GetDeviceIDs(platform, DeviceType.All, out Error))
+                // Get all available devices within this platform and list them on screen
+                foreach (Device dev in Cl.GetDeviceIDs(platform, DeviceType.All, out clError))
                 {
-                    CheckErr(Error, "CL.Setup: Cl.GetDeviceIDs");
-                    string deviceName = Cl.GetDeviceInfo(dev, DeviceInfo.Name, out Error).ToString();
-                    CheckErr(Error, "CL.Setup: Cl.GetDeviceInfo");
+                    CheckErr(clError, "CL.Setup: Cl.GetDeviceIDs");
+                    string deviceName = Cl.GetDeviceInfo(dev, DeviceInfo.Name, out clError).ToString();
+                    CheckErr(clError, "CL.Setup: Cl.GetDeviceInfo");
                     Console.WriteLine("Device {0}: {1}", nDevices, deviceName);
 
                     devicesList.Add(dev);
@@ -142,8 +156,7 @@ namespace JaNet
 
             if (nDevices == 0)
             {
-                Console.WriteLine("FATAL ERROR: No devices found!");
-                return;
+                throw new PlatformNotSupportedException("No OpenCL-capable platform and/or devices were found on this system.");
             }
 
             Console.Write("Enter ID of device to use: ");
@@ -154,25 +167,23 @@ namespace JaNet
             Console.WriteLine("\nUsing device {0}", deviceNames[deviceID]);
 
             // Create OpenCL context
-            context = Cl.CreateContext(null, 1, new[] { device }, ContextNotify, IntPtr.Zero, out Error);    //Second parameter is amount of devices
-            CheckErr(Error, "CL.Setup: Cl.CreateContext");
+            context = Cl.CreateContext(null, 1, new[] { device }, ContextNotify, IntPtr.Zero, out clError);    //Second parameter is amount of devices
+            CheckErr(clError, "CL.Setup: Cl.CreateContext");
 
             // Create OpenCL command queue
-            queue = Cl.CreateCommandQueue(context, device, (CommandQueueProperties)0, out Error);
-            CheckErr(Error, "CL.Setup: Cl.CreateCommandQueue");
+            queue = Cl.CreateCommandQueue(context, device, (CommandQueueProperties)0, out clError);
+            CheckErr(clError, "CL.Setup: Cl.CreateCommandQueue");
 
             // Extract some device info
-            maxWorkItemSizes = Cl.GetDeviceInfo(device, DeviceInfo.MaxWorkItemSizes, out Error).CastToEnumerable<int>(new int[] { 0, 1, 2 }).ToList();
+            maxWorkItemSizes = Cl.GetDeviceInfo(device, DeviceInfo.MaxWorkItemSizes, out clError).CastToEnumerable<int>(new int[] { 0, 1, 2 }).ToList();
             Console.WriteLine("Max work item sizes: {0}, {1}, {2}", maxWorkItemSizes[0], maxWorkItemSizes[1], maxWorkItemSizes[2]);
 
-            maxWorkGroupSize = Cl.GetDeviceInfo(device, DeviceInfo.MaxWorkGroupSize, out Error).CastTo<int>();
+            maxWorkGroupSize = Cl.GetDeviceInfo(device, DeviceInfo.MaxWorkGroupSize, out clError).CastTo<int>();
             Console.WriteLine("Max work group size: {0}", maxWorkGroupSize);
 
-            maxComputeUnits = Cl.GetDeviceInfo(device, DeviceInfo.MaxComputeUnits, out Error).CastTo<int>();
+            maxComputeUnits = Cl.GetDeviceInfo(device, DeviceInfo.MaxComputeUnits, out clError).CastTo<int>();
             Console.WriteLine("Max compute units: {0}", maxComputeUnits);
 
-            // Set kernel path
-            kernelsPath = KernelsPath;
         }
 
 
@@ -181,8 +192,9 @@ namespace JaNet
 
         #region Kernel loading and building
 
-        public static Kernel LoadBuildKernel(string kernelFilePath, string kernelName)
+        public static Kernel LoadAndBuildKernel(string kernelFilePath, string kernelName)
         {
+            ErrorCode clError;
 
             // Attempt to read file
             if (!System.IO.File.Exists(kernelFilePath))
@@ -194,37 +206,55 @@ namespace JaNet
             string kernelSource = System.IO.File.ReadAllText(kernelFilePath);
 
             // Create program
-            OpenCL.Net.Program clProgram = Cl.CreateProgramWithSource(context, 1, new[] { kernelSource }, null, out Error);
-            CheckErr(Error, "CL.LoadAndBuildKernel: Cl.CreateProgramWithSource");
+            OpenCL.Net.Program clProgram = Cl.CreateProgramWithSource(context, 1, new[] { kernelSource }, null, out clError);
+            CheckErr(clError, "CL.LoadAndBuildKernel: Cl.CreateProgramWithSource");
 
             //Compile kernel source
-            Error = Cl.BuildProgram(clProgram, 1, new[] { device }, string.Empty, null, IntPtr.Zero);
-            CheckErr(Error, "CL.LoadAndBuildKernel: Cl.BuildProgram");
+            clError = Cl.BuildProgram(clProgram, 1, new[] { device }, string.Empty, null, IntPtr.Zero);
+            CheckErr(clError, "CL.LoadAndBuildKernel: Cl.BuildProgram");
 
             //Check for any compilation errors
-            if (Cl.GetProgramBuildInfo(clProgram, device, ProgramBuildInfo.Status, out Error).CastTo<BuildStatus>()
+            if (Cl.GetProgramBuildInfo(clProgram, device, ProgramBuildInfo.Status, out clError).CastTo<BuildStatus>()
                 != BuildStatus.Success)
             {
-                CheckErr(Error, "CL.LoadAndBuildKernel: Cl.GetProgramBuildInfo");
+                CheckErr(clError, "CL.LoadAndBuildKernel: Cl.GetProgramBuildInfo");
                 Console.WriteLine("Cl.GetProgramBuildInfo != Success");
-                Console.WriteLine(Cl.GetProgramBuildInfo(clProgram, device, ProgramBuildInfo.Log, out Error));
+                Console.WriteLine(Cl.GetProgramBuildInfo(clProgram, device, ProgramBuildInfo.Log, out clError));
                 Console.ReadKey();
                 System.Environment.Exit(1);
             }
             //Create the required kernel (entry function)
-            Kernel kernel = Cl.CreateKernel(clProgram, kernelName, out Error);
-            CheckErr(Error, "CL.LoadAndBuildKernel: Cl.CreateKernel");
+            Kernel kernel = Cl.CreateKernel(clProgram, kernelName, out clError);
+            CheckErr(clError, "CL.LoadAndBuildKernel: Cl.CreateKernel");
 
             return kernel;
         }
 
 
-        public static void LoadKernels(string kernelsPath)
+        public static void LoadKernels()
         {
-            // Classification
+            if (kernelsPath == null)
+                throw new MissingFieldException("Path to kernels' source must be specified before calling LoadKernels()");
 
-            string classificationName = "CheckClassification";
-            CheckClassification = LoadBuildKernel(kernelsPath + "/" + classificationName + ".cl", classificationName);
+            // Fully connected layer
+            FCForward = LoadAndBuildKernel(kernelsPath + "/FCForward.cl", "FCForward");
+            FCBackward = LoadAndBuildKernel(kernelsPath + "/FCBackward.cl", "FCBackward");
+            FCUpdateParameters = LoadAndBuildKernel(kernelsPath + "/FCUpdateParameters.cl", "FCUpdateParameters");
+
+            // ReLU layer
+            ReLUForward = LoadAndBuildKernel(kernelsPath + "/ReLUForward.cl", "ReLUForward");
+            ReLUBackward = LoadAndBuildKernel(kernelsPath + "/ReLUBackward.cl", "ReLUBackward");
+
+            // Softmax layer
+            SoftmaxForward = LoadAndBuildKernel(kernelsPath + "/SoftmaxForward.cl", "SoftmaxForward");
+            
+            // Cross-entropy gradient
+            CrossEntropyGradient = LoadAndBuildKernel(kernelsPath + "/CrossEntropyGradient.cl", "CrossEntropyGradient");
+
+
+            // Classification
+            // TODO: implement a better kernel
+            CheckClassification = LoadAndBuildKernel(kernelsPath + "/CheckClassification.cl", "CheckClassification");
         }
 
         #endregion
@@ -247,10 +277,12 @@ namespace JaNet
             Console.WriteLine("OpenCL Notification: " + errInfo);
         }
 
+        // TODO: delete this if not needed
+        /*
         public static void ClearBuffer(Mem buffer, int bufferSize)
         {
             float[] zeros = new float[bufferSize];
-            CL.Error = Cl.EnqueueWriteBuffer(   CL.Queue,
+            OpenCLSpace.ClError = Cl.EnqueueWriteBuffer(   OpenCLSpace.Queue,
                                                 buffer,
                                                 OpenCL.Net.Bool.True,
                                                 (IntPtr)0,
@@ -258,9 +290,11 @@ namespace JaNet
                                                 zeros,
                                                 0,
                                                 null,
-                                                out CL.Event);
-            CL.CheckErr(CL.Error, "CL.ClearBuffer: Cl.EnqueueWriteBuffer");
+                                                out OpenCLSpace.ClEvent);
+            OpenCLSpace.CheckErr(OpenCLSpace.ClError, "CL.ClearBuffer: Cl.EnqueueWriteBuffer");
         }
+        */
+
 
         #endregion
 

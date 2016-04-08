@@ -15,42 +15,32 @@ namespace JaNet
 
         #region Layer base class fields (protected)
 
-        protected Neurons input;
-        protected Neurons output;
-
-        protected Layer nextLayer;
-
-        protected int numberOfUnits;
-        protected int id;
         protected string type;
+        protected int id;
 
-        // Used in convolutional and pooling layers:
-        protected int inputWidth;
-        protected int inputHeight; // assumed equal to inputWidth for now
+        protected int nInputUnits;
+        protected int nOutputUnits;
+
+        protected Neurons inputNeurons;
+        protected Neurons outputNeurons;
+
         protected int inputDepth;
+        protected int inputHeight; // assumed equal to inputWidth
+        protected int inputWidth;
 
-        protected int outputWidth;
-        protected int outputHeight; // assumed equal to outputWidth for now
         protected int outputDepth;
+        protected int outputHeight; // assumed equal to outputWidth
+        protected int outputWidth;
 
         #endregion
 
 
         #region Layer base class properties (public)
 
-        public virtual Neurons Input
+        public string Type
         {
-            get { return input; }
-            set { input = value; }
-        }
-
-        public virtual Neurons Output
-        {
-            get { return output; }
-        }
-        
-        public virtual Layer NextLayer {
-            set { this.nextLayer = value; } 
+            get { return type; }
+            //set { this.type = value; } // shouldn't need this. TO-DELETE
         }
 
         public int ID
@@ -59,17 +49,30 @@ namespace JaNet
             set { this.id = value; }
         }
 
-        public string Type
+        public int NInputUnits
         {
-            get { return type; }
-            set { this.type = value; }
+            get { return nInputUnits; }
         }
 
-        // Used in convolutional and pooling layers:
-
-        public int OutputWidth // allows setup of next layer
+        public int NOutputUnits
         {
-            get { return outputWidth; }
+            get { return nOutputUnits; }
+        }
+
+        public virtual Neurons Input
+        {
+            get { return inputNeurons; }
+            set { inputNeurons = value; }
+        }
+
+        public virtual Neurons Output
+        {
+            get { return outputNeurons; }
+        }
+
+        public int OutputDepth // allows setup of next layer
+        {
+            get { return outputDepth; }
         }
 
         public int OutputHeight // allows setup of next layer
@@ -77,23 +80,15 @@ namespace JaNet
             get { return outputHeight; }
         }
 
-        public int OutputDepth // allows setup of next layer
+        public int OutputWidth // allows setup of next layer
         {
-            get { return outputDepth; }
+            get { return outputWidth; }
         }
+
         #endregion
 
 
-        #region Setup methods (public, to be called once)
-
-        /// <summary>
-        /// Set this as the first layer of the network.
-        /// </summary>
-        /// 
-        public virtual void SetAsFirstLayer(int InputWidth, int InputHeight, int InputDepth)
-        {
-
-        }
+        #region Setup methods
 
         /// <summary>
         /// Connect this layer to previous one.
@@ -111,12 +106,16 @@ namespace JaNet
         /// </summary>
         public virtual void InitializeParameters()
         {
+            // Base class: just make sure output neurons exist (i.e. this method is called AFTER method ConnectTo() )
+            if (outputNeurons == null)
+                throw new MissingFieldException("Cannot call InitializeParameters() if parameters do not exist yet! Make sure layer has been connected.");
         }
 
         #endregion
 
 
-        #region Training methods (public abstract)
+        #region Operating methods
+
 
         /// <summary>
         /// Run layer forward.
@@ -136,21 +135,11 @@ namespace JaNet
         {
         }
 
-        /*
-        public virtual void ClearDelta()
-        {
-            Array.Clear(this.input.DeltaHost, 0, this.input.NumberOfUnits);
-            Array.Clear(this.output.DeltaHost, 0, this.output.NumberOfUnits);
-        }
-        */
-
-        
-
         #endregion
 
+        // TODO: kill this
+        #region Debugging
 
-        #region Debugging 
-        
         public virtual void DisplayParameters()
         {
 

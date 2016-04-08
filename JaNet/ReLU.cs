@@ -50,17 +50,9 @@ namespace JaNet
         {
             base.ConnectTo(PreviousLayer);
 
-            this.numberOfUnits = PreviousLayer.Output.NumberOfUnits;
-            this.output = new Neurons(this.numberOfUnits);
+            this.nOutputUnits = PreviousLayer.Output.NumberOfUnits;
+            this.outputNeurons = new Neurons(this.nOutputUnits);
 
-        }
-
-        /// <summary>
-        /// Method to set this layer as the first layer of the network.
-        /// </summary>
-        public override void SetAsFirstLayer(int InputWidth, int InputHeight, int InputDepth)
-        {
-            throw new System.InvalidOperationException("You are setting a ReLU layer as first layer of the network...\nIs it really what you want to do?");
         }
 
         public override void InitializeParameters()

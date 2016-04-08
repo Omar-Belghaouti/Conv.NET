@@ -6,20 +6,12 @@ using System.Threading.Tasks;
 
 namespace JaNet
 {
+    /*
     class Tanh : Layer
     {
         #region Tanh layer class fields (private)
 
         private double beta;
-
-        /* Additional fields, inherited from "Layer" class:
-        * 
-        * protected Neurons input;
-        * protected Neurons output;
-        * 
-        * protected Layer nextLayer;
-        * protected string layerType;
-        */
 
         #endregion
 
@@ -94,29 +86,12 @@ namespace JaNet
 #endif
         }
 
-        /*
-        public override void BackPropBatchCPU()
-        {
-            // TO-DO
 
-            float[] tmpDelta = new float[numberOfUnits];
-            for (int i = 0; i < this.numberOfUnits; i++)
-                tmpDelta[i] = this.output.DeltaHost[i] * (float)(beta * (1 - Math.Pow((double)this.output.GetHost()[i], 2)));
-            
-            this.input.DeltaHost = this.input.DeltaHost.Zip(tmpDelta, (x, y) => x + y).ToArray();
-
-        }
-        */
         
-        /*
-        public override void UpdateParameters(double learningRate, double momentumCoefficient)
-        {
-            // nothing to update
-        }
-         * */
 
         #endregion
 
 
     }
+*/
 }

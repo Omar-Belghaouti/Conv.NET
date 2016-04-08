@@ -8,6 +8,7 @@ using OpenCL.Net;
 
 namespace JaNet
 {
+    /*
     class ConvolutionalLayer : Layer
     {
 
@@ -325,6 +326,7 @@ namespace JaNet
 
         #endregion
 
-
+    
     }
+     */
 }

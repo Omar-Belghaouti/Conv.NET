@@ -45,15 +45,14 @@ namespace JaNet
             Console.WriteLine("=========================================\n");
 
             NeuralNetwork network = new NeuralNetwork();
-            network.AddLayer(new InputLayer(1, 1, 28, 28));
+            network.AddLayer(new InputLayer(1, 1, 32, 32));
 
-            network.AddLayer(new FullyConnectedLayer(32));
+            network.AddLayer(new FullyConnectedLayer(64));
             network.AddLayer(new ReLU());
 
-            network.AddLayer(new FullyConnectedLayer(10));
-            //network.AddLayer(new SoftMax());
+            network.AddLayer(new FullyConnectedLayer(43));
+            network.AddLayer(new SoftMax());
             
-            network.Setup(); // connects layers
 
             /*****************************************************
              * (2) Load data
@@ -71,13 +70,13 @@ namespace JaNet
             //DataSet testSetMNIST = new DataSet(10, "C:/Users/jacopo/Dropbox/Chalmers/MSc thesis/MNIST/mnistTestImages.dat", "C:/Users/jacopo/Dropbox/Chalmers/MSc thesis/MNIST/mnistTestLabels.dat");
 
             // Reduced MNIST dataset (1000 data points, 100 per digit)
-            DataSet reducedMNIST = new DataSet(10, "C:/Users/jacopo/Dropbox/Chalmers/MSc thesis/MNIST/mnistImagesSubset.dat", "C:/Users/jacopo/Dropbox/Chalmers/MSc thesis/MNIST/mnistLabelsSubset.dat");
+            // DataSet reducedMNIST = new DataSet(10, "C:/Users/jacopo/Dropbox/Chalmers/MSc thesis/MNIST/mnistImagesSubset.dat", "C:/Users/jacopo/Dropbox/Chalmers/MSc thesis/MNIST/mnistLabelsSubset.dat");
 
             // GTSRB training set
-            //DataSet trainingGTSRB = new DataSet(43, "C:/Users/jacopo/Dropbox/Chalmers/MSc thesis/GTSRB/Preprocessed/02_training_images.dat", "C:/Users/jacopo/Dropbox/Chalmers/MSc thesis/GTSRB/Preprocessed/training_labels_full.dat");
+            DataSet trainingGTSRB = new DataSet(43, "C:/Users/jacopo/Dropbox/Chalmers/MSc thesis/GTSRB/Preprocessed/02_training_images.dat", "C:/Users/jacopo/Dropbox/Chalmers/MSc thesis/GTSRB/Preprocessed/training_labels_full.dat");
 
             // GTSRB test set
-            //DataSet testGTSRB = new DataSet(43, "C:/Users/jacopo/Dropbox/Chalmers/MSc thesis/GTSRB/Preprocessed/02_test_images.dat", "C:/Users/jacopo/Dropbox/Chalmers/MSc thesis/GTSRB/Preprocessed/test_labels_full.dat");
+            DataSet testGTSRB = new DataSet(43, "C:/Users/jacopo/Dropbox/Chalmers/MSc thesis/GTSRB/Preprocessed/02_test_images.dat", "C:/Users/jacopo/Dropbox/Chalmers/MSc thesis/GTSRB/Preprocessed/test_labels_full.dat");
 
 
             /*****************************************************
@@ -87,30 +86,26 @@ namespace JaNet
             Console.WriteLine("    Network training");
             Console.WriteLine("=========================================\n");
 
+            NetworkTrainer networkTrainer = new NetworkTrainer(network, trainingGTSRB, testGTSRB);
 
-            //NetworkTrainer.TrainSimpleTest(network, dataSet);
+            networkTrainer.LearningRate = 0.0005;
+            networkTrainer.MomentumMultiplier = 0.9;
+            networkTrainer.MaxTrainingEpochs = 1000;
+            networkTrainer.MiniBatchSize = 1; // not correctly implemented yet!! // for GTSRB can use any multiple of 2, 3, 5
+            networkTrainer.ErrorTolerance = 0.0;
+            networkTrainer.ConsoleOutputLag = 1; // 1 = print every epoch, N = print every N epochs
+            networkTrainer.EvaluateBeforeTraining = true;
+            networkTrainer.EarlyStopping = true;
+            //double tanhBeta = 0.5;
 
-            
-            //network.Layers[0].DisplayParameters();
-            //network.Layers[2].DisplayParameters();
-            //network.Layers[4].DisplayParameters();
-
-
-            //trainer.Train();
+            networkTrainer.Train();
 
 
             /*****************************************************
              * (4) Test network
              ****************************************************/
 
-            NetworkEvaluator networkEvaluator = new NetworkEvaluator(reducedMNIST.GetDataPoint(0).Length, reducedMNIST.NumberOfClasses, 1);
 
-            double loss;
-            double error;
-
-            Console.WriteLine("Evaluating on TRAINING set...");
-            networkEvaluator.ComputeLossError(network, reducedMNIST, out loss, out error);
-            Console.WriteLine("\tLoss = {0}\n\tError = {1}", loss, error);
         }
     }
 }

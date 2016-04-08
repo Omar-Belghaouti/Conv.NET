@@ -61,13 +61,13 @@ namespace JaNet
             get { return nOutputUnits; }
         }
 
-        public virtual Neurons Input
+        public virtual Neurons InputNeurons
         {
             get { return inputNeurons; }
             set { inputNeurons = value; }
         }
 
-        public virtual Neurons Output
+        public virtual Neurons OutputNeurons
         {
             get { return outputNeurons; }
         }
@@ -98,7 +98,7 @@ namespace JaNet
         /// <param name="PreviousLayer"></param>
         public virtual void ConnectTo(Layer PreviousLayer)
         {
-            this.Input = PreviousLayer.Output; // assignment by reference! 
+            this.InputNeurons = PreviousLayer.OutputNeurons; // assignment by reference! 
             // In memory, output neurons of previous layer and input neurons of current layer are the same thing!
         }
 

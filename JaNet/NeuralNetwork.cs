@@ -46,40 +46,70 @@ namespace JaNet
         }
 
         /// <summary>
-        /// Add layer to NeuralNetwork object.
+        /// Add layer to NeuralNetwork instance.
         /// </summary>
-        /// <param name="layer"></param>
-        public void AddLayer(Layer layer)
+        /// <param name="newLayer"></param>
+        public void AddLayer(Layer newLayer)
         {
-            layer.ID = nLayers;
+            // Some error-handling
 
-            this.layers.Add(layer);
-            this.nLayers++;
-        }
-
-        /// <summary>
-        /// Setup network: given input dim and each layer's parameters, automatically set dimensions of I/O 3D arrays and initialize weights and biases.
-        /// </summary>
-        /// <param name="inputDimensions"></param>
-        /// <param name="nOutputClasses"></param>
-        public void Setup()
-        {
-            Console.WriteLine("\n=========================================");
-            Console.WriteLine("    Network setup and initialization");
-            Console.WriteLine("=========================================\n");
-
-            Console.WriteLine("Setting up layer 0 (input layer): " + layers[0].Type);
-            //layers[0].SetAsFirstLayer(inputWidth, inputHeigth, inputDepth); 
-            //layers[0].InitializeParameters();
-
-            for (int i = 1; i < layers.Count; i++ ) // all other layers
+            if (!layers.Any() && newLayer.Type != "Input")
             {
-                Console.WriteLine("Setting up layer " + i.ToString() + ": " + layers[i].Type);
-                layers[i].ConnectTo(layers[i - 1]);
-                layers[i].InitializeParameters();
-                
+                throw new ArgumentException("Need to add an InputLayer as 0th layer of the network.");
             }
+
+            switch (newLayer.Type)
+            {
+                case "Input":
+                    {
+                        if (!layers.Any()) // if list of layers is empty
+                        {
+                            newLayer.ID = 0;
+                        }
+                        else // list is not empty
+                        {
+                            throw new ArgumentException("Adding an InputLayer to a non-empty network.");
+                        }
+                        break;
+                    }
+                case "Convolutional":
+                    {
+                        if (layers.Last().Type != "Convolutional" & layers.Last().Type != "Pooling")
+                        {
+                            throw new ArgumentException("You are connecting a convolutional layer to neither a convolutional nor a pooling layer.\nThat's probably not what you want to do, is it?");
+                        }
+                        break;
+                    }
+                case "Pooling":
+                    {
+                        if (layers.Last().Type != "Convolutional")
+                        {
+                            throw new ArgumentException("You are connecting a pooling layer to a non-convolutional layer.\nThat's probably not what you want to do, is it?");
+                        }
+                        break;
+                    }
+                default: // valid connection
+                    newLayer.ID = layers.Last().ID + 1;
+                    break;
+            }
+
+            Console.Write("\tAdding layer [" + newLayer.ID + "]: " + newLayer.Type + "...");
+            layers.Add(newLayer);
+            nLayers++;
+
+            if (nLayers == 1)
+            {
+                Console.Write(" OK\n");
+            }
+            else
+            {
+                layers[newLayer.ID].ConnectTo(layers[newLayer.ID-1]); // connect last layer to second last
+                layers[newLayer.ID].InitializeParameters();
+                Console.Write(" OK\n");
+            }
+
         }
+
 
         #endregion
 
@@ -89,9 +119,9 @@ namespace JaNet
         public void FeedData(DataSet dataSet, int iDataPoint)
         {
 #if OPENCL_ENABLED
-            layers[0].Output.ActivationsGPU = dataSet.DataGPU(iDataPoint); // Copied by reference
+            layers[0].OutputNeurons.ActivationsGPU = dataSet.DataGPU(iDataPoint); // Copied by reference
 #else
-            layers[0].Input.SetHost(dataSet.GetDataPoint(iDataPoint));
+            layers[0].InputNeurons.SetHost(dataSet.GetDataPoint(iDataPoint));
 #endif
         }
 
@@ -109,20 +139,20 @@ namespace JaNet
 
                 // Display input layer-by-layer
 
-                float[] layerInput = new float[layers[l].Input.NumberOfUnits];
+                float[] layerInput = new float[layers[l].InputNeurons.NumberOfUnits];
 #if OPENCL_ENABLED
-                CL.Error = Cl.EnqueueReadBuffer(CL.Queue,
-                                                layers[l].Input.ActivationsGPU, // source
+                OpenCLSpace.ClError = Cl.EnqueueReadBuffer(OpenCLSpace.Queue,
+                                                layers[l].InputNeurons.ActivationsGPU, // source
                                                 Bool.True,
                                                 (IntPtr)0,
-                                                (IntPtr)(layers[l].Input.NumberOfUnits * sizeof(float)),
+                                                (IntPtr)(layers[l].InputNeurons.NumberOfUnits * sizeof(float)),
                                                 layerInput,  // destination
                                                 0,
                                                 null,
-                                                out CL.Event);
-                CL.CheckErr(CL.Error, "NeuralNetwork.ForwardPass Cl.clEnqueueReadBuffer layerInput");
+                                                out OpenCLSpace.ClEvent);
+                OpenCLSpace.CheckErr(OpenCLSpace.ClError, "NeuralNetwork.ForwardPass Cl.clEnqueueReadBuffer layerInput");
 #else
-                layerInput = layers[l].Input.GetHost();
+                layerInput = layers[l].InputNeurons.GetHost();
 #endif
                 Console.WriteLine("\nLayer {0} ({1}) input activations:",l , layers[l].Type);
                 for (int j = 0; j < layerInput.Length; j++)
@@ -140,20 +170,20 @@ namespace JaNet
 
                 // Display output layer-by-layer
 
-                float[] layerOutput = new float[layers[l].Output.NumberOfUnits];
+                float[] layerOutput = new float[layers[l].OutputNeurons.NumberOfUnits];
 #if OPENCL_ENABLED
-                CL.Error = Cl.EnqueueReadBuffer(CL.Queue,
-                                                layers[l].Output.ActivationsGPU, // source
+                OpenCLSpace.ClError = Cl.EnqueueReadBuffer(OpenCLSpace.Queue,
+                                                layers[l].OutputNeurons.ActivationsGPU, // source
                                                 Bool.True,
                                                 (IntPtr)0,
-                                                (IntPtr)(layers[l].Output.NumberOfUnits * sizeof(float)),
+                                                (IntPtr)(layers[l].OutputNeurons.NumberOfUnits * sizeof(float)),
                                                 layerOutput,  // destination
                                                 0,
                                                 null,
-                                                out CL.Event);
-                CL.CheckErr(CL.Error, "NeuralNetwork.ForwardPass Cl.clEnqueueReadBuffer layerOutput");
+                                                out OpenCLSpace.ClEvent);
+                OpenCLSpace.CheckErr(OpenCLSpace.ClError, "NeuralNetwork.ForwardPass Cl.clEnqueueReadBuffer layerOutput");
 #else
-                layerOutput = layers[l].Output.GetHost();
+                layerOutput = layers[l].OutputNeurons.GetHost();
 #endif
                 Console.WriteLine("\nLayer {0} ({1}) output activations:", l, layers[l].Type);
                 for (int j = 0; j < layerOutput.Length; j++)
@@ -170,7 +200,7 @@ namespace JaNet
 
         /// <summary>
         /// Run network backwards, propagating the gradient backwards and also updating parameters. 
-        /// Requires that gradient has ALREADY BEEN WRITTEN in network.Layers[nLayers-1].Input.Delta
+        /// Requires that gradient has ALREADY BEEN WRITTEN in network.Layers[nLayers-1].InputNeurons.Delta
         /// </summary>
         public void BackwardPass(double learningRate, double momentumMultiplier)
         {
@@ -181,20 +211,20 @@ namespace JaNet
                 /* ------------------------- DEBUGGING --------------------------------------------- */
 
                 // Display output layer-by-layer
-                float[] deltaOutput = new float[layers[l].Output.NumberOfUnits];
+                float[] deltaOutput = new float[layers[l].OutputNeurons.NumberOfUnits];
 #if OPENCL_ENABLED
-                CL.Error = Cl.EnqueueReadBuffer(CL.Queue,
-                                                layers[l].Output.DeltaGPU, // source
+                OpenCLSpace.ClError = Cl.EnqueueReadBuffer(OpenCLSpace.Queue,
+                                                layers[l].OutputNeurons.DeltaGPU, // source
                                                 Bool.True,
                                                 (IntPtr)0,
-                                                (IntPtr)(layers[l].Output.NumberOfUnits * sizeof(float)),
+                                                (IntPtr)(layers[l].OutputNeurons.NumberOfUnits * sizeof(float)),
                                                 deltaOutput,  // destination
                                                 0,
                                                 null,
-                                                out CL.Event);
-                CL.CheckErr(CL.Error, "NeuralNetwork.BackwardPass Cl.clEnqueueReadBuffer deltaOutput");
+                                                out OpenCLSpace.ClEvent);
+                OpenCLSpace.CheckErr(OpenCLSpace.ClError, "NeuralNetwork.BackwardPass Cl.clEnqueueReadBuffer deltaOutput");
 #else
-                deltaOutput = layers[l].Output.DeltaHost;
+                deltaOutput = layers[l].OutputNeurons.DeltaHost;
 #endif
                 Console.WriteLine("\nLayer {0} ({1}) output delta:", l, layers[l].Type);
                 for (int j = 0; j < deltaOutput.Length; j++)
@@ -214,20 +244,20 @@ namespace JaNet
                 /* ------------------------- DEBUGGING --------------------------------------------- */
 
                 // Display output layer-by-layer
-                float[] deltaInput = new float[layers[l].Input.NumberOfUnits];
+                float[] deltaInput = new float[layers[l].InputNeurons.NumberOfUnits];
 #if OPENCL_ENABLED
-                CL.Error = Cl.EnqueueReadBuffer(CL.Queue,
-                                                layers[l].Input.DeltaGPU, // source
+                OpenCLSpace.ClError = Cl.EnqueueReadBuffer(OpenCLSpace.Queue,
+                                                layers[l].InputNeurons.DeltaGPU, // source
                                                 Bool.True,
                                                 (IntPtr)0,
-                                                (IntPtr)(layers[l].Input.NumberOfUnits * sizeof(float)),
+                                                (IntPtr)(layers[l].InputNeurons.NumberOfUnits * sizeof(float)),
                                                 deltaInput,  // destination
                                                 0,
                                                 null,
-                                                out CL.Event);
-                CL.CheckErr(CL.Error, "NeuralNetwork.BackwardPass Cl.clEnqueueReadBuffer deltaInput");
+                                                out OpenCLSpace.ClEvent);
+                OpenCLSpace.CheckErr(OpenCLSpace.ClError, "NeuralNetwork.BackwardPass Cl.clEnqueueReadBuffer deltaInput");
 #else
-                deltaInput = layers[l].Input.DeltaHost;
+                deltaInput = layers[l].InputNeurons.DeltaHost;
 #endif
                 Console.WriteLine("\nLayer {0} ({1}) input delta:", l, layers[l].Type);
                 for (int j = 0; j < deltaInput.Length; j++)

@@ -43,7 +43,7 @@ namespace JaNet
         {
             base.ConnectTo(PreviousLayer);
 
-            this.nOutputUnits = PreviousLayer.Output.NumberOfUnits;
+            this.nOutputUnits = PreviousLayer.OutputNeurons.NumberOfUnits;
             this.outputNeurons = new Neurons(this.nOutputUnits);
 
 #if OPENCL_ENABLED
@@ -65,8 +65,8 @@ namespace JaNet
             //      local work size = largest divisor of global work size <= maxWorkGroupSize of device in context
             // (this is probably suboptimal, but improvements are most likely negligible compared to improvements elsewhere, e.g. in the kernels code)
 
-            this.globalWorkSizePtr = new IntPtr[] { (IntPtr)(Output.NumberOfUnits) };
-            int tmpLocalWorkSize = Output.NumberOfUnits;
+            this.globalWorkSizePtr = new IntPtr[] { (IntPtr)(OutputNeurons.NumberOfUnits) };
+            int tmpLocalWorkSize = OutputNeurons.NumberOfUnits;
             while (tmpLocalWorkSize > OpenCLSpace.MaxWorkGroupSize || tmpLocalWorkSize > OpenCLSpace.MaxWorkItemSizes[0])
                 tmpLocalWorkSize /= 2;
             this.localWorkSizePtr = new IntPtr[] { (IntPtr)(tmpLocalWorkSize) };
@@ -82,10 +82,10 @@ namespace JaNet
 #if OPENCL_ENABLED
 
             // Set kernel arguments
-            OpenCLSpace.ClError = Cl.SetKernelArg(OpenCLSpace.SoftmaxForward, 0, Output.ActivationsGPU);
-            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.SoftmaxForward, 1, Input.ActivationsGPU);
+            OpenCLSpace.ClError = Cl.SetKernelArg(OpenCLSpace.SoftmaxForward, 0, OutputNeurons.ActivationsGPU);
+            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.SoftmaxForward, 1, InputNeurons.ActivationsGPU);
             OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.SoftmaxForward, 2, auxiliaryFloatBuffer);
-            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.SoftmaxForward, 3, (IntPtr)sizeof(int), Output.NumberOfUnits);
+            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.SoftmaxForward, 3, (IntPtr)sizeof(int), OutputNeurons.NumberOfUnits);
             OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Softmax.FeedForward(): Cl.SetKernelArg");
 
             // Run kernel

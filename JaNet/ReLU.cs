@@ -42,7 +42,7 @@ namespace JaNet
         {
             base.ConnectTo(PreviousLayer);
 
-            this.nOutputUnits = PreviousLayer.Output.NumberOfUnits;
+            this.nOutputUnits = PreviousLayer.OutputNeurons.NumberOfUnits;
             this.outputNeurons = new Neurons(this.nOutputUnits);
 #if OPENCL_ENABLED
             SetWorkGroupSizes();
@@ -57,8 +57,8 @@ namespace JaNet
             //      local work size = largest divisor of global work size <= maxWorkGroupSize of device in context
             // (this is probably suboptimal, but improvements are most likely negligible compared to improvements elsewhere, e.g. in the kernels code)
 
-            this.globalWorkSizePtr = new IntPtr[] { (IntPtr)(Output.NumberOfUnits) };
-            int tmpLocalWorkSize = Output.NumberOfUnits;
+            this.globalWorkSizePtr = new IntPtr[] { (IntPtr)(OutputNeurons.NumberOfUnits) };
+            int tmpLocalWorkSize = OutputNeurons.NumberOfUnits;
             while (tmpLocalWorkSize > OpenCLSpace.MaxWorkGroupSize || tmpLocalWorkSize > OpenCLSpace.MaxWorkItemSizes[0])
                 tmpLocalWorkSize /= 2;
             this.localWorkSizePtr = new IntPtr[] { (IntPtr)(tmpLocalWorkSize) };
@@ -74,9 +74,9 @@ namespace JaNet
         {
 #if OPENCL_ENABLED
             // Set kernel arguments
-            OpenCLSpace.ClError = Cl.SetKernelArg(OpenCLSpace.ReLUForward, 0, Output.ActivationsGPU);
-            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.ReLUForward, 1, Input.ActivationsGPU);
-            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.ReLUForward, 2, (IntPtr)sizeof(int), Output.NumberOfUnits);
+            OpenCLSpace.ClError = Cl.SetKernelArg(OpenCLSpace.ReLUForward, 0, OutputNeurons.ActivationsGPU);
+            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.ReLUForward, 1, InputNeurons.ActivationsGPU);
+            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.ReLUForward, 2, (IntPtr)sizeof(int), OutputNeurons.NumberOfUnits);
             OpenCLSpace.CheckErr(OpenCLSpace.ClError, "ReLU.FeedForward(): Cl.SetKernelArg");
 
             // Run kernel
@@ -116,10 +116,10 @@ namespace JaNet
 #if OPENCL_ENABLED
 
             // Set kernel arguments
-            OpenCLSpace.ClError = Cl.SetKernelArg(OpenCLSpace.ReLUBackward, 0, Input.DeltaGPU);
-            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.ReLUBackward, 1, Output.DeltaGPU);
-            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.ReLUBackward, 2, Input.ActivationsGPU);
-            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.ReLUBackward, 3, (IntPtr)sizeof(int), Input.NumberOfUnits);
+            OpenCLSpace.ClError = Cl.SetKernelArg(OpenCLSpace.ReLUBackward, 0, InputNeurons.DeltaGPU);
+            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.ReLUBackward, 1, OutputNeurons.DeltaGPU);
+            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.ReLUBackward, 2, InputNeurons.ActivationsGPU);
+            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.ReLUBackward, 3, (IntPtr)sizeof(int), InputNeurons.NumberOfUnits);
             OpenCLSpace.CheckErr(OpenCLSpace.ClError, "ReLU.BackPropagate(): Cl.SetKernelArg");
 
             // Run kernel

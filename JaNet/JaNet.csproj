@@ -68,7 +68,7 @@
     <Compile Include="Utils.cs" />
     <Compile Include="DataSet.cs" />
     <Compile Include="NetworkEvaluator.cs" />
-    <None Include="NetworkTrainer.cs" />
+    <Compile Include="NetworkTrainer.cs" />
     <Compile Include="FullyConnectedLayer.cs" />
     <Compile Include="ConvolutionalLayer.cs" />
     <Compile Include="Layer.cs" />

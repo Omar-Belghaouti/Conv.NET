@@ -70,7 +70,7 @@ namespace JaNet
                 
 #if OPENCL_ENABLED
                 OpenCLSpace.ClError = Cl.EnqueueReadBuffer( OpenCLSpace.Queue,
-                                                            network.Layers.Last().Output.ActivationsGPU, // source
+                                                            network.Layers.Last().OutputNeurons.ActivationsGPU, // source
                                                             Bool.True,
                                                             (IntPtr)0,
                                                             (IntPtr)outputBufferBytesSize,

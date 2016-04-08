@@ -74,9 +74,9 @@ namespace JaNet
                     }
                 case "Convolutional":
                     {
-                        if (layers.Last().Type != "Convolutional" & layers.Last().Type != "Pooling")
+                        if (layers.Last().Type != "Input" & layers.Last().Type != "Convolutional" & layers.Last().Type != "Pooling")
                         {
-                            throw new ArgumentException("You are connecting a convolutional layer to neither a convolutional nor a pooling layer.\nThat's probably not what you want to do, is it?");
+                            throw new ArgumentException("You should only connect a ConvolutionalLayer to an InputLayer, a ConvolutionalLayer or a PoolingLayer");
                         }
                         break;
                     }
@@ -84,7 +84,7 @@ namespace JaNet
                     {
                         if (layers.Last().Type != "Convolutional")
                         {
-                            throw new ArgumentException("You are connecting a pooling layer to a non-convolutional layer.\nThat's probably not what you want to do, is it?");
+                            throw new ArgumentException("You should only connect a PoolingLayer to a ConvolutionalLayer");
                         }
                         break;
                     }

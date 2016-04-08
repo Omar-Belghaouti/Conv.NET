@@ -181,7 +181,7 @@ namespace JaNet
                 isOutputEpoch = epochsRemainingToOutput == 0;
                 if (isOutputEpoch)
                 {
-                    Console.WriteLine("Time to evaluate the network!");
+                    Console.WriteLine("\nTime to evaluate the network!");
 
                     // Evaluate all training set
                     Console.WriteLine("Evaluating on TRAINING set...");

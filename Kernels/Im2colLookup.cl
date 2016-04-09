@@ -1,10 +1,9 @@
-__kernel void Im2col ( 	__read_only __global float* input,
-						__write_only __global float* receptiveFieldMatrix,
-						const int inputWidth,
-						const int outputWidth, // already takes the stride into account
-						const int filterSize,
-						const int receptiveFieldSize,
-						const int stride
+__kernel void Im2colLookup ( 	__write_only __global int* lookupTable,
+								const int inputWidth,
+								const int outputWidth, // already takes the stride into account
+								const int filterSize,
+								const int receptiveFieldSize,
+								const int stride
                       )
 {
     int i = get_global_id(0);
@@ -50,7 +49,7 @@ __kernel void Im2col ( 	__read_only __global float* input,
 		
 		iInput += iWithinReceptiveField;
 		
-		receptiveFieldMatrix[iOutput]= input[iInput];
+		lookupTable[iOutput]= iInput;
 	}
 	
 }

@@ -299,6 +299,8 @@ namespace JaNet
         }
 
 
+        // TODO: this can be MASSIELY improved
+        // e.g. we are mostly subtracting zeros.... :/
 
         private void CrossEntropyGradient(int iDataPoint)
         {

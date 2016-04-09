@@ -10,7 +10,7 @@ namespace JaNet
 {
     class ConvolutionalLayer : Layer
     {
-
+        
         #region Fields (private)
 
         private int filterSize; // F
@@ -388,7 +388,7 @@ namespace JaNet
 
 
         #endregion
-
+        
     
     }
 }

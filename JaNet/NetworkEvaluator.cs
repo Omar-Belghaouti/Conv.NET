@@ -52,7 +52,8 @@ namespace JaNet
             //TODO: do this using OpenCL
 
             float[] outputScores = new float[dataSet.NumberOfClasses];
-            int assignedClass;
+            int assignedLabel;
+            int trueLabel;
             int outputBufferBytesSize = dataSet.NumberOfClasses * sizeof(float);
 
             // loop through all data points in dataSet (one by one)
@@ -113,11 +114,11 @@ namespace JaNet
                 ///////////////////
 
                 
-                assignedClass = Utils.IndexOfMax(outputScores);
-
+                assignedLabel = Utils.IndexOfMax(outputScores);
+                trueLabel = dataSet.GetLabel(i);
                 // Cumulate loss and error
-                loss -= Math.Log(outputScores[assignedClass]);
-                error += (assignedClass == dataSet.GetLabel(i)) ? 0 : 1;
+                loss -= Math.Log(outputScores[trueLabel]);
+                error += (assignedLabel == trueLabel) ? 0 : 1;
                 
             }
    

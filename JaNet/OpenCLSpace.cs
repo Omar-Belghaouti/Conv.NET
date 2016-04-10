@@ -18,6 +18,8 @@ namespace JaNet
 
         #region Fields
 
+        public static const int WAVEFRONT = 32; // constant
+
         private static Context context;
         private static Device device;
         private static CommandQueue queue;

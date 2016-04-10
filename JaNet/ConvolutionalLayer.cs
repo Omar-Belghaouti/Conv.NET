@@ -17,15 +17,16 @@ namespace JaNet
         private int nFilters; // K
         private int strideLength; // S
         private int zeroPadding; // P
-        private int nReceptiveFields;
-
+        private int receptiveFieldSize; // i.e. [outputDepth * filterSize^2]
+        private int nReceptiveFields; // i.e. output depth
+        
 
 #if OPENCL_ENABLED
+        private int paddedInputSize;
         private Mem paddedInputGPU;
-        private Mem paddedOutputGPU; // will not be allocated if not needed
 
-        private int receptiveFieldsMatrixSize;
-        private Mem receptiveFieldsMatrixGPU;
+        private int receptiveFieldsLookupTableSize;
+        private Mem receptiveFieldsLookupTableGPU;
 
         private Mem weightsGPU;
         private Mem biasesGPU;
@@ -34,17 +35,33 @@ namespace JaNet
         private Mem biasesUpdateSpeedGPU;
 
         // Global and local work-group sizes (for OpenCL kernels) - will be set in SetWorkGroupSizes();
+
+        private IntPtr[] paddingGlobalWorkSizePtr;
+        private IntPtr[] paddingLocalWorkSizePtr;
+
+        private IntPtr[] im2colGlobalWorkSizePtr;
+        private IntPtr[] im2colLocalWorkSizePtr;
+
         private IntPtr[] forwardGlobalWorkSizePtr;
         private IntPtr[] forwardLocalWorkSizePtr;
+
         private IntPtr[] backwardGlobalWorkSizePtr;
         private IntPtr[] backwardLocalWorkSizePtr;
-        private IntPtr[] updateGlobalWorkSizePtr;
-        private IntPtr[] updateLocalWorkSizePtr;
+
+        private IntPtr[] weightsGradientGlobalWorkSizePtr;
+        private IntPtr[] weightsGradientLocalWorkSizePtr;
+
+        private IntPtr[] biasesGradientGlobalWorkSizePtr;
+        private IntPtr[] biasesGradientLocalWorkSizePtr;
+
+        private IntPtr[] updateParametersGlobalWorkSizePtr;
+        private IntPtr[] updateParametersLocalWorkSizePtr;
+
 #else
         private float[] paddedInput; // dimension [inputD * (inputH + 2*padding) * (inutW + 2*padding)]
-        private float[] paddedOutput; // dimension [inputD * (inputH + filterSize - 1) * (inutW + filterSize - 1)] <- this makes sure that backprop works
+        //private float[] paddedOutput; // dimension [inputD * (inputH + filterSize - 1) * (inutW + filterSize - 1)] <- this makes sure that backprop works
 
-        private float[,] receptiveFieldsMatrix; // dimension [receptiveFieldSize , nReceptiveFields] = [inputDepth*filterSize^2 , outputWidth*outputHeight]
+        private float[,] receptiveFieldsLookupTable; // dimension [receptiveFieldSize , nReceptiveFields] = [inputDepth*filterSize^2 , outputWidth*outputHeight]
         private float[,] outputMatrix; // dimension [numberOfFilters , outputWidth*outputHeight]
 
         private float[,] weights; // dimension [nFilters , inputDepth*filterSize^2]
@@ -75,16 +92,13 @@ namespace JaNet
         {
             this.type = "Convolutional";
 
+            if (FilterSize % 2 != 1)
+                throw new ArgumentException("Only odd filter size is supported.");
             this.filterSize = FilterSize;
             this.nFilters = nOfFilters;
-            if (StrideLength != 1)
-            {
-                throw new System.ArgumentException("Stride length > 1 not supported (...yet?)");
-            }
             this.strideLength = StrideLength;
             this.zeroPadding = ZeroPadding;
         }
-
 
 
         public override void ConnectTo(Layer PreviousLayer)
@@ -105,52 +119,44 @@ namespace JaNet
                 throw new System.ArgumentException("Input width, filter size, zero padding and stride length do not fit well. Use different values");
             this.outputWidth = (int)tmp;
             this.outputHeight = (int)tmp;
+            this.nReceptiveFields = outputHeight * outputWidth;
 
             this.outputDepth = nFilters;
+            this.receptiveFieldSize = inputDepth * filterSize * filterSize;
 
-            this.outputNeurons = new Neurons(nFilters * outputWidth * outputHeight);
+            this.outputNeurons = new Neurons(outputDepth * outputWidth * outputHeight);
 
-            // Padded I/O
-            int paddedInputSize = inputDepth * (inputHeight + 2 * zeroPadding) * (inputWidth + 2 * zeroPadding);
-            int outputPadding = (filterSize - 1) / 2;
-            int paddedOutputSize = outputDepth * (outputHeight + 2 * outputPadding) * (outputWidth + 2 * outputPadding);
+            this.paddedInputSize = inputDepth * (inputHeight + 2 * zeroPadding) * (inputWidth + 2 * zeroPadding);
+            this.receptiveFieldsLookupTableSize = receptiveFieldSize * nReceptiveFields;
 
 #if OPENCL_ENABLED
+
+            // Padded input
+
             this.paddedInputGPU = (Mem)Cl.CreateBuffer( OpenCLSpace.Context, 
                                                         MemFlags.ReadWrite,
-                                                        (IntPtr)paddedInputSize,
+                                                        (IntPtr)(sizeof(float) * paddedInputSize),
                                                         out OpenCLSpace.ClError);
+            OpenCLSpace.CheckErr(OpenCLSpace.ClError, "ConnectTo(): Cl.CreateBuffer paddedInputGPU");
 
-            if (paddedOutputSize == paddedInputSize)
-                this.paddedOutputGPU = paddedInputGPU; // will forever point here, no new allocations needed
-            else
-            {
-                this.paddedOutputGPU = (Mem)Cl.CreateBuffer(OpenCLSpace.Context,
-                                                            MemFlags.ReadWrite,
-                                                            (IntPtr)paddedOutputSize,
-                                                            out OpenCLSpace.ClError);
-            }
+            // Receptive fields lookup table
+
+            this.receptiveFieldsLookupTableGPU = (Mem)Cl.CreateBuffer(  OpenCLSpace.Context,
+                                                                        MemFlags.ReadWrite,
+                                                                        (IntPtr)(sizeof(int) * receptiveFieldsLookupTableSize),
+                                                                        out OpenCLSpace.ClError);
+            OpenCLSpace.CheckErr(OpenCLSpace.ClError, "ConnectTo(): Cl.CreateBuffer receptiveFieldsLookupTableGPU");
+
+            // (no need for output matrix: will be written directly to OuptutNeurons.ActivationsGPU
 #else
+            // Cpu code
+
             this.paddedInput = new float[paddedInputSize];
-            if (paddedOutputSize == paddedInputSize)
-                this.paddedOutput = paddedInput; // will forever point here, no new allocations needed
-            else
-                this.paddedOutput = new float[paddedOutputSize];
+            this.receptiveFieldsLookupTable = new float[receptiveFieldSize, nReceptiveFields];
+            this.outputMatrix = new float[numberOfFilters, nReceptiveFields];
 #endif
 
-            // Receptive fields matrix
-#if OPENCL_ENABLED
-
-            this.receptiveFieldsMatrixSize = sizeof(float) * (inputDepth * filterSize ^ 2 * outputWidth * outputHeight);
-            this.receptiveFieldsMatrixGPU = (Mem)Cl.CreateBuffer(   OpenCLSpace.Context, 
-                                                                    MemFlags.ReadWrite,
-                                                                    (IntPtr)receptiveFieldsMatrixSize,
-                                                                    out OpenCLSpace.ClError);
-#else
-            this.receptiveFieldsMatrix  = new float[inputDepth * filterSize * filterSize, outputWidth * outputHeight];
-            this.outputMatrix = new float[nFilters, outputWidth * outputHeight];
-#endif
-            // Work group sizes
+            // Set all work group sizes
 #if OPENCL_ENABLED
             SetWorkGroupSizes();
 #endif
@@ -159,66 +165,43 @@ namespace JaNet
 #if OPENCL_ENABLED
         private void SetWorkGroupSizes()
         {
-            // The code below is _UGLY_, but unfortunately I could not come up with a neater implementation...
-
             // Work group sizes will be set as follows:
-            //      global work size = total number of processes needed
-            //      local work size = largest divisor of global work size <= maxWorkGroupSize of device in context
-            // (this is probably suboptimal, but improvements are most likely negligible compared to improvements elsewhere, e.g. in the kernels code)
+            //      global work size = smallest multiple of WAVEFRONT larger than the total number of processes needed (for efficiency)
+            //      local work size = WAVEFRONT or small multiples of it
+            // WAVEFRONT is a constant multiple of 2. Suggested values: 32 (Nvidia) or 64 (AMD).
 
-            // FeedForward __________________________________________________________________________________________
-            this.forwardGlobalWorkSizePtr = new IntPtr[] { (IntPtr)(nFilters), (IntPtr)(outputHeight * outputWidth) };
-            int[] tmp = new int[] { nFilters, outputHeight * outputWidth };
-            // make each local work group dimension <= corresponding max work item size (depends on device)
-            while (tmp[0] > OpenCLSpace.MaxWorkItemSizes[0] && tmp[0] % 2 == 0)
-                tmp[0] /= 2;
-            while (tmp[1] > OpenCLSpace.MaxWorkItemSizes[1] && tmp[1] % 2 == 0)
-                tmp[1] /= 2;
-            // make entire local work group size (i.e. product of dimensions) <= of max work group size (depends on device)
-            while (tmp[0] * tmp[1] > OpenCLSpace.MaxWorkGroupSize && tmp[1] % 2 == 0)
-            {
-                tmp[1] /= 2;
-            }
-            while (tmp[0] * tmp[1] > OpenCLSpace.MaxWorkGroupSize && tmp[0] % 2 == 0)
-            {
-                tmp[0] /= 2;
-                if (tmp[0] == 1)
-                {
-                    throw new System.ArgumentException("I can't set a suitable local work group size! :(");
-                }
-            }
-            this.forwardGlobalWorkSizePtr = new IntPtr[] { (IntPtr)(tmp[0]), (IntPtr)(tmp[1]) };
+            // Zero padding / unpadding (1D workspace) _________________________________________________________________________________
+            int inputSize = inputDepth * inputWidth * inputHeight;
+            IntPtr smallestMultipleInputSize = (IntPtr)(OpenCLSpace.WAVEFRONT * Math.Ceiling((double)(inputSize) / (double)OpenCLSpace.WAVEFRONT));
+            this.paddingGlobalWorkSizePtr = new IntPtr[] {smallestMultipleInputSize};
+            this.paddingLocalWorkSizePtr = new IntPtr[] {(IntPtr)(4 * OpenCLSpace.WAVEFRONT) };
+ 
+            // Receptive field lookup table (2D workspace) _____________________________________________________________________________
+            IntPtr smallestMultipleReceptiveFieldSize = (IntPtr)(OpenCLSpace.WAVEFRONT * Math.Ceiling((double)(receptiveFieldSize) / (double)OpenCLSpace.WAVEFRONT));
+            IntPtr smallestMultipleNReceptiveFields = (IntPtr)(OpenCLSpace.WAVEFRONT * Math.Ceiling((double)(nReceptiveFields) / (double)OpenCLSpace.WAVEFRONT));
+            this.im2colGlobalWorkSizePtr = new IntPtr[] { smallestMultipleReceptiveFieldSize, smallestMultipleNReceptiveFields };
+            this.im2colLocalWorkSizePtr = new IntPtr[] { (IntPtr)(OpenCLSpace.WAVEFRONT/4), (IntPtr)(OpenCLSpace.WAVEFRONT/2) };
 
-            // BackPropagate __________________________________________________________________________________________
-            this.backwardGlobalWorkSizePtr = new IntPtr[] { (IntPtr)(InputNeurons.NumberOfUnits) };
-            int tmpBwLocalWorkSize = InputNeurons.NumberOfUnits;
-            while (tmpBwLocalWorkSize > OpenCLSpace.MaxWorkGroupSize || tmpBwLocalWorkSize > OpenCLSpace.MaxWorkItemSizes[0])
-                tmpBwLocalWorkSize /= 2;
-            this.backwardLocalWorkSizePtr = new IntPtr[] { (IntPtr)(tmpBwLocalWorkSize) };
+            // Forward kernel (2D workspace) ___________________________________________________________________________________________
+            IntPtr smallestMultipleOutputDepth = (IntPtr)(OpenCLSpace.WAVEFRONT * Math.Ceiling((double)(outputDepth) / (double)OpenCLSpace.WAVEFRONT));
+            this.forwardGlobalWorkSizePtr = new IntPtr[] { smallestMultipleOutputDepth, smallestMultipleNReceptiveFields };
+            this.forwardLocalWorkSizePtr = new IntPtr[] { (IntPtr)(OpenCLSpace.WAVEFRONT / 4), (IntPtr)(OpenCLSpace.WAVEFRONT / 2) };
 
-            // UpdateParameters
-            this.updateGlobalWorkSizePtr = new IntPtr[] { (IntPtr)(OutputNeurons.NumberOfUnits), (IntPtr)(InputNeurons.NumberOfUnits) };
-            int[] tmpUpdLocalWorkSize = new int[] { OutputNeurons.NumberOfUnits, InputNeurons.NumberOfUnits };
-            // make each local work group dimension <= corresponding max work item size (depends on device)
-            while (tmpUpdLocalWorkSize[0] > OpenCLSpace.MaxWorkItemSizes[0] && tmpUpdLocalWorkSize[0] % 2 == 0)
-                tmpUpdLocalWorkSize[0] /= 2;
-            while (tmpUpdLocalWorkSize[1] > OpenCLSpace.MaxWorkItemSizes[1] && tmpUpdLocalWorkSize[1] % 2 == 0)
-                tmpUpdLocalWorkSize[1] /= 2;
-            // make entire local work group size (i.e. product of dimensions) <= of max work group size (depends on device)
-            while (tmpUpdLocalWorkSize[0] * tmpUpdLocalWorkSize[1] > OpenCLSpace.MaxWorkGroupSize && tmpUpdLocalWorkSize[1] % 2 == 0)
-            {
-                tmpUpdLocalWorkSize[1] /= 2;
-            }
-            while (tmpUpdLocalWorkSize[0] * tmpUpdLocalWorkSize[1] > OpenCLSpace.MaxWorkGroupSize && tmpUpdLocalWorkSize[0] % 2 == 0)
-            {
-                tmpUpdLocalWorkSize[0] /= 2;
-                if (tmpUpdLocalWorkSize[0] == 1)
-                {
-                    throw new System.InvalidOperationException("I can't set a suitable local work group size! :(");
-                }
-            }
-            this.updateLocalWorkSizePtr = new IntPtr[] { (IntPtr)(tmpUpdLocalWorkSize[0]), (IntPtr)(tmpUpdLocalWorkSize[1]) };
+            // Backward kernel (2D workspace) ___________________________________________________________________________________________
+            this.backwardGlobalWorkSizePtr = new IntPtr[] { smallestMultipleReceptiveFieldSize, smallestMultipleNReceptiveFields };
+            this.backwardLocalWorkSizePtr = new IntPtr[] { (IntPtr)(OpenCLSpace.WAVEFRONT / 4), (IntPtr)(OpenCLSpace.WAVEFRONT / 2) };
 
+            // Weights gradient kernel (2D workspace) ___________________________________________________________________________________
+            this.weightsGradientGlobalWorkSizePtr = new IntPtr[] { smallestMultipleOutputDepth, smallestMultipleReceptiveFieldSize };
+            this.weightsGradientLocalWorkSizePtr = new IntPtr[] { (IntPtr)(OpenCLSpace.WAVEFRONT / 4), (IntPtr)(OpenCLSpace.WAVEFRONT / 2) };
+
+            // Biases gradient kernel (1D workspace) ___________________________________________________________________________________
+            this.biasesGradientGlobalWorkSizePtr = new IntPtr[] { smallestMultipleOutputDepth };
+            this.biasesGradientLocalWorkSizePtr = new IntPtr[] { (IntPtr)(OpenCLSpace.WAVEFRONT * 2)};
+
+            // Weights gradient kernel (2D workspace) ___________________________________________________________________________________
+            this.updateParametersGlobalWorkSizePtr = new IntPtr[] { smallestMultipleOutputDepth, smallestMultipleReceptiveFieldSize };
+            this.weightsGradientLocalWorkSizePtr = new IntPtr[] { (IntPtr)(OpenCLSpace.WAVEFRONT / 4), (IntPtr)(OpenCLSpace.WAVEFRONT / 2) };
         }
 #endif
 
@@ -228,17 +211,20 @@ namespace JaNet
             // Initialize weigths as normally distributed numbers with mean 0 and std equals to 1/sqrt(numberOfInputUnits)
             // Initialize biases as small positive numbers, e.g. 0.01
 
-            this.weights = new float[nFilters, inputDepth * filterSize * filterSize];
-            this.biases = new float[nFilters];
+            float[,] initWeights = new float[nFilters, receptiveFieldSize];
+            float[] initBiases = new float[nFilters];
 
-            double weightsStdDev = Math.Sqrt(2.0 / this.input.NumberOfUnits);
+            float[,] initWeightsUpdateSpeed = new float[nFilters, receptiveFieldSize]; // zeros
+            float[] initBiasesUpdateSpeed = new float[nFilters]; // zeros
+
+            double weightsStdDev = Math.Sqrt(2.0 / this.inputNeurons.NumberOfUnits);
             double uniformRand1;
             double uniformRand2;
             double tmp;
 
-            for (int iRow = 0; iRow < weights.GetLength(0); iRow++)
+            for (int iRow = 0; iRow < initWeights.GetLength(0); iRow++)
             {
-                for (int iCol = 0; iCol < weights.GetLength(1); iCol++)
+                for (int iCol = 0; iCol < initWeights.GetLength(1); iCol++)
                 {
                     uniformRand1 = Global.rng.NextDouble();
                     uniformRand2 = Global.rng.NextDouble();
@@ -246,21 +232,51 @@ namespace JaNet
                     tmp = Math.Sqrt(-2.0 * Math.Log(uniformRand1)) * Math.Sin(2.0 * Math.PI * uniformRand2);
                     tmp = weightsStdDev * tmp; // rescale using stdDev
 
-                    weights[iRow, iCol] = (float)tmp;
+                    initWeights[iRow, iCol] = (float)tmp;
                 }
 
-                //uniformRand1 = rng.NextDouble();
-                //uniformRand2 = rng.NextDouble();
-                // Use a Box-Muller transform to get a random normal(0,1)
-                //tmp = Math.Sqrt(-2.0 * Math.Log(uniformRand1)) * Math.Sin(2.0 * Math.PI * uniformRand2);
-
-                biases[iRow] = 0.01F;//(float)tmp;
-
+                initBiases[iRow] = 0.01F;
             }
 
-            // Also initialize updates speeds to zero (for momentum)
-            this.weightsUpdateSpeed = new float[nFilters, inputDepth * filterSize * filterSize];
-            this.biasesUpdateSpeed = new float[nFilters];
+
+#if OPENCL_ENABLED
+            // initialize parameter buffers and write these random initial values to them
+
+            int weightBufferSize = sizeof(float) * (nFilters * receptiveFieldSize);
+            int biasesBufferSize = sizeof(float) * nFilters;
+
+            this.weightsGPU = (Mem)Cl.CreateBuffer( OpenCLSpace.Context,
+                                                    MemFlags.ReadWrite | MemFlags.CopyHostPtr,
+                                                    (IntPtr)weightBufferSize,
+                                                    initWeights,
+                                                    out OpenCLSpace.ClError);
+            this.biasesGPU = (Mem)Cl.CreateBuffer(  OpenCLSpace.Context,
+                                                    MemFlags.ReadWrite | MemFlags.CopyHostPtr,
+                                                    (IntPtr)biasesBufferSize,
+                                                    initBiases,
+                                                    out OpenCLSpace.ClError);
+
+            // Also initialize update speeds (to zero)
+
+            this.weightsUpdateSpeedGPU = (Mem)Cl.CreateBuffer(  OpenCLSpace.Context,
+                                                                MemFlags.ReadWrite | MemFlags.CopyHostPtr,
+                                                                (IntPtr)weightBufferSize,
+                                                                initWeightsUpdateSpeed,
+                                                                out OpenCLSpace.ClError);
+            this.biasesUpdateSpeedGPU = (Mem)Cl.CreateBuffer(   OpenCLSpace.Context,
+                                                                MemFlags.ReadWrite | MemFlags.CopyHostPtr,
+                                                                (IntPtr)biasesBufferSize,
+                                                                initBiasesUpdateSpeed,
+                                                                out OpenCLSpace.ClError);
+            OpenCLSpace.CheckErr(OpenCLSpace.ClError, "InitializeParameters(): Cl.CreateBuffer");
+#else
+
+            this.weights = initWeights;
+            this.biases = initBiases;
+
+            this.weightsUpdateSpeed = initWeightsUpdateSpeed;
+            this.biasesUpdateSpeed = initBiasesUpdateSpeed;
+#endif
         }
 
         #endregion

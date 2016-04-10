@@ -14,11 +14,10 @@ namespace JaNet
 
     static class OpenCLSpace
     {
-        // CLEAN
 
         #region Fields
 
-        public static const int WAVEFRONT = 32; // constant
+        public static readonly int WAVEFRONT = 32; // constant
 
         private static Context context;
         private static Device device;
@@ -70,6 +69,7 @@ namespace JaNet
             get { return maxComputeUnits; }
         }
 
+
         public static string KernelsPath
         {
             get { return kernelsPath; }
@@ -81,7 +81,14 @@ namespace JaNet
 
         #region Kernels
 
-        // FullyConnected layer
+        // Convolutional layer
+        public static Kernel Im2colLookupTable;
+        public static Kernel ZeroPad;
+        public static Kernel ZeroUnpad;
+        public static Kernel ConvForward;
+
+
+        // Fully connected layer
         public static Kernel FCForward;
         public static Kernel FCBackward;
         public static Kernel FCUpdateParameters;
@@ -172,7 +179,6 @@ namespace JaNet
 
             maxComputeUnits = Cl.GetDeviceInfo(device, DeviceInfo.MaxComputeUnits, out ClError).CastTo<int>();
             Console.WriteLine("Max compute units: {0}", maxComputeUnits);
-
         }
 
 
@@ -222,6 +228,12 @@ namespace JaNet
         {
             if (kernelsPath == null)
                 throw new MissingFieldException("Path to kernels' source must be specified before calling LoadKernels()");
+
+            // Convolutional layer
+            Im2colLookupTable = LoadAndBuildKernel(kernelsPath + "/Im2colLookupTable.cl", "Im2colLookupTable");
+            ZeroPad = LoadAndBuildKernel(kernelsPath + "/ZeroPad.cl", "ZeroPad");
+            ZeroUnpad = LoadAndBuildKernel(kernelsPath + "/ZeroUnpad.cl", "ZeroUnpad");
+            ConvForward = LoadAndBuildKernel(kernelsPath + "/ConvForward.cl", "ConvForward");
 
             // Fully connected layer
             FCForward = LoadAndBuildKernel(kernelsPath + "/FCForward.cl", "FCForward");

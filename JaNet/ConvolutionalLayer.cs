@@ -19,13 +19,13 @@ namespace JaNet
         private int zeroPadding; // P
         private int receptiveFieldSize; // i.e. [outputDepth * filterSize^2]
         private int nReceptiveFields; // i.e. output depth
-        
+
+        private int paddedInputSize;
+        private int receptiveFieldsLookupTableSize;
 
 #if OPENCL_ENABLED
-        private int paddedInputSize;
+        
         private Mem paddedInputGPU;
-
-        private int receptiveFieldsLookupTableSize;
         private Mem receptiveFieldsLookupTableGPU;
 
         private Mem weightsGPU;
@@ -147,18 +147,51 @@ namespace JaNet
                                                                         out OpenCLSpace.ClError);
             OpenCLSpace.CheckErr(OpenCLSpace.ClError, "ConnectTo(): Cl.CreateBuffer receptiveFieldsLookupTableGPU");
 
+            
+
             // (no need for output matrix: will be written directly to OuptutNeurons.ActivationsGPU
 #else
             // Cpu code
 
             this.paddedInput = new float[paddedInputSize];
             this.receptiveFieldsLookupTable = new float[receptiveFieldSize, nReceptiveFields];
-            this.outputMatrix = new float[numberOfFilters, nReceptiveFields];
+            this.outputMatrix = new float[nFilters, nReceptiveFields];
 #endif
 
             // Set all work group sizes
 #if OPENCL_ENABLED
+
             SetWorkGroupSizes();
+
+            // We're ready to create the lookup table once and for all
+
+            // Set kernel arguments
+            OpenCLSpace.ClError = Cl.SetKernelArg(OpenCLSpace.Im2colLookupTable, 0, receptiveFieldsLookupTableGPU);
+            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.Im2colLookupTable, 1, (IntPtr)sizeof(int), inputWidth);
+            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.Im2colLookupTable, 2, (IntPtr)sizeof(int), outputWidth);
+            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.Im2colLookupTable, 3, (IntPtr)sizeof(int), filterSize);
+            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.Im2colLookupTable, 4, (IntPtr)sizeof(int), receptiveFieldSize);
+            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.Im2colLookupTable, 5, (IntPtr)sizeof(int), strideLength);
+            OpenCLSpace.CheckErr(OpenCLSpace.ClError, "ConnectTo(): Cl.SetKernelArg Im2colLookupTable");
+
+            // Run kernel
+            OpenCLSpace.ClError = Cl.EnqueueNDRangeKernel(  OpenCLSpace.Queue,
+                                                            OpenCLSpace.Im2colLookupTable,
+                                                            2,
+                                                            null,
+                                                            im2colGlobalWorkSizePtr,
+                                                            im2colLocalWorkSizePtr,
+                                                            0,
+                                                            null,
+                                                            out OpenCLSpace.ClEvent);
+            OpenCLSpace.CheckErr(OpenCLSpace.ClError, "ConvolutionalLayer.ConnectTo() Im2colLookupTable() Cl.EnqueueNDRangeKernel");
+
+            OpenCLSpace.ClError = Cl.Finish(OpenCLSpace.Queue);
+            OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.Finish");
+
+            OpenCLSpace.ClError = Cl.ReleaseEvent(OpenCLSpace.ClEvent);
+            OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.ReleaseEvent");
+
 #endif
         }
 
@@ -167,15 +200,32 @@ namespace JaNet
         {
             // Work group sizes will be set as follows:
             //      global work size = smallest multiple of WAVEFRONT larger than the total number of processes needed (for efficiency)
-            //      local work size = WAVEFRONT or small multiples of it
+            //      local work size = WAVEFRONT or small multiples of it (making sure that global worksize is a multiple of this)
             // WAVEFRONT is a constant multiple of 2. Suggested values: 32 (Nvidia) or 64 (AMD).
+
+
+            // TODO: also make sure that each local work group size is lesser than KERNEL_WORK_GROUP_SIZE
 
             // Zero padding / unpadding (1D workspace) _________________________________________________________________________________
             int inputSize = inputDepth * inputWidth * inputHeight;
-            IntPtr smallestMultipleInputSize = (IntPtr)(OpenCLSpace.WAVEFRONT * Math.Ceiling((double)(inputSize) / (double)OpenCLSpace.WAVEFRONT));
-            this.paddingGlobalWorkSizePtr = new IntPtr[] {smallestMultipleInputSize};
-            this.paddingLocalWorkSizePtr = new IntPtr[] {(IntPtr)(4 * OpenCLSpace.WAVEFRONT) };
+            int smallestMultipleInputSize = (int)(OpenCLSpace.WAVEFRONT * Math.Ceiling((double)(inputSize) / (double)OpenCLSpace.WAVEFRONT));
+            this.paddingGlobalWorkSizePtr = new IntPtr[] {(IntPtr)smallestMultipleInputSize};
+            int localWorkSize = OpenCLSpace.WAVEFRONT;
+            int maxKernelWorkGroupSize = Cl.GetKernelWorkGroupInfo( OpenCLSpace.ZeroPad, 
+                                                                    OpenCLSpace.Device, 
+                                                                    KernelWorkGroupInfo.WorkGroupSize, 
+                                                                    out OpenCLSpace.ClError).CastTo<int>();
+            while (localWorkSize <= OpenCLSpace.MaxWorkGroupSize && localWorkSize <= maxKernelWorkGroupSize)
+            {
+                int tmpLocalWorkSize = 2*localWorkSize;
+                if (smallestMultipleInputSize % tmpLocalWorkSize == 0) // if global divides local
+                    localWorkSize = tmpLocalWorkSize;
+                else
+                    break;
+            }
+            this.paddingLocalWorkSizePtr = new IntPtr[] { (IntPtr)localWorkSize };
  
+
             // Receptive field lookup table (2D workspace) _____________________________________________________________________________
             IntPtr smallestMultipleReceptiveFieldSize = (IntPtr)(OpenCLSpace.WAVEFRONT * Math.Ceiling((double)(receptiveFieldSize) / (double)OpenCLSpace.WAVEFRONT));
             IntPtr smallestMultipleNReceptiveFields = (IntPtr)(OpenCLSpace.WAVEFRONT * Math.Ceiling((double)(nReceptiveFields) / (double)OpenCLSpace.WAVEFRONT));
@@ -201,7 +251,7 @@ namespace JaNet
 
             // Weights gradient kernel (2D workspace) ___________________________________________________________________________________
             this.updateParametersGlobalWorkSizePtr = new IntPtr[] { smallestMultipleOutputDepth, smallestMultipleReceptiveFieldSize };
-            this.weightsGradientLocalWorkSizePtr = new IntPtr[] { (IntPtr)(OpenCLSpace.WAVEFRONT / 4), (IntPtr)(OpenCLSpace.WAVEFRONT / 2) };
+            this.updateParametersLocalWorkSizePtr = new IntPtr[] { (IntPtr)(OpenCLSpace.WAVEFRONT / 4), (IntPtr)(OpenCLSpace.WAVEFRONT / 2) };
         }
 #endif
 
@@ -287,12 +337,71 @@ namespace JaNet
         public override void FeedForward()
         {
 #if OPENCL_ENABLED
-            //TODO:
-            // implement forward pass with OpenCL
+            
+            // 1. Zero-pad input tensor _________________________________________________________
+
+            // Set kernel arguments
+            OpenCLSpace.ClError = Cl.SetKernelArg(OpenCLSpace.ZeroPad, 0, inputNeurons.ActivationsGPU);
+            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.ZeroPad, 1, paddedInputGPU);
+            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.ZeroPad, 2, (IntPtr)sizeof(int), inputWidth);
+            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.ZeroPad, 3, (IntPtr)sizeof(int), inputWidth * inputHeight);
+            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.ZeroPad, 4, (IntPtr)sizeof(int), inputWidth * inputHeight * inputDepth);
+            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.ZeroPad, 5, (IntPtr)sizeof(int), zeroPadding);
+            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.ZeroPad, 6, (IntPtr)sizeof(int), zeroPadding * (2 * zeroPadding + inputWidth));
+            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.ZeroPad, 7, (IntPtr)sizeof(int), 2 * zeroPadding * (inputWidth + inputHeight + 2 * zeroPadding));
+            OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Convolutional.FeedForward(): Cl.SetKernelArg ZeroPad");
+
+            // Run kernel
+            OpenCLSpace.ClError = Cl.EnqueueNDRangeKernel(  OpenCLSpace.Queue,
+                                                            OpenCLSpace.ZeroPad,
+                                                            1,
+                                                            null,
+                                                            paddingGlobalWorkSizePtr,
+                                                            paddingLocalWorkSizePtr,
+                                                            0,
+                                                            null,
+                                                            out OpenCLSpace.ClEvent);
+            OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Convolutional.FeedForward(): Cl.EnqueueNDRangeKernel ZeroPad");
+
+            OpenCLSpace.ClError = Cl.Finish(OpenCLSpace.Queue);
+            OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.Finish");
+
+            OpenCLSpace.ClError = Cl.ReleaseEvent(OpenCLSpace.ClEvent);
+            OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.ReleaseEvent");
+
+            // 2. Convolve input and filters _________________________________________________________
+            
+            // Set kernel arguments
+            OpenCLSpace.ClError = Cl.SetKernelArg(OpenCLSpace.ConvForward, 0, outputNeurons.ActivationsGPU);
+            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.ConvForward, 1, paddedInputGPU);
+            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.ConvForward, 2, receptiveFieldsLookupTableGPU);
+            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.ConvForward, 3, weightsGPU);
+            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.ConvForward, 4, biasesGPU);
+            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.ConvForward, 5, (IntPtr)sizeof(int), nFilters);
+            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.ConvForward, 6, (IntPtr)sizeof(int), receptiveFieldSize);
+            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.ConvForward, 7, (IntPtr)sizeof(int), nReceptiveFields);
+            OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Convolutional.FeedForward(): Cl.SetKernelArg ConvForward");
+
+            // Run kernel
+            OpenCLSpace.ClError = Cl.EnqueueNDRangeKernel(  OpenCLSpace.Queue,
+                                                            OpenCLSpace.ConvForward,
+                                                            2,
+                                                            null,
+                                                            forwardGlobalWorkSizePtr,
+                                                            forwardLocalWorkSizePtr,
+                                                            0,
+                                                            null,
+                                                            out OpenCLSpace.ClEvent);
+            OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Convolutional.FeedForward(): Cl.EnqueueNDRangeKernel ConvForward");
+
+            OpenCLSpace.ClError = Cl.Finish(OpenCLSpace.Queue);
+            OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.Finish");
+
+            OpenCLSpace.ClError = Cl.ReleaseEvent(OpenCLSpace.ClEvent);
+            OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.ReleaseEvent");
+            
 #else
-            this.inputAsMatrix = UnrollInput(input.GetHost());
-            this.outputAsMatrix = Utils.MatrixMultiply(weights, inputAsMatrix);
-            this.output.SetHost(OutputMatrixToVector(outputAsMatrix));
+            // TODO: cpu code
 #endif
         }
 
@@ -309,7 +418,7 @@ namespace JaNet
         #endregion
 
 
-        #region Private methods
+        #region Obsolete methods
 
         /// <summary>
         /// Reshape input vector into a matrix of receptive fields, so that convolution can be implemented as matrix multiplication (fast!).

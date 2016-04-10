@@ -330,10 +330,10 @@ namespace JaNet
             OpenCLSpace.ClError = Cl.ReleaseEvent(OpenCLSpace.ClEvent);
             OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.ReleaseEvent");
 #else
-            float[] outputScores = network.Layers.Last().Output.GetHost();
-            float[] labelArray = dataSet.GetLabelArray(iDataPoint);
+            float[] outputScores = network.Layers.Last().OutputNeurons.GetHost();
+            float[] labelArray = trainingSet.GetLabelArray(iDataPoint);
 
-            network.Layers.Last().Input.DeltaHost = outputScores.Zip(labelArray, (x, y) => (x - y)).ToArray();
+            network.Layers.Last().InputNeurons.DeltaHost = outputScores.Zip(labelArray, (x, y) => (x - y)).ToArray();
 #endif
         }
 

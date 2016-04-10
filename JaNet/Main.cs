@@ -11,7 +11,7 @@ namespace JaNet
 {
     class JaNetProgram
     {
-        
+
         static void Main(string[] args)
         {
 
@@ -34,7 +34,7 @@ namespace JaNet
              * (1) Instantiate a neural network and add layers
              * 
              * OPTIONS:
-             * ConvolutionalLayer(filterSize, numberOfFilters, strideLength, zeroPadding) // zero padding not implemented yet
+             * ConvolutionalLayer(filterSize, numberOfFilters, strideLength, zeroPadding)
              * FullyConnectedLayer(numberOfUnits)
              * Tanh(beta)
              * ReLU()
@@ -45,14 +45,19 @@ namespace JaNet
             Console.WriteLine("=========================================\n");
 
             NeuralNetwork network = new NeuralNetwork();
+
             network.AddLayer(new InputLayer(1, 1, 28, 28));
+
+            //network.AddLayer(new ConvolutionalLayer(3, 32, 1, 1));
+            //network.AddLayer(new ReLU());
 
             network.AddLayer(new FullyConnectedLayer(32));
             network.AddLayer(new ReLU());
 
             network.AddLayer(new FullyConnectedLayer(10));
             network.AddLayer(new SoftMax());
-            
+
+
 
             /*****************************************************
              * (2) Load data
@@ -60,8 +65,6 @@ namespace JaNet
             Console.WriteLine("\n=========================================");
             Console.WriteLine("    Importing data");
             Console.WriteLine("=========================================\n");
-
-
 
             // Original MNIST training set
             //DataSet trainingSetMNIST = new DataSet(10, "C:/Users/jacopo/Dropbox/Chalmers/MSc thesis/MNIST/mnistTrainImages.dat", "C:/Users/jacopo/Dropbox/Chalmers/MSc thesis/MNIST/mnistTrainLabels.dat");
@@ -79,6 +82,7 @@ namespace JaNet
             //DataSet testGTSRB = new DataSet(43, "C:/Users/jacopo/Dropbox/Chalmers/MSc thesis/GTSRB/Preprocessed/02_test_images.dat", "C:/Users/jacopo/Dropbox/Chalmers/MSc thesis/GTSRB/Preprocessed/test_labels_full.dat");
 
 
+
             /*****************************************************
              * (3) Train network
              ****************\************************************/
@@ -86,6 +90,8 @@ namespace JaNet
             Console.WriteLine("    Network training");
             Console.WriteLine("=========================================\n");
 
+            
+            
             NetworkTrainer networkTrainer = new NetworkTrainer(network, testSetMNIST, reducedMNIST);
 
             networkTrainer.LearningRate = 0.0005;
@@ -93,19 +99,31 @@ namespace JaNet
             networkTrainer.MaxTrainingEpochs = 1000;
             networkTrainer.MiniBatchSize = 1; // not correctly implemented yet!! // for GTSRB can use any multiple of 2, 3, 5
             networkTrainer.ErrorTolerance = 0.0;
-            networkTrainer.ConsoleOutputLag = 5; // 1 = print every epoch, N = print every N epochs
+            networkTrainer.ConsoleOutputLag = 1; // 1 = print every epoch, N = print every N epochs
             networkTrainer.EvaluateBeforeTraining = true;
             networkTrainer.EarlyStopping = true;
             //double tanhBeta = 0.5;
-
-            networkTrainer.Train();
-
+            
+            try
+            {
+                networkTrainer.Train();
+            }
+            catch (Exception exception)
+            {
+                Console.WriteLine("Exception caught: {0}", exception);
+            }
+            
 
             /*****************************************************
              * (4) Test network
              ****************************************************/
 
+            NetworkEvaluator networkEvaluator = new NetworkEvaluator(28 * 28, 10, 1);
 
+            double loss;
+            double error;
+            networkEvaluator.ComputeLossError(network, reducedMNIST, out loss, out error);
+            Console.WriteLine("Final evaluation\n\tLoss = {0}\n\tError = {1}", loss, error);
         }
     }
 }

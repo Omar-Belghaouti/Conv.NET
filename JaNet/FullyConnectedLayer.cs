@@ -207,12 +207,12 @@ namespace JaNet
 
 #if OPENCL_ENABLED
             // Set kernel arguments
-            OpenCLSpace.ClError = Cl.SetKernelArg(OpenCLSpace.FCForward, 0, OutputNeurons.ActivationsGPU);
-            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.FCForward, 1, InputNeurons.ActivationsGPU);
+            OpenCLSpace.ClError = Cl.SetKernelArg(OpenCLSpace.FCForward, 0, outputNeurons.ActivationsGPU);
+            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.FCForward, 1, inputNeurons.ActivationsGPU);
             OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.FCForward, 2, weightsGPU);
             OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.FCForward, 3, biasesGPU);
-            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.FCForward, 4, (IntPtr)sizeof(int), InputNeurons.NumberOfUnits);
-            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.FCForward, 5, (IntPtr)sizeof(int), OutputNeurons.NumberOfUnits);
+            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.FCForward, 4, (IntPtr)sizeof(int), inputNeurons.NumberOfUnits);
+            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.FCForward, 5, (IntPtr)sizeof(int), outputNeurons.NumberOfUnits);
             OpenCLSpace.CheckErr(OpenCLSpace.ClError, "FullyConnected.FeedForward(): Cl.SetKernelArg");
 
             // Run kernel
@@ -234,8 +234,8 @@ namespace JaNet
             OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.ReleaseEvent");
 #else
 
-            float[] unbiasedOutput = Utils.MultiplyMatrixByVector(this.weights, this.Input.GetHost());
-            this.output.SetHost(unbiasedOutput.Zip(this.biases, (x, y) => x + y).ToArray());
+            float[] unbiasedOutput = Utils.MultiplyMatrixByVector(this.weights, this.inputNeurons.GetHost());
+            this.outputNeurons.SetHost(unbiasedOutput.Zip(this.biases, (x, y) => x + y).ToArray());
 
 #endif
         }
@@ -271,7 +271,7 @@ namespace JaNet
             OpenCLSpace.ClError = Cl.ReleaseEvent(OpenCLSpace.ClEvent);
             OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.ReleaseEvent");
 #else
-            this.Input.DeltaHost = Utils.MultiplyMatrixTranspByVector(this.weights, this.Output.DeltaHost);
+            this.inputNeurons.DeltaHost = Utils.MultiplyMatrixTranspByVector(this.weights, this.outputNeurons.DeltaHost);
 #endif
         }
 
@@ -467,7 +467,7 @@ namespace JaNet
                 for (int j = 0; j < this.weights.GetLength(1); j++)
                 {
                     this.weightsUpdateSpeed[i, j] *= (float)momentumCoefficient;
-                    this.weightsUpdateSpeed[i, j] -= (float) learningRate * this.input.GetHost()[j] * this.output.DeltaHost[i];
+                    this.weightsUpdateSpeed[i, j] -= (float) learningRate * this.inputNeurons.GetHost()[j] * this.outputNeurons.DeltaHost[i];
 
                     this.weights[i, j] += this.weightsUpdateSpeed[i, j];
                 }
@@ -477,7 +477,7 @@ namespace JaNet
             for (int i = 0; i < this.biases.GetLength(0); i++)
             {
                 this.biasesUpdateSpeed[i] *= (float)momentumCoefficient;
-                this.biasesUpdateSpeed[i] -= (float) learningRate * this.output.DeltaHost[i];
+                this.biasesUpdateSpeed[i] -= (float) learningRate * this.outputNeurons.DeltaHost[i];
 
                 this.biases[i] += this.biasesUpdateSpeed[i];
             }

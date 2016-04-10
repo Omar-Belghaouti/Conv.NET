@@ -1,10 +1,10 @@
-__kernel void Im2colLookup ( 	__write_only __global int* lookupTable,
-								const int inputWidth,
-								const int outputWidth, // already takes the stride into account
-								const int filterSize,
-								const int receptiveFieldSize,
-								const int stride
-                      )
+__kernel void Im2colLookupTable ( 	__write_only __global int* lookupTable,
+									const int inputWidth,
+									const int outputWidth, // already takes the stride into account
+									const int filterSize,
+									const int receptiveFieldSize,
+									const int stride
+								)
 {
     int i = get_global_id(0);
     int j = get_global_id(1);

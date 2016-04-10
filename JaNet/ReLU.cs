@@ -97,15 +97,15 @@ namespace JaNet
             OpenCLSpace.ClError = Cl.ReleaseEvent(OpenCLSpace.ClEvent);
             OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.ReleaseEvent");
 #else
-            float[] tmpOutput = new float[this.numberOfUnits];
-            for (int i = 0; i < this.numberOfUnits; i++)
+            float[] tmpOutput = new float[this.nOutputUnits];
+            for (int i = 0; i < this.nOutputUnits; i++)
             {
-                if (this.input.GetHost()[i] > 0)
-                    tmpOutput[i] = this.input.GetHost()[i];
+                if (this.inputNeurons.GetHost()[i] > 0)
+                    tmpOutput[i] = this.inputNeurons.GetHost()[i];
                 else
                     tmpOutput[i] = 0.0F;
             }
-            this.output.SetHost(tmpOutput);
+            this.outputNeurons.SetHost(tmpOutput);
 #endif
         }
 
@@ -140,8 +140,8 @@ namespace JaNet
             OpenCLSpace.ClError = Cl.ReleaseEvent(OpenCLSpace.ClEvent);
             OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.ReleaseEvent");
 #else
-            for (int i = 0; i < this.numberOfUnits; i++)
-                this.input.DeltaHost[i] = this.input.GetHost()[i] > 0 ? this.output.DeltaHost[i] : 0.0F;
+            for (int i = 0; i < this.nOutputUnits; i++)
+                this.inputNeurons.DeltaHost[i] = this.inputNeurons.GetHost()[i] > 0 ? this.outputNeurons.DeltaHost[i] : 0.0F;
 #endif
 
         }

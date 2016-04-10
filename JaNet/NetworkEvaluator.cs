@@ -87,7 +87,7 @@ namespace JaNet
                 OpenCLSpace.ClError = Cl.ReleaseEvent(OpenCLSpace.ClEvent);
                 OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.ReleaseEvent");
 #else
-                outputScores = network.Layers.Last().Output.GetHost();
+                outputScores = network.Layers.Last().OutputNeurons.GetHost();
 #endif
 
 

@@ -52,62 +52,77 @@ namespace JaNet
         public void AddLayer(Layer newLayer)
         {
             // Some error-handling
-
-            if (!layers.Any() && newLayer.Type != "Input")
+            try
             {
-                throw new ArgumentException("Need to add an InputLayer as 0th layer of the network.");
-            }
 
-            switch (newLayer.Type)
-            {
-                case "Input":
-                    {
-                        if (!layers.Any()) // if list of layers is empty
+                if (!layers.Any() && newLayer.Type != "Input")
+                {
+                    throw new ArgumentException("Need to add an InputLayer as 0th layer of the network.");
+                }
+
+                switch (newLayer.Type)
+                {
+                    case "Input":
                         {
-                            newLayer.ID = 0;
+                            if (!layers.Any()) // if list of layers is empty
+                            {
+                                newLayer.ID = 0;
+                            }
+                            else // list is not empty
+                            {
+                                throw new ArgumentException("Adding an InputLayer to a non-empty network.");
+                            }
+                            break;
                         }
-                        else // list is not empty
+                    case "Convolutional":
                         {
-                            throw new ArgumentException("Adding an InputLayer to a non-empty network.");
+                            if (layers.Last().Type != "Input" & layers.Last().Type != "Convolutional" & layers.Last().Type != "Pooling")
+                            {
+                                throw new ArgumentException("You should only connect a ConvolutionalLayer to an InputLayer, a ConvolutionalLayer or a PoolingLayer");
+                            }
+                            else
+                            {
+                                newLayer.ID = layers.Last().ID + 1;
+                            }
+                            break;
                         }
+                    case "Pooling":
+                        {
+                            if (layers.Last().Type != "Convolutional")
+                            {
+                                throw new ArgumentException("You should only connect a PoolingLayer to a ConvolutionalLayer");
+                            }
+                            else
+                            {
+                                newLayer.ID = layers.Last().ID + 1;
+                            }
+                            break;
+                        }
+                    default: // valid connection
+                        newLayer.ID = layers.Last().ID + 1;
                         break;
-                    }
-                case "Convolutional":
-                    {
-                        if (layers.Last().Type != "Input" & layers.Last().Type != "Convolutional" & layers.Last().Type != "Pooling")
-                        {
-                            throw new ArgumentException("You should only connect a ConvolutionalLayer to an InputLayer, a ConvolutionalLayer or a PoolingLayer");
-                        }
-                        break;
-                    }
-                case "Pooling":
-                    {
-                        if (layers.Last().Type != "Convolutional")
-                        {
-                            throw new ArgumentException("You should only connect a PoolingLayer to a ConvolutionalLayer");
-                        }
-                        break;
-                    }
-                default: // valid connection
-                    newLayer.ID = layers.Last().ID + 1;
-                    break;
+                }
+
+                Console.Write("\tAdding layer [" + newLayer.ID + "]: " + newLayer.Type + "...");
+                layers.Add(newLayer);
+                nLayers++;
+
+                if (nLayers == 1)
+                {
+                    Console.Write(" OK\n");
+                }
+                else
+                {
+                    layers[newLayer.ID].ConnectTo(layers[newLayer.ID-1]); // connect last layer to second last
+                    layers[newLayer.ID].InitializeParameters();
+                    Console.Write(" OK\n");
+                }
+
             }
-
-            Console.Write("\tAdding layer [" + newLayer.ID + "]: " + newLayer.Type + "...");
-            layers.Add(newLayer);
-            nLayers++;
-
-            if (nLayers == 1)
+            catch (Exception exception)
             {
-                Console.Write(" OK\n");
+                Console.WriteLine("\n\nException caught: \n{0}\n", exception);
             }
-            else
-            {
-                layers[newLayer.ID].ConnectTo(layers[newLayer.ID-1]); // connect last layer to second last
-                layers[newLayer.ID].InitializeParameters();
-                Console.Write(" OK\n");
-            }
-
         }
 
 
@@ -121,7 +136,7 @@ namespace JaNet
 #if OPENCL_ENABLED
             layers[0].OutputNeurons.ActivationsGPU = dataSet.DataGPU(iDataPoint); // Copied by reference
 #else
-            layers[0].InputNeurons.SetHost(dataSet.GetDataPoint(iDataPoint));
+            layers[0].OutputNeurons.SetHost(dataSet.GetDataPoint(iDataPoint));
 #endif
         }
 

@@ -108,25 +108,25 @@ namespace JaNet
 #else
 
             // use rescaling trick to improve numerical stability
-            float maxInput = this.input.GetHost()[0];
-            for (int i = 1; i < this.numberOfUnits; i++)
+            float maxInput = this.inputNeurons.GetHost()[0];
+            for (int i = 1; i < this.nOutputUnits; i++)
             {
-                if (this.input.GetHost()[i] > maxInput)
-                    maxInput = this.input.GetHost()[i];
+                if (this.inputNeurons.GetHost()[i] > maxInput)
+                    maxInput = this.inputNeurons.GetHost()[i];
             }
 
-            float[] tmpOutput = new float[this.numberOfUnits];
-            for (int i = 0; i < this.numberOfUnits; i++)
+            float[] tmpOutput = new float[this.nOutputUnits];
+            for (int i = 0; i < this.nOutputUnits; i++)
             {
-                tmpOutput[i] = (float)Math.Exp(this.input.GetHost()[i]-maxInput);
+                tmpOutput[i] = (float)Math.Exp(this.inputNeurons.GetHost()[i]-maxInput);
             }
             float sum = tmpOutput.Sum();
-            for (int i = 0; i < this.numberOfUnits; i++)
+            for (int i = 0; i < this.nOutputUnits; i++)
             {
                 tmpOutput[i] /= sum;
             }
 
-            this.output.SetHost(tmpOutput);
+            this.outputNeurons.SetHost(tmpOutput);
 #endif
         }
 

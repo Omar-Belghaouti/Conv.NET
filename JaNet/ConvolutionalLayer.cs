@@ -199,18 +199,18 @@ namespace JaNet
         private void SetWorkGroupSizes()
         {
             // Work group sizes will be set as follows:
-            //      global work size = smallest multiple of WAVEFRONT larger than the total number of processes needed (for efficiency)
-            //      local work size = WAVEFRONT or small multiples of it (making sure that global worksize is a multiple of this)
-            // WAVEFRONT is a constant multiple of 2. Suggested values: 32 (Nvidia) or 64 (AMD).
+            //      global work size = smallest multiple of BASE_GROUP_SIZE larger than the total number of processes needed (for efficiency)
+            //      local work size = BASE_GROUP_SIZE or small multiples of it (making sure that global worksize is a multiple of this)
+            // BASE_GROUP_SIZE is a constant multiple of 2. Suggested values: 32 (Nvidia) or 64 (AMD).
 
 
             // TODO: also make sure that each local work group size is lesser than KERNEL_WORK_GROUP_SIZE
 
             // Zero padding / unpadding (1D workspace) _________________________________________________________________________________
             int inputSize = inputDepth * inputWidth * inputHeight;
-            int smallestMultipleInputSize = (int)(OpenCLSpace.WAVEFRONT * Math.Ceiling((double)(inputSize) / (double)OpenCLSpace.WAVEFRONT));
+            int smallestMultipleInputSize = (int)(OpenCLSpace.BASE_GROUP_SIZE * Math.Ceiling((double)(inputSize) / (double)OpenCLSpace.BASE_GROUP_SIZE));
             this.paddingGlobalWorkSizePtr = new IntPtr[] {(IntPtr)smallestMultipleInputSize};
-            int localWorkSize = OpenCLSpace.WAVEFRONT;
+            int localWorkSize = OpenCLSpace.BASE_GROUP_SIZE;
             int maxKernelWorkGroupSize = Cl.GetKernelWorkGroupInfo( OpenCLSpace.ZeroPad, 
                                                                     OpenCLSpace.Device, 
                                                                     KernelWorkGroupInfo.WorkGroupSize, 
@@ -227,31 +227,31 @@ namespace JaNet
  
 
             // Receptive field lookup table (2D workspace) _____________________________________________________________________________
-            IntPtr smallestMultipleReceptiveFieldSize = (IntPtr)(OpenCLSpace.WAVEFRONT * Math.Ceiling((double)(receptiveFieldSize) / (double)OpenCLSpace.WAVEFRONT));
-            IntPtr smallestMultipleNReceptiveFields = (IntPtr)(OpenCLSpace.WAVEFRONT * Math.Ceiling((double)(nReceptiveFields) / (double)OpenCLSpace.WAVEFRONT));
+            IntPtr smallestMultipleReceptiveFieldSize = (IntPtr)(OpenCLSpace.BASE_GROUP_SIZE * Math.Ceiling((double)(receptiveFieldSize) / (double)OpenCLSpace.BASE_GROUP_SIZE));
+            IntPtr smallestMultipleNReceptiveFields = (IntPtr)(OpenCLSpace.BASE_GROUP_SIZE * Math.Ceiling((double)(nReceptiveFields) / (double)OpenCLSpace.BASE_GROUP_SIZE));
             this.im2colGlobalWorkSizePtr = new IntPtr[] { smallestMultipleReceptiveFieldSize, smallestMultipleNReceptiveFields };
-            this.im2colLocalWorkSizePtr = new IntPtr[] { (IntPtr)(OpenCLSpace.WAVEFRONT/4), (IntPtr)(OpenCLSpace.WAVEFRONT/2) };
+            this.im2colLocalWorkSizePtr = new IntPtr[] { (IntPtr)(OpenCLSpace.BASE_GROUP_SIZE/4), (IntPtr)(OpenCLSpace.BASE_GROUP_SIZE/2) };
 
             // Forward kernel (2D workspace) ___________________________________________________________________________________________
-            IntPtr smallestMultipleOutputDepth = (IntPtr)(OpenCLSpace.WAVEFRONT * Math.Ceiling((double)(outputDepth) / (double)OpenCLSpace.WAVEFRONT));
+            IntPtr smallestMultipleOutputDepth = (IntPtr)(OpenCLSpace.BASE_GROUP_SIZE * Math.Ceiling((double)(outputDepth) / (double)OpenCLSpace.BASE_GROUP_SIZE));
             this.forwardGlobalWorkSizePtr = new IntPtr[] { smallestMultipleOutputDepth, smallestMultipleNReceptiveFields };
-            this.forwardLocalWorkSizePtr = new IntPtr[] { (IntPtr)(OpenCLSpace.WAVEFRONT / 4), (IntPtr)(OpenCLSpace.WAVEFRONT / 2) };
+            this.forwardLocalWorkSizePtr = new IntPtr[] { (IntPtr)(OpenCLSpace.BASE_GROUP_SIZE / 4), (IntPtr)(OpenCLSpace.BASE_GROUP_SIZE / 2) };
 
             // Backward kernel (2D workspace) ___________________________________________________________________________________________
             this.backwardGlobalWorkSizePtr = new IntPtr[] { smallestMultipleReceptiveFieldSize, smallestMultipleNReceptiveFields };
-            this.backwardLocalWorkSizePtr = new IntPtr[] { (IntPtr)(OpenCLSpace.WAVEFRONT / 4), (IntPtr)(OpenCLSpace.WAVEFRONT / 2) };
+            this.backwardLocalWorkSizePtr = new IntPtr[] { (IntPtr)(OpenCLSpace.BASE_GROUP_SIZE / 4), (IntPtr)(OpenCLSpace.BASE_GROUP_SIZE / 2) };
 
             // Weights gradient kernel (2D workspace) ___________________________________________________________________________________
             this.weightsGradientGlobalWorkSizePtr = new IntPtr[] { smallestMultipleOutputDepth, smallestMultipleReceptiveFieldSize };
-            this.weightsGradientLocalWorkSizePtr = new IntPtr[] { (IntPtr)(OpenCLSpace.WAVEFRONT / 4), (IntPtr)(OpenCLSpace.WAVEFRONT / 2) };
+            this.weightsGradientLocalWorkSizePtr = new IntPtr[] { (IntPtr)(OpenCLSpace.BASE_GROUP_SIZE / 4), (IntPtr)(OpenCLSpace.BASE_GROUP_SIZE / 2) };
 
             // Biases gradient kernel (1D workspace) ___________________________________________________________________________________
             this.biasesGradientGlobalWorkSizePtr = new IntPtr[] { smallestMultipleOutputDepth };
-            this.biasesGradientLocalWorkSizePtr = new IntPtr[] { (IntPtr)(OpenCLSpace.WAVEFRONT * 2)};
+            this.biasesGradientLocalWorkSizePtr = new IntPtr[] { (IntPtr)(OpenCLSpace.BASE_GROUP_SIZE * 2)};
 
             // Weights gradient kernel (2D workspace) ___________________________________________________________________________________
             this.updateParametersGlobalWorkSizePtr = new IntPtr[] { smallestMultipleOutputDepth, smallestMultipleReceptiveFieldSize };
-            this.updateParametersLocalWorkSizePtr = new IntPtr[] { (IntPtr)(OpenCLSpace.WAVEFRONT / 4), (IntPtr)(OpenCLSpace.WAVEFRONT / 2) };
+            this.updateParametersLocalWorkSizePtr = new IntPtr[] { (IntPtr)(OpenCLSpace.BASE_GROUP_SIZE / 4), (IntPtr)(OpenCLSpace.BASE_GROUP_SIZE / 2) };
         }
 #endif
 
@@ -333,6 +333,7 @@ namespace JaNet
 
 
         #region Training methods
+        /*
 
         public override void FeedForward()
         {
@@ -512,6 +513,7 @@ namespace JaNet
         }
 
 
+        */
         #endregion
         
     

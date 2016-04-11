@@ -17,7 +17,7 @@ namespace JaNet
 
         #region Fields
 
-        public static readonly int WAVEFRONT = 32; // constant
+        public static readonly int BASE_GROUP_SIZE = 32; // constant
 
         private static Context context;
         private static Device device;
@@ -91,6 +91,7 @@ namespace JaNet
         // Fully connected layer
         public static Kernel FCForward;
         public static Kernel FCBackward;
+        public static Kernel FCUpdateSpeeds;
         public static Kernel FCUpdateParameters;
 
         // ReLU layer
@@ -204,7 +205,7 @@ namespace JaNet
 
             //Compile kernel source
             ClError = Cl.BuildProgram(clProgram, 1, new[] { device }, string.Empty, null, IntPtr.Zero);
-            CheckErr(ClError, "CL.LoadAndBuildKernel: Cl.BuildProgram");
+            CheckErr(ClError, "CL.LoadAndBuildKernel: Cl.BuildProgram " + kernelName);
 
             //Check for any compilation errors
             if (Cl.GetProgramBuildInfo(clProgram, device, ProgramBuildInfo.Status, out ClError).CastTo<BuildStatus>()
@@ -218,7 +219,7 @@ namespace JaNet
             }
             //Create the required kernel (entry function)
             Kernel kernel = Cl.CreateKernel(clProgram, kernelName, out ClError);
-            CheckErr(ClError, "CL.LoadAndBuildKernel: Cl.CreateKernel");
+            CheckErr(ClError, "CL.LoadAndBuildKernel: Cl.CreateKernel " + kernelName);
 
             return kernel;
         }
@@ -238,6 +239,7 @@ namespace JaNet
             // Fully connected layer
             FCForward = LoadAndBuildKernel(kernelsPath + "/FCForward.cl", "FCForward");
             FCBackward = LoadAndBuildKernel(kernelsPath + "/FCBackward.cl", "FCBackward");
+            FCUpdateSpeeds = LoadAndBuildKernel(kernelsPath + "/FCUpdateSpeeds.cl", "FCUpdateSpeeds");
             FCUpdateParameters = LoadAndBuildKernel(kernelsPath + "/FCUpdateParameters.cl", "FCUpdateParameters");
 
             // ReLU layer

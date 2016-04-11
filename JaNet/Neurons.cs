@@ -14,16 +14,18 @@ namespace JaNet
         #region Neuron class fields (private)
 
         private int nUnits;
+        private int miniBatchSize = 1;
 
 #if OPENCL_ENABLED
-        private Mem activationsGPU;
-        private Mem deltaGPU;
+        private List<Mem> activationsGPU;
+        private List<Mem> deltaGPU;
 #else
-        private float[] activations;
-        private float[] delta;
+        private List<float[]> activations;
+        private List<float[]> delta;
 #endif
 
         #endregion
+
 
         #region Neuron class properties (public)
 
@@ -32,31 +34,37 @@ namespace JaNet
             get { return nUnits; }
         }
 
+        public int MiniBatchSize
+        {
+            get { return miniBatchSize; }
+            set { this.miniBatchSize = value; }
+        }
+
 #if OPENCL_ENABLED
 
-        public Mem ActivationsGPU 
+        public List<Mem> ActivationsGPU 
         { 
             get { return this.activationsGPU; }
             set { this.activationsGPU = value; }
         }
 
-        public Mem DeltaGPU 
+        public List<Mem> DeltaGPU 
         { 
             get { return this.deltaGPU; }
             set { this.deltaGPU = value; }
         }
 #else       
-        public float[] GetHost()
+        public List<float[]> GetHost()
         {
             return activations;
         }
 
-        public void SetHost(float[] value)
+        public void SetHost(int iExample, float[] value)
         {
-            this.activations = value;
+            this.activations[iExample] = value;
         }
 
-        public float[] DeltaHost
+        public List<float[]> DeltaHost
         {
             get { return delta; }
             set { this.delta = value; }
@@ -78,28 +86,54 @@ namespace JaNet
             this.nUnits = NumberOfUnits;
 
 #if OPENCL_ENABLED
-            int bufferSize = sizeof(float) * NumberOfUnits;
+            this.activationsGPU = new List<Mem>();
+            this.activationsGPU.Add( (Mem)Cl.CreateBuffer(  OpenCLSpace.Context,
+                                                            MemFlags.ReadWrite,
+                                                            (IntPtr)(sizeof(float) * NumberOfUnits),
+                                                            out OpenCLSpace.ClError) );
 
-            this.activationsGPU = (Mem)Cl.CreateBuffer( OpenCLSpace.Context, 
-                                                        MemFlags.ReadWrite, 
-                                                        (IntPtr)bufferSize,
-                                                        out OpenCLSpace.ClError);
-
-            this.deltaGPU = (Mem)Cl.CreateBuffer(   OpenCLSpace.Context, 
-                                                    MemFlags.ReadWrite, 
-                                                    (IntPtr)bufferSize,
-                                                    out OpenCLSpace.ClError);
+            this.deltaGPU = new List<Mem>();
+            this.deltaGPU.Add( (Mem)Cl.CreateBuffer(OpenCLSpace.Context,
+                                                    MemFlags.ReadWrite,
+                                                    (IntPtr)(sizeof(float) * NumberOfUnits),
+                                                    out OpenCLSpace.ClError) );
 
             OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Neurons constructor: Cl.CreateBuffer");
 #else
-
-            this.activations = new float[nUnits];
-            this.delta = new float[nUnits];
+            this.activations = new List<float[]>();
+            this.activations.Add( new float[nUnits] );
+            
+            this.delta = new List<float[]>();
+            this.delta.Add( new float[nUnits] );
 #endif
-        
+
         }
         
         #endregion
+
+        public void SetupMiniBatch(int MiniBatchSize)
+        {
+            this.miniBatchSize = MiniBatchSize;
+
+            for (int m = 1; m < MiniBatchSize; m++) // add MiniBatchSize - 1 buffers (to the existing list of one element)
+            {
+#if OPENCL_ENABLED
+                this.activationsGPU.Add((Mem)Cl.CreateBuffer(   OpenCLSpace.Context,
+                                                                MemFlags.ReadWrite,
+                                                                (IntPtr)(sizeof(float) * NumberOfUnits),
+                                                                out OpenCLSpace.ClError));
+                this.deltaGPU.Add((Mem)Cl.CreateBuffer( OpenCLSpace.Context,
+                                                        MemFlags.ReadWrite,
+                                                        (IntPtr)(sizeof(float) * NumberOfUnits),
+                                                        out OpenCLSpace.ClError));
+                OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Neurons constructor: Cl.CreateBuffer");
+#else
+                this.activations.Add( new float[nUnits] );
+                this.delta.Add( new float[nUnits] );
+#endif
+            }
+
+        }
 
 
 

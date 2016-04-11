@@ -99,6 +99,7 @@ namespace JaNet
         public virtual void ConnectTo(Layer PreviousLayer)
         {
             this.InputNeurons = PreviousLayer.OutputNeurons; // assignment by reference! 
+            this.nInputUnits = PreviousLayer.NOutputUnits;
             // In memory, output neurons of previous layer and input neurons of current layer are the same thing!
         }
 
@@ -131,9 +132,16 @@ namespace JaNet
         public abstract void BackPropagate();
 
         /// <summary>
+        /// Updates speed of layer's parameters change (if any)
+        /// </summary>
+        public virtual void UpdateSpeeds(double learningRate, double momentumMultiplier)
+        {
+        }
+
+        /// <summary>
         /// Updates layer parameters (if any)
         /// </summary>
-        public virtual void UpdateParameters(double learningRate, double momentumMultiplier)
+        public virtual void UpdateParameters()
         {
         }
 

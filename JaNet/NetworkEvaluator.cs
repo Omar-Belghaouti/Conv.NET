@@ -26,19 +26,22 @@ namespace JaNet
 
         #region Constructor
 
-        public NetworkEvaluator(int dataDimension, int nClasses, int miniBatchSize)
+        // The constructor does nothing at the moment
+        public NetworkEvaluator()
         {
+            /*
 #if OPENCL_ENABLED
             this.inputBufferBytesSize = sizeof(float) * dataDimension;
-            this.classificationGlobalWorkSize = new IntPtr[] { (IntPtr)(miniBatchSize * nClasses) };
-            this.classificationLocalWorkSize = new IntPtr[] { (IntPtr)(nClasses) };
+            this.classificationGlobalWorkSize = new IntPtr[] { (IntPtr)nClasses };
+            this.classificationLocalWorkSize = new IntPtr[] { (IntPtr)nClasses };
 
             this.assignedClassBuffer = (Mem)Cl.CreateBuffer(OpenCLSpace.Context,
                                                             MemFlags.ReadWrite,
-                                                            (IntPtr)(sizeof(int) * miniBatchSize),
+                                                            (IntPtr)sizeof(int),
                                                             out OpenCLSpace.ClError);
             OpenCLSpace.CheckErr(OpenCLSpace.ClError, "NetworkEvaluator.SetupCLObjects: Cl.CreateBuffer assignedClassBuffer");
 #endif
+            */
         }
         #endregion
 
@@ -55,73 +58,83 @@ namespace JaNet
             int assignedLabel;
             int trueLabel;
             int outputBufferBytesSize = dataSet.NumberOfClasses * sizeof(float);
+            int[] miniBatchItems = new int[network.MiniBatchSize];
+            // loop through all data points in dataSet (ordered mini-batches)
 
-            // loop through all data points in dataSet (one by one)
-            // TODO: once implemented in OpenCL, do not loop over data one by one, instead find an optimal batch size to do this faster
-            for (int i = 0; i < dataSet.Size; i++)
+            int iMiniBatch = 0;
+
+            // Run over mini-batches
+            for (int iStartMiniBatch = 0; iStartMiniBatch < dataSet.Size; iStartMiniBatch += network.MiniBatchSize)  
             {
-                // Feed input data
-                network.FeedData(dataSet, i);
 
+                // Feed a mini-batch to the network
+                for (int iMiniBatchItem = 0; iMiniBatchItem < network.MiniBatchSize; iMiniBatchItem++)
+                {
+                    miniBatchItems[iMiniBatchItem] = iStartMiniBatch + iMiniBatchItem;
+                }
+                network.FeedData(dataSet, miniBatchItems);
+                    
                 // Run network forward
                 network.ForwardPass();
 
-                
-                // Find maximum output score (i.e. assigned class)
-                
+                // Find maximum output score (i.e. assigned class) of each mini batch item
+                for (int iMiniBatchItem = 0; iMiniBatchItem < network.MiniBatchSize; iMiniBatchItem++)
+                {
 #if OPENCL_ENABLED
-                OpenCLSpace.ClError = Cl.EnqueueReadBuffer( OpenCLSpace.Queue,
-                                                            network.Layers.Last().OutputNeurons.ActivationsGPU, // source
-                                                            Bool.True,
-                                                            (IntPtr)0,
-                                                            (IntPtr)outputBufferBytesSize,
-                                                            outputScores,  // destination
-                                                            0,
-                                                            null,
-                                                            out OpenCLSpace.ClEvent);
-                OpenCLSpace.CheckErr(OpenCLSpace.ClError, "NetworkEvaluator.ComputeCost Cl.clEnqueueReadBuffer outputScores");
+                    OpenCLSpace.ClError = Cl.EnqueueReadBuffer( OpenCLSpace.Queue,
+                                                                network.Layers.Last().OutputNeurons.ActivationsGPU[iMiniBatchItem], // source
+                                                                Bool.True,
+                                                                (IntPtr)0,
+                                                                (IntPtr)outputBufferBytesSize,
+                                                                outputScores,  // destination
+                                                                0,
+                                                                null,
+                                                                out OpenCLSpace.ClEvent);
+                    OpenCLSpace.CheckErr(OpenCLSpace.ClError, "NetworkEvaluator.ComputeCost Cl.clEnqueueReadBuffer outputScores");
 
-                OpenCLSpace.ClError = Cl.Finish(OpenCLSpace.Queue);
-                OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.Finish");
+                    OpenCLSpace.ClError = Cl.Finish(OpenCLSpace.Queue);
+                    OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.Finish");
 
-                OpenCLSpace.ClError = Cl.ReleaseEvent(OpenCLSpace.ClEvent);
-                OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.ReleaseEvent");
+                    OpenCLSpace.ClError = Cl.ReleaseEvent(OpenCLSpace.ClEvent);
+                    OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.ReleaseEvent");
 #else
-                outputScores = network.Layers.Last().OutputNeurons.GetHost();
-#endif
+                    outputScores = network.Layers.Last().OutputNeurons.GetHost()[iMiniBatchItem];
+#endif        
 
+                    /////////////// DEBUGGING (visualize true label vs network output)
+                    /*
+                    Console.WriteLine("\n\n----------- Mini batch {0} ---------", iMiniBatch);
+                    Console.WriteLine("\n\tData point {0}:", miniBatchItems[iMiniBatchItem]);
+                    float[] trueLabelArray = dataSet.GetLabelArray(miniBatchItems[iMiniBatchItem]);
+                    Console.WriteLine("\nTrue label:");
+                    for (int iClass = 0; iClass < dataSet.NumberOfClasses; iClass++)
+                    {
+                        Console.Write(trueLabelArray[iClass].ToString("0.##") + " ");
+                    }
+                    Console.WriteLine();
 
+                    Console.WriteLine("Network output:");
+                    for (int iClass = 0; iClass < dataSet.NumberOfClasses; iClass++)
+                    {
+                        Console.Write(outputScores[iClass].ToString("0.##") + " ");
+                    }
+                    Console.WriteLine();
+                    Console.ReadKey();
+                    */
+                    ///////////////////
 
-                /////////////// DEBUGGING (visualize true label vs network output)
-                /*
-                Console.WriteLine("\n\n\tData point {0}:", i);
-                float[] trueLabel = dataSet.GetLabelArray(i);
-                Console.WriteLine("\nTrue label:");
-                for (int iClass = 0; iClass < dataSet.NumberOfClasses; iClass++)
-                {
-                    Console.Write( trueLabel[iClass].ToString("0.##") + " ");
+                    assignedLabel = Utils.IndexOfMax(outputScores);
+                    trueLabel = dataSet.GetLabel(miniBatchItems[iMiniBatchItem]);
+
+                    // Cumulate loss and error
+                    loss -= Math.Log(outputScores[trueLabel]);
+                    error += (assignedLabel == trueLabel) ? 0 : 1;
+
                 }
-                Console.WriteLine();
 
-                Console.WriteLine("Network output:");
-                for (int iClass = 0; iClass < dataSet.NumberOfClasses; iClass++)
-                {
-                    Console.Write(outputScores[iClass].ToString("0.##") + " ");
-                }
-                Console.WriteLine();
-                Console.ReadKey();
-                */
-                ///////////////////
-
-                
-                assignedLabel = Utils.IndexOfMax(outputScores);
-                trueLabel = dataSet.GetLabel(i);
-                // Cumulate loss and error
-                loss -= Math.Log(outputScores[trueLabel]);
-                error += (assignedLabel == trueLabel) ? 0 : 1;
-                
-            }
-   
+                iMiniBatch++;
+            } // end loop over mini-batches
+             
             error /= dataSet.Size;
         }
     }

@@ -73,7 +73,19 @@ namespace JaNet
         public int MiniBatchSize
         {
             get { return miniBatchSize; }
-            set { miniBatchSize = value; }
+            set 
+            { 
+                miniBatchSize = value;
+                network.MiniBatchSize = value;
+
+                if (miniBatchSize > 1)
+                {
+                    for (int l = 0; l < network.NumberOfLayers; l++)
+                    {
+                        network.Layers[l].OutputNeurons.SetupMiniBatch(miniBatchSize);
+                    }
+                }
+            }
         }
 
         public double ErrorTolerance
@@ -159,11 +171,11 @@ namespace JaNet
             int epochsRemainingToOutput = (evaluateBeforeTraining == true) ? 0 : consoleOutputLag;
 
             Sequence indicesSequence = new Sequence(trainingSet.Size);
-            int iDataPoint;
+            int[] iMiniBatch = new int[miniBatchSize];
 
             bool stopFlag = false;
 
-            NetworkEvaluator networkEvaluator = new NetworkEvaluator(trainingSet.GetDataPoint(0).Length, nClasses, miniBatchSize);
+            NetworkEvaluator networkEvaluator = new NetworkEvaluator();
 
             // Timing
             Stopwatch stopwatch = Stopwatch.StartNew();
@@ -199,7 +211,7 @@ namespace JaNet
                         networkEvaluator.ComputeLossError(network, validationSet, out lossValidation, out tmpErrorValidation);
                         Console.WriteLine("\tLoss = {0}\n\tError = {1}\n\tEval runtime = {2}ms\n",
                                             lossValidation, tmpErrorValidation, stopwatch.ElapsedMilliseconds);
-                        if (tmpErrorValidation < errorValidation)
+                        if (tmpErrorValidation < errorValidation || !earlyStopping)
                         {
                             errorValidation = tmpErrorValidation;
                             // TODO: save a (deep) copy of current network, with all parameters
@@ -222,6 +234,7 @@ namespace JaNet
                     epochsRemainingToOutput = consoleOutputLag;
                     isOutputEpoch = false;
                 }
+                epochsRemainingToOutput--;
 
                 /********************
                  * Training epoch
@@ -229,47 +242,21 @@ namespace JaNet
 
                 stopwatch.Restart();
 
-                epochsRemainingToOutput--;
+                indicesSequence.Shuffle(); // shuffle examples order at every epoch
 
-                indicesSequence.Shuffle(); // shuffle at every epoch
-
-
-                // TODO: implement mini-batch training
-                /* 
-                // Run over mini-batches
-                for (int iStartMiniBatch = 0; iStartMiniBatch < trainingSet.Size; iStartMiniBatch += miniBatchSize)  
-                {
-                    // Run over a mini-batch
-                    for (int iWithinMiniBatch = 0; iWithinMiniBatch < miniBatchSize; iWithinMiniBatch++)
-                    {
-                        iDataPoint = indicesSequence[iStartMiniBatch + iWithinMiniBatch];
-
-                        // Feed input data
-                        network.FeedData(trainingSet, iDataPoint);
-
-                        // Forward pass
-                        network.ForwardPass();
-
-                        // Compute gradient
-                        CrossEntropyGradient(network, trainingSet, iDataPoint);
-
-                        // Backpropagate gradient and update parameters
-                        network.BackwardPass(learningRate, momentumMultiplier);
-
-                    } // end loop over mini-batches
-                }
-                */
                 stopwatchFwd.Reset();
                 stopwatchGrad.Reset();
                 stopwatchBwd.Reset();
 
-                // Online training:
-                for (int i = 0; i < trainingSet.Size; i++)
+                // Run over mini-batches 
+                for (int iStartMiniBatch = 0; iStartMiniBatch < trainingSet.Size; iStartMiniBatch += miniBatchSize)  
                 {
-                    iDataPoint = indicesSequence[i]; // random order
-
-                    // Feed input data (datum, actually)
-                    network.FeedData(trainingSet, iDataPoint);
+                    // Feed a mini-batch to the network
+                    for (int m = 0; m < network.MiniBatchSize; m++)
+                    {
+                        iMiniBatch[m] = indicesSequence[iStartMiniBatch + m]; 
+                    }
+                    network.FeedData(trainingSet, iMiniBatch);
 
                     // Forward pass
                     stopwatchFwd.Start();
@@ -278,14 +265,15 @@ namespace JaNet
 
                     // Compute gradient
                     stopwatchGrad.Start();
-                    CrossEntropyGradient(iDataPoint);
+                    CrossEntropyGradient(iMiniBatch);
                     stopwatchGrad.Stop();
 
                     // Backpropagate gradient and update parameters
                     stopwatchBwd.Start();
                     network.BackwardPass(learningRate, momentumMultiplier);
                     stopwatchBwd.Stop();
-                }
+
+                } // end of training epoch
 
                 Console.WriteLine("\nEpoch {0} - Training runtime = {1}ms", epoch, stopwatch.ElapsedMilliseconds);
 
@@ -302,39 +290,43 @@ namespace JaNet
         // TODO: this can be MASSIELY improved
         // e.g. we are mostly subtracting zeros.... :/
 
-        private void CrossEntropyGradient(int iDataPoint)
+        private void CrossEntropyGradient(int[] iMiniBatch)
         {
+
+            for (int m = 0; m < miniBatchSize; m++)
+            {
+                int iDataPoint = iMiniBatch[m];
 #if OPENCL_ENABLED
+                // Set kernel arguments
+                OpenCLSpace.ClError = Cl.SetKernelArg(OpenCLSpace.CrossEntropyGradient, 0, network.Layers[network.NumberOfLayers - 1].InputNeurons.DeltaGPU[m]);
+                OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.CrossEntropyGradient, 1, network.Layers[network.NumberOfLayers - 1].OutputNeurons.ActivationsGPU[m]);
+                OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.CrossEntropyGradient, 2, trainingSet.LabelArraysGPU(iDataPoint));
+                OpenCLSpace.CheckErr(OpenCLSpace.ClError, "TrainMNIST.CrossEntropyGradient: Cl.SetKernelArg");
 
-            // Set kernel arguments
-            OpenCLSpace.ClError = Cl.SetKernelArg(OpenCLSpace.CrossEntropyGradient, 0, network.Layers[network.NumberOfLayers - 1].InputNeurons.DeltaGPU);
-            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.CrossEntropyGradient, 1, network.Layers[network.NumberOfLayers - 1].OutputNeurons.ActivationsGPU);
-            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.CrossEntropyGradient, 2, trainingSet.LabelArraysGPU(iDataPoint));
-            OpenCLSpace.CheckErr(OpenCLSpace.ClError, "TrainMNIST.CrossEntropyGradient: Cl.SetKernelArg");
+                // Run kernel
+                OpenCLSpace.ClError = Cl.EnqueueNDRangeKernel(OpenCLSpace.Queue,
+                                                                OpenCLSpace.CrossEntropyGradient,
+                                                                1,
+                                                                null,
+                                                                gradientGlobalWorkSizePtr,
+                                                                gradientLocalWorkSizePtr,
+                                                                0,
+                                                                null,
+                                                                out OpenCLSpace.ClEvent);
+                OpenCLSpace.CheckErr(OpenCLSpace.ClError, "TrainMNIST.CrossEntropyGradient: Cl.EnqueueNDRangeKernel");
 
-            // Run kernel
-            OpenCLSpace.ClError = Cl.EnqueueNDRangeKernel( OpenCLSpace.Queue,
-                                                OpenCLSpace.CrossEntropyGradient,
-                                                1,
-                                                null,
-                                                gradientGlobalWorkSizePtr,
-                                                gradientLocalWorkSizePtr,
-                                                0,
-                                                null,
-                                                out OpenCLSpace.ClEvent);
-            OpenCLSpace.CheckErr(OpenCLSpace.ClError, "TrainMNIST.CrossEntropyGradient: Cl.EnqueueNDRangeKernel");
+                OpenCLSpace.ClError = Cl.Finish(OpenCLSpace.Queue);
+                OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.Finish");
 
-            OpenCLSpace.ClError = Cl.Finish(OpenCLSpace.Queue);
-            OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.Finish");
-
-            OpenCLSpace.ClError = Cl.ReleaseEvent(OpenCLSpace.ClEvent);
-            OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.ReleaseEvent");
+                OpenCLSpace.ClError = Cl.ReleaseEvent(OpenCLSpace.ClEvent);
+                OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.ReleaseEvent");
 #else
-            float[] outputScores = network.Layers.Last().OutputNeurons.GetHost();
-            float[] labelArray = trainingSet.GetLabelArray(iDataPoint);
+                float[] outputScores = network.Layers.Last().OutputNeurons.GetHost()[m];
+                float[] labelArray = trainingSet.GetLabelArray(iDataPoint);
 
-            network.Layers.Last().InputNeurons.DeltaHost = outputScores.Zip(labelArray, (x, y) => (x - y)).ToArray();
+                network.Layers.Last().InputNeurons.DeltaHost[m] = outputScores.Zip(labelArray, (x, y) => (x - y)).ToArray();
 #endif
+            }
         }
 
 

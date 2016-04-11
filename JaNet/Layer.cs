@@ -37,7 +37,7 @@ namespace JaNet
         #endregion
 
 
-        #region Layer base class properties (public)
+        #region Properties
 
         public string Type
         {
@@ -85,6 +85,11 @@ namespace JaNet
         public int OutputWidth // allows setup of next layer
         {
             get { return outputWidth; }
+        }
+
+        public virtual List<float[]> OutputClassScores
+        {
+            get { return null; }
         }
 
         #endregion

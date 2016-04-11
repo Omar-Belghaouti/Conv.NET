@@ -287,46 +287,44 @@ namespace JaNet
         }
 
 
-        // TODO: this can be MASSIELY improved
-        // e.g. we are mostly subtracting zeros.... :/
-
         private void CrossEntropyGradient(int[] iMiniBatch)
         {
 
             for (int m = 0; m < miniBatchSize; m++)
             {
                 int iDataPoint = iMiniBatch[m];
+                int trueLabel = trainingSet.GetLabel(iDataPoint);
+
+                float[] crossEntropyGradient = network.Layers.Last().OutputClassScores[m];
+                crossEntropyGradient[trueLabel] -= 1.0F;
+
+                // now write gradient to input neurons of softmax layer (i.e. to output neurons of classifier)
 #if OPENCL_ENABLED
-                // Set kernel arguments
-                OpenCLSpace.ClError = Cl.SetKernelArg(OpenCLSpace.CrossEntropyGradient, 0, network.Layers[network.NumberOfLayers - 1].InputNeurons.DeltaGPU[m]);
-                OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.CrossEntropyGradient, 1, network.Layers[network.NumberOfLayers - 1].OutputNeurons.ActivationsGPU[m]);
-                OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.CrossEntropyGradient, 2, trainingSet.LabelArraysGPU(iDataPoint));
-                OpenCLSpace.CheckErr(OpenCLSpace.ClError, "TrainMNIST.CrossEntropyGradient: Cl.SetKernelArg");
+                OpenCLSpace.ClError = Cl.EnqueueWriteBuffer(OpenCLSpace.Queue, 
+                                                            network.Layers.Last().InputNeurons.DeltaGPU[m], 
+                                                            OpenCL.Net.Bool.True, 
+                                                            (IntPtr)0, 
+                                                            (IntPtr) (sizeof(float) * crossEntropyGradient.Length), 
+                                                            crossEntropyGradient, 
+                                                            0, 
+                                                            null, 
+                                                            out OpenCLSpace.ClEvent);
+                OpenCLSpace.CheckErr(OpenCLSpace.ClError, "NetworkTrainer.CrossEntropyGradient(): Cl.EnqueueWriteBuffer");
 
-                // Run kernel
-                OpenCLSpace.ClError = Cl.EnqueueNDRangeKernel(OpenCLSpace.Queue,
-                                                                OpenCLSpace.CrossEntropyGradient,
-                                                                1,
-                                                                null,
-                                                                gradientGlobalWorkSizePtr,
-                                                                gradientLocalWorkSizePtr,
-                                                                0,
-                                                                null,
-                                                                out OpenCLSpace.ClEvent);
-                OpenCLSpace.CheckErr(OpenCLSpace.ClError, "TrainMNIST.CrossEntropyGradient: Cl.EnqueueNDRangeKernel");
-
-                OpenCLSpace.ClError = Cl.Finish(OpenCLSpace.Queue);
-                OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.Finish");
 
                 OpenCLSpace.ClError = Cl.ReleaseEvent(OpenCLSpace.ClEvent);
                 OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.ReleaseEvent");
 #else
-                float[] outputScores = network.Layers.Last().OutputNeurons.GetHost()[m];
-                float[] labelArray = trainingSet.GetLabelArray(iDataPoint);
-
-                network.Layers.Last().InputNeurons.DeltaHost[m] = outputScores.Zip(labelArray, (x, y) => (x - y)).ToArray();
+                network.Layers.Last().InputNeurons.DeltaHost[m] = crossEntropyGradient;
 #endif
+
             }
+
+#if OPENCL_ENABLED
+            OpenCLSpace.ClError = Cl.Finish(OpenCLSpace.Queue);
+            OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.Finish");
+#endif
+
         }
 
 

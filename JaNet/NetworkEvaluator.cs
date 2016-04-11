@@ -78,28 +78,9 @@ namespace JaNet
                 network.ForwardPass();
 
                 // Find maximum output score (i.e. assigned class) of each mini batch item
-                for (int iMiniBatchItem = 0; iMiniBatchItem < network.MiniBatchSize; iMiniBatchItem++)
+                for (int m = 0; m < network.MiniBatchSize; m++)
                 {
-#if OPENCL_ENABLED
-                    OpenCLSpace.ClError = Cl.EnqueueReadBuffer( OpenCLSpace.Queue,
-                                                                network.Layers.Last().OutputNeurons.ActivationsGPU[iMiniBatchItem], // source
-                                                                Bool.True,
-                                                                (IntPtr)0,
-                                                                (IntPtr)outputBufferBytesSize,
-                                                                outputScores,  // destination
-                                                                0,
-                                                                null,
-                                                                out OpenCLSpace.ClEvent);
-                    OpenCLSpace.CheckErr(OpenCLSpace.ClError, "NetworkEvaluator.ComputeCost Cl.clEnqueueReadBuffer outputScores");
-
-                    OpenCLSpace.ClError = Cl.Finish(OpenCLSpace.Queue);
-                    OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.Finish");
-
-                    OpenCLSpace.ClError = Cl.ReleaseEvent(OpenCLSpace.ClEvent);
-                    OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.ReleaseEvent");
-#else
-                    outputScores = network.Layers.Last().OutputNeurons.GetHost()[iMiniBatchItem];
-#endif        
+                    outputScores = network.Layers.Last().OutputClassScores[m];
 
                     /////////////// DEBUGGING (visualize true label vs network output)
                     /*
@@ -124,7 +105,7 @@ namespace JaNet
                     ///////////////////
 
                     assignedLabel = Utils.IndexOfMax(outputScores);
-                    trueLabel = dataSet.GetLabel(miniBatchItems[iMiniBatchItem]);
+                    trueLabel = dataSet.GetLabel(miniBatchItems[m]);
 
                     // Cumulate loss and error
                     loss -= Math.Log(outputScores[trueLabel]);

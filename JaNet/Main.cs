@@ -75,7 +75,11 @@ namespace JaNet
             // Reduced MNIST dataset (1000 data points, 100 per digit)
             DataSet reducedMNIST = new DataSet(10, "C:/Users/jacopo/Dropbox/Chalmers/MSc thesis/MNIST/mnistImagesSubset.dat", "C:/Users/jacopo/Dropbox/Chalmers/MSc thesis/MNIST/mnistLabelsSubset.dat");
 
+<<<<<<< HEAD
             // GTSRB training set
+=======
+            // GTSRB training set (WARNING: counterfait!)
+>>>>>>> SoftmaxBoost
             //DataSet trainingGTSRB = new DataSet(43, "C:/Users/jacopo/Dropbox/Chalmers/MSc thesis/GTSRB/Preprocessed/02_training_images.dat", "C:/Users/jacopo/Dropbox/Chalmers/MSc thesis/GTSRB/Preprocessed/training_labels_full.dat");
 
             // GTSRB test set

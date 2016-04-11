@@ -12,17 +12,19 @@ namespace JaNet
     {
         #region Fields
 
-#if OPENCL_ENABLED
-        private Mem auxiliaryFloatBuffer; // needed by forward pass
-
-        private IntPtr[] globalWorkSizePtr;
-        private IntPtr[] localWorkSizePtr;
-        // in this case nInput = nOutput  ==>  only need to set one global/local work size 
-        // (i.e. no need to distinguish between forward and backward pass)
-#endif
+        private List<float[]> outputClassScores;
 
         #endregion
 
+
+        #region Properties
+
+        public override List<float[]> OutputClassScores
+        {
+            get { return outputClassScores; }
+        }
+
+        #endregion
 
         #region Setup methods
 
@@ -33,6 +35,7 @@ namespace JaNet
         public SoftMax()
         {
             this.type = "SoftMax";
+            this.outputClassScores = new List<float[]>();
         }
 
         /// <summary>
@@ -46,51 +49,8 @@ namespace JaNet
             this.nOutputUnits = PreviousLayer.OutputNeurons.NumberOfUnits;
             this.outputNeurons = new Neurons(this.nOutputUnits);
 
-#if OPENCL_ENABLED
-            this.auxiliaryFloatBuffer = (Mem)Cl.CreateBuffer(   OpenCLSpace.Context, 
-                                                                MemFlags.ReadWrite, 
-                                                                (IntPtr)sizeof(float), 
-                                                                out OpenCLSpace.ClError);
-            OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.CreateBuffer auxiliaryFloatBuffer");
-
-            SetWorkGroupSizes();
-#endif
         }
 
-#if OPENCL_ENABLED
-        private void SetWorkGroupSizes()
-        {
-            // Work group sizes will be set as follows:
-            //      global work size = smallest multiple of BASE_GROUP_SIZE larger than the total number of processes needed (for efficiency)
-            //      local work size = largest multiple of BASE_GROUP_SIZE that global work size is a multiple of, with the constraint of being 
-            //                          lesser or equal to current device's MaxWorkGroupSize and fwd/bwd kernels' maxKernelWorkGroupSize.
-            // BASE_GROUP_SIZE is a constant, multiple of 2. Suggested values: 32 (Nvidia WARP) or 64 (AMD WAVEFRONT).
-
-            int totalWorkItemsNeeded = OutputNeurons.NumberOfUnits;
-            int smallestMultipleOfBGS = (int)(OpenCLSpace.BASE_GROUP_SIZE * Math.Ceiling((double)(totalWorkItemsNeeded) / (double)OpenCLSpace.BASE_GROUP_SIZE));
-            this.globalWorkSizePtr = new IntPtr[] { (IntPtr)(smallestMultipleOfBGS) };
-
-            int maxKernelWorkGroupSize = (int)Math.Max(Cl.GetKernelWorkGroupInfo(OpenCLSpace.ReLUForward,
-                                                                                    OpenCLSpace.Device,
-                                                                                    KernelWorkGroupInfo.WorkGroupSize,
-                                                                                    out OpenCLSpace.ClError).CastTo<int>(),
-                                                        Cl.GetKernelWorkGroupInfo(OpenCLSpace.ReLUBackward,
-                                                                                    OpenCLSpace.Device,
-                                                                                    KernelWorkGroupInfo.WorkGroupSize,
-                                                                                    out OpenCLSpace.ClError).CastTo<int>());
-
-            int localWorkSize = OpenCLSpace.BASE_GROUP_SIZE;
-            while (localWorkSize <= OpenCLSpace.MaxWorkGroupSize && localWorkSize <= maxKernelWorkGroupSize)
-            {
-                int tmpLocalWorkSize = 2 * localWorkSize;
-                if (smallestMultipleOfBGS % tmpLocalWorkSize == 0) // if global divides local
-                    localWorkSize = tmpLocalWorkSize;
-                else
-                    break;
-            }
-            this.localWorkSizePtr = new IntPtr[] { (IntPtr)(localWorkSize) };
-        }
-#endif
         #endregion
 
 
@@ -98,27 +58,28 @@ namespace JaNet
 
         public override void FeedForward()
         {
+            // workaround to create list of output scores once in the beginning
+            if (outputClassScores.Count == 0)
+            {
+                for (int m = 0; m < inputNeurons.MiniBatchSize; m++)
+                outputClassScores.Add( new float[nOutputUnits] );
+            }
+
             for (int m = 0; m < inputNeurons.MiniBatchSize; m++)
             {
+                // get preactivations
+                float[] preActivations = new float[nInputUnits];
 #if OPENCL_ENABLED
-                // Set kernel arguments
-                OpenCLSpace.ClError  = Cl.SetKernelArg(OpenCLSpace.SoftmaxForward, 0, OutputNeurons.ActivationsGPU[m]);
-                OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.SoftmaxForward, 1, InputNeurons.ActivationsGPU[m]);
-                OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.SoftmaxForward, 2, auxiliaryFloatBuffer);
-                OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.SoftmaxForward, 3, (IntPtr)sizeof(int), OutputNeurons.NumberOfUnits);
-                OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Softmax.FeedForward(): Cl.SetKernelArg");
-
-                // Run kernel
-                OpenCLSpace.ClError = Cl.EnqueueNDRangeKernel(OpenCLSpace.Queue,
-                                                    OpenCLSpace.SoftmaxForward,
-                                                    1,
-                                                    null,
-                                                    globalWorkSizePtr,
-                                                    localWorkSizePtr,
-                                                    0,
-                                                    null,
-                                                    out OpenCLSpace.ClEvent);
-                OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Softmax.FeedForward(): Cl.EnqueueNDRangeKernel");
+                OpenCLSpace.ClError = Cl.EnqueueReadBuffer( OpenCLSpace.Queue,
+                                                            inputNeurons.ActivationsGPU[m], // source
+                                                            Bool.True,
+                                                            (IntPtr)0,
+                                                            (IntPtr)(sizeof(float) * nInputUnits),
+                                                            preActivations,  // destination
+                                                            0,
+                                                            null,
+                                                            out OpenCLSpace.ClEvent);
+                OpenCLSpace.CheckErr(OpenCLSpace.ClError, "SoftMax.FeedForward(): clEnqueueReadBuffer preActivations");
 
                 OpenCLSpace.ClError = Cl.Finish(OpenCLSpace.Queue);
                 OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.Finish");
@@ -126,28 +87,29 @@ namespace JaNet
                 OpenCLSpace.ClError = Cl.ReleaseEvent(OpenCLSpace.ClEvent);
                 OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.ReleaseEvent");
 #else
-
-                // use rescaling trick to improve numerical stability
-                float maxInput = this.inputNeurons.GetHost()[m][0];
-                for (int i = 1; i < nOutputUnits; i++)
-                {
-                    if (this.inputNeurons.GetHost()[m][i] > maxInput)
-                        maxInput = this.inputNeurons.GetHost()[m][i];
-                }
-
-                float[] tmpOutput = new float[nOutputUnits];
-                for (int i = 0; i < nOutputUnits; i++)
-                {
-                    tmpOutput[i] = (float)Math.Exp(this.inputNeurons.GetHost()[m][i] - maxInput);
-                }
-                float sum = tmpOutput.Sum();
-                for (int i = 0; i < nOutputUnits; i++)
-                {
-                    tmpOutput[i] /= sum;
-                }
-
-                this.outputNeurons.SetHost(m, tmpOutput);
+                preActivations = inputNeurons.GetHost()[m];
 #endif
+
+                // rescale to improve numerical stability
+                float maxPreactivation = preActivations[0];
+                for (int i = 1; i < nInputUnits; i++)
+                {
+                    if (preActivations[i] > maxPreactivation)
+                        maxPreactivation = preActivations[i];
+                }
+
+                float[] tmpActivations = new float[nOutputUnits];
+                for (int i = 0; i < nOutputUnits; i++)
+                {
+                    tmpActivations[i] = (float)Math.Exp(preActivations[i] - maxPreactivation);
+                }
+                float sum = tmpActivations.Sum();
+                for (int i = 0; i < nOutputUnits; i++)
+                {
+                    tmpActivations[i] /= sum;
+                }
+
+                outputClassScores[m] = tmpActivations;
             }
         }
 

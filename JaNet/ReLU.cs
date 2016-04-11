@@ -112,9 +112,6 @@ namespace JaNet
                                                                 out OpenCLSpace.ClEvent);
                 OpenCLSpace.CheckErr(OpenCLSpace.ClError, "ReLU.FeedForward(): Cl.EnqueueNDRangeKernel");
 
-                OpenCLSpace.ClError = Cl.Finish(OpenCLSpace.Queue);
-                OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.Finish");
-
                 OpenCLSpace.ClError = Cl.ReleaseEvent(OpenCLSpace.ClEvent);
                 OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.ReleaseEvent");
 #else
@@ -129,6 +126,11 @@ namespace JaNet
                 this.outputNeurons.SetHost(m, tmpOutput);
 #endif
             }
+
+#if OPENCL_ENABLED
+            OpenCLSpace.ClError = Cl.Finish(OpenCLSpace.Queue);
+            OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.Finish");
+#endif
         }
 
 
@@ -157,9 +159,6 @@ namespace JaNet
                                                                 out OpenCLSpace.ClEvent);
                 OpenCLSpace.CheckErr(OpenCLSpace.ClError, "ReLU.BackPropagate(): Cl.EnqueueNDRangeKernel");
 
-                OpenCLSpace.ClError = Cl.Finish(OpenCLSpace.Queue);
-                OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.Finish");
-
                 OpenCLSpace.ClError = Cl.ReleaseEvent(OpenCLSpace.ClEvent);
                 OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.ReleaseEvent");
 #else
@@ -167,6 +166,11 @@ namespace JaNet
                     this.inputNeurons.DeltaHost[m][i] = this.inputNeurons.GetHost()[m][i] > 0 ? this.outputNeurons.DeltaHost[m][i] : 0.0F;
 #endif
             }
+
+#if OPENCL_ENABLED
+            OpenCLSpace.ClError = Cl.Finish(OpenCLSpace.Queue);
+            OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.Finish");
+#endif
         }
 
         #endregion

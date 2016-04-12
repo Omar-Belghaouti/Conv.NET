@@ -82,18 +82,6 @@ namespace JaNet
                             }
                             break;
                         }
-                    case "Convolutional":
-                        {
-                            if (layers.Last().Type != "Input" & layers.Last().Type != "Convolutional" & layers.Last().Type != "Pooling")
-                            {
-                                throw new ArgumentException("You should only connect a ConvolutionalLayer to an InputLayer, a ConvolutionalLayer or a PoolingLayer");
-                            }
-                            else
-                            {
-                                newLayer.ID = layers.Last().ID + 1;
-                            }
-                            break;
-                        }
                     case "Pooling":
                         {
                             if (layers.Last().Type != "Convolutional")
@@ -148,6 +136,40 @@ namespace JaNet
                 layers[0].OutputNeurons.SetHost(m, dataSet.GetDataPoint(iExamples[m]));
 #endif
             }
+
+#if DEBUGGING_STEPBYSTEP
+            /* ------------------------- DEBUGGING --------------------------------------------- */
+
+
+            // Display input layer-by-layer
+            for (int m = 0; m < miniBatchSize; m++)
+            {
+
+                float[] inputData = new float[layers[0].OutputNeurons.NumberOfUnits];
+#if OPENCL_ENABLED
+                OpenCLSpace.ClError = Cl.EnqueueReadBuffer(OpenCLSpace.Queue,
+                                                            layers[0].OutputNeurons.ActivationsGPU[m], // source
+                                                            Bool.True,
+                                                            (IntPtr)0,
+                                                            (IntPtr)(layers[0].OutputNeurons.NumberOfUnits * sizeof(float)),
+                                                            inputData,  // destination
+                                                            0,
+                                                            null,
+                                                            out OpenCLSpace.ClEvent);
+                OpenCLSpace.CheckErr(OpenCLSpace.ClError, "NeuralNetwork.FeedData Cl.clEnqueueReadBuffer inputData");
+#else
+                inputData = layers[0].OutputNeurons.GetHost()[m];
+#endif
+                Console.WriteLine("\nLayer 0 (Input) output activations (mini-batch item {0}):", m);
+                for (int j = 0; j < inputData.Length; j++)
+                    Console.Write("{0}  ", inputData[j]);
+                Console.WriteLine();
+                Console.ReadKey();
+            }
+
+            /* ------------------------- END DEBUGGING --------------------------------------------- */
+#endif
+
         }
 
 

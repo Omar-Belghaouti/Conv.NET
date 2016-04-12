@@ -48,7 +48,12 @@ namespace JaNet
 
             network.AddLayer(new InputLayer(1, 28, 28));
 
-            //network.AddLayer(new ConvolutionalLayer(3, 32, 1, 1));
+            network.AddLayer(new ConvolutionalLayer(3, 16, 1, 0));
+            network.AddLayer(new ReLU());
+
+            network.AddLayer(new ConvolutionalLayer(3, 16, 1, 0));
+            network.AddLayer(new ReLU());
+
             network.AddLayer(new FullyConnectedLayer(32));
             network.AddLayer(new ReLU());
 
@@ -68,7 +73,7 @@ namespace JaNet
             //DataSet trainingSetMNIST = new DataSet(10, "C:/Users/jacopo/Dropbox/Chalmers/MSc thesis/MNIST/mnistTrainImages.dat", "C:/Users/jacopo/Dropbox/Chalmers/MSc thesis/MNIST/mnistTrainLabels.dat");
 
             // Original MNIST test set
-            DataSet testSetMNIST = new DataSet(10, "C:/Users/jacopo/Dropbox/Chalmers/MSc thesis/MNIST/mnistTestImages.dat", "C:/Users/jacopo/Dropbox/Chalmers/MSc thesis/MNIST/mnistTestLabels.dat");
+            //DataSet testSetMNIST = new DataSet(10, "C:/Users/jacopo/Dropbox/Chalmers/MSc thesis/MNIST/mnistTestImages.dat", "C:/Users/jacopo/Dropbox/Chalmers/MSc thesis/MNIST/mnistTestLabels.dat");
 
             // Reduced MNIST dataset (1000 data points, 100 per digit)
             DataSet reducedMNIST = new DataSet(10, "C:/Users/jacopo/Dropbox/Chalmers/MSc thesis/MNIST/mnistImagesSubset.dat", "C:/Users/jacopo/Dropbox/Chalmers/MSc thesis/MNIST/mnistLabelsSubset.dat");
@@ -90,12 +95,12 @@ namespace JaNet
 
 
 
-            NetworkTrainer networkTrainer = new NetworkTrainer(network, testSetMNIST, null);
+            NetworkTrainer networkTrainer = new NetworkTrainer(network, reducedMNIST, null);
 
-            networkTrainer.LearningRate = 0.005;
+            networkTrainer.LearningRate = 0.0005;
             networkTrainer.MomentumMultiplier = 0.9;
             networkTrainer.MaxTrainingEpochs = 1000;
-            networkTrainer.MiniBatchSize = 5; // property includes buffer increase
+            networkTrainer.MiniBatchSize = 1; // property includes buffer increase
             networkTrainer.ErrorTolerance = 0.0;
             networkTrainer.ConsoleOutputLag = 1; // 1 = print every epoch, N = print every N epochs
             networkTrainer.EvaluateBeforeTraining = true;

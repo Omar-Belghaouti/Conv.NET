@@ -44,6 +44,11 @@ namespace JaNet
 
             this.nOutputUnits = PreviousLayer.OutputNeurons.NumberOfUnits;
             this.outputNeurons = new Neurons(this.nOutputUnits);
+
+            this.outputWidth = inputWidth;
+            this.outputHeight = inputHeight;
+            this.outputDepth = inputDepth;
+
 #if OPENCL_ENABLED
             SetWorkGroupSizes();
 #endif
@@ -72,10 +77,15 @@ namespace JaNet
                                                                                     out OpenCLSpace.ClError).CastTo<int>());
 
             int localWorkSize = OpenCLSpace.BASE_GROUP_SIZE;
-            while (localWorkSize <= OpenCLSpace.MaxWorkGroupSize && localWorkSize <= maxKernelWorkGroupSize)
+            while (true)
             {
                 int tmpLocalWorkSize = 2 * localWorkSize;
-                if (smallestMultipleOfBGS % tmpLocalWorkSize == 0) // if global divides local
+
+                bool globalDividesLocal = smallestMultipleOfBGS % tmpLocalWorkSize == 0;
+                bool isLocalGroupTooLarge = tmpLocalWorkSize > OpenCLSpace.MaxWorkGroupSize;
+                isLocalGroupTooLarge |= tmpLocalWorkSize > maxKernelWorkGroupSize;
+
+                if (globalDividesLocal && !isLocalGroupTooLarge) // if global divides local and it's not too large
                     localWorkSize = tmpLocalWorkSize;
                 else
                     break;

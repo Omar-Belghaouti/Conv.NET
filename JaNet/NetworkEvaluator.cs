@@ -53,9 +53,19 @@ namespace JaNet
                     miniBatchItems[iMiniBatchItem] = iStartMiniBatch + iMiniBatchItem;
                 }
                 network.FeedData(dataSet, miniBatchItems);
-                    
+
+#if DEBUGGING_STEPBYSTEP
+                Console.WriteLine("Data fed.");
+                Console.ReadKey();
+#endif
+
                 // Run network forward
                 network.ForwardPass();
+
+#if DEBUGGING_STEPBYSTEP
+                Console.WriteLine("Forward pass complete.");
+                Console.ReadKey();
+#endif
 
                 // Find maximum output score (i.e. assigned class) of each mini batch item
                 for (int m = 0; m < network.MiniBatchSize; m++)

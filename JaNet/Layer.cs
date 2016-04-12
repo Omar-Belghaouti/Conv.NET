@@ -106,6 +106,10 @@ namespace JaNet
             this.InputNeurons = PreviousLayer.OutputNeurons; // assignment by reference! 
             this.nInputUnits = PreviousLayer.NOutputUnits;
             // In memory, output neurons of previous layer and input neurons of current layer are the same thing!
+
+            this.inputWidth = PreviousLayer.OutputWidth;
+            this.inputHeight = PreviousLayer.OutputHeight;
+            this.inputDepth = PreviousLayer.OutputDepth;
         }
 
 

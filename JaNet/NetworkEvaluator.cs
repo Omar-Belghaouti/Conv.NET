@@ -13,15 +13,7 @@ namespace JaNet
         // CLEAN
 
         #region Fields
-#if OPENCL_ENABLED
 
-        private int inputBufferBytesSize;
-        private IntPtr[] classificationGlobalWorkSize;
-        private IntPtr[] classificationLocalWorkSize;
-
-        private Mem assignedClassBuffer;
-
-#endif
         #endregion
 
         #region Constructor
@@ -29,19 +21,7 @@ namespace JaNet
         // The constructor does nothing at the moment
         public NetworkEvaluator()
         {
-            /*
-#if OPENCL_ENABLED
-            this.inputBufferBytesSize = sizeof(float) * dataDimension;
-            this.classificationGlobalWorkSize = new IntPtr[] { (IntPtr)nClasses };
-            this.classificationLocalWorkSize = new IntPtr[] { (IntPtr)nClasses };
 
-            this.assignedClassBuffer = (Mem)Cl.CreateBuffer(OpenCLSpace.Context,
-                                                            MemFlags.ReadWrite,
-                                                            (IntPtr)sizeof(int),
-                                                            out OpenCLSpace.ClError);
-            OpenCLSpace.CheckErr(OpenCLSpace.ClError, "NetworkEvaluator.SetupCLObjects: Cl.CreateBuffer assignedClassBuffer");
-#endif
-            */
         }
         #endregion
 

@@ -49,9 +49,7 @@ namespace JaNet
             network.AddLayer(new InputLayer(1, 28, 28));
 
             //network.AddLayer(new ConvolutionalLayer(3, 32, 1, 1));
-            //network.AddLayer(new ReLU());
-
-            network.AddLayer(new FullyConnectedLayer(64));
+            network.AddLayer(new FullyConnectedLayer(32));
             network.AddLayer(new ReLU());
 
             network.AddLayer(new FullyConnectedLayer(10));
@@ -92,14 +90,14 @@ namespace JaNet
 
 
 
-            NetworkTrainer networkTrainer = new NetworkTrainer(network, testSetMNIST, reducedMNIST);
+            NetworkTrainer networkTrainer = new NetworkTrainer(network, testSetMNIST, null);
 
             networkTrainer.LearningRate = 0.005;
             networkTrainer.MomentumMultiplier = 0.9;
             networkTrainer.MaxTrainingEpochs = 1000;
-            networkTrainer.MiniBatchSize = 10; // property includes buffer increase
+            networkTrainer.MiniBatchSize = 5; // property includes buffer increase
             networkTrainer.ErrorTolerance = 0.0;
-            networkTrainer.ConsoleOutputLag = 5; // 1 = print every epoch, N = print every N epochs
+            networkTrainer.ConsoleOutputLag = 1; // 1 = print every epoch, N = print every N epochs
             networkTrainer.EvaluateBeforeTraining = true;
             networkTrainer.EarlyStopping = false;
             //double tanhBeta = 0.5;

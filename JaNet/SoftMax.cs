@@ -59,7 +59,8 @@ namespace JaNet
 
         public override void FeedForward()
         {
-            // workaround to create list of output scores once in the beginning
+            // inelegant workaround to create list of output scores once in the beginning
+            // TODO: find a more elegant solution for this
             if (outputClassScores.Count == 0)
             {
                 for (int m = 0; m < inputNeurons.MiniBatchSize; m++)

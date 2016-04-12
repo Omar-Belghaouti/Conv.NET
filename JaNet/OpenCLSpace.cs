@@ -86,7 +86,8 @@ namespace JaNet
         public static Kernel ZeroPad;
         public static Kernel ZeroUnpad;
         public static Kernel ConvForward;
-
+        public static Kernel ConvUpdateSpeeds;
+        public static Kernel ConvUpdateParameters;
 
         // Fully connected layer
         public static Kernel FCForward;
@@ -235,6 +236,9 @@ namespace JaNet
             ZeroPad = LoadAndBuildKernel(kernelsPath + "/ZeroPad.cl", "ZeroPad");
             ZeroUnpad = LoadAndBuildKernel(kernelsPath + "/ZeroUnpad.cl", "ZeroUnpad");
             ConvForward = LoadAndBuildKernel(kernelsPath + "/ConvForward.cl", "ConvForward");
+            ConvUpdateSpeeds = LoadAndBuildKernel(kernelsPath + "/ConvUpdateSpeeds.cl", "ConvUpdateSpeeds");
+            ConvUpdateParameters = LoadAndBuildKernel(kernelsPath + "/ConvUpdateParameters.cl", "ConvUpdateParameters");
+
 
             // Fully connected layer
             FCForward = LoadAndBuildKernel(kernelsPath + "/FCForward.cl", "FCForward");

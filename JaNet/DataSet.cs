@@ -15,18 +15,21 @@ namespace JaNet
 
         #region DataSet class fields
 
+        private int nPointsPerImage;
         private int size;
         private int nClasses;
 
-        private List<float[]> data;
-        private List<int> labels;
-        private List<float[]> labelArrays;
 
 #if OPENCL_ENABLED
         private List<Mem> dataGPU;
         private List<Mem> labelsGPU;
         private List<Mem> labelArraysGPU;
+#else
+        private List<double[]> data;
+        private List<int[]> labelArrays;
 #endif
+
+        private List<int> labels;
 
         #endregion
 
@@ -43,19 +46,9 @@ namespace JaNet
             get { return nClasses; }
         }
 
-        public float[] GetDataPoint(int Index)
-        {
-            return this.data[Index];
-        }
-
         public int GetLabel(int Index)
         {
             return this.labels[Index];
-        }
-
-        public float[] GetLabelArray(int Index)
-        {
-            return this.labelArrays[Index];
         }
 
 #if OPENCL_ENABLED
@@ -75,6 +68,16 @@ namespace JaNet
         {
             return labelArraysGPU[iExample];
         }
+#else
+        public double[] GetDataPoint(int Index)
+        {
+            return this.data[Index];
+        }
+
+        public int[] GetLabelArray(int Index)
+        {
+            return this.labelArrays[Index];
+        }
 #endif
 
         #endregion
@@ -92,15 +95,16 @@ namespace JaNet
             this.size = 0;
 
             // Initialize empty lists
-            this.data = new List<float[]>();
-            this.labels = new List<int>();
-            this.labelArrays = new List<float[]>();
-            
+
 #if OPENCL_ENABLED
             this.dataGPU = new List<Mem>();
             this.labelsGPU = new List<Mem>();
             this.labelArraysGPU = new List<Mem>();
+#else
+            this.data = new List<double[]>();
+            this.labelArrays = new List<int[]>();
 #endif
+            this.labels = new List<int>();
 
             // Read images
             foreach (var line in System.IO.File.ReadAllLines(imagesPath))
@@ -108,24 +112,34 @@ namespace JaNet
                 this.size += 1;
 
                 var columns = line.Split('\t');
+                this.nPointsPerImage = columns.Length;
 
+#if OPENCL_ENABLED
                 float[] image = new float[columns.Length];
                 for (int i = 0; i < columns.Length; i++)
                 {
                     image[i] = float.Parse(columns[i], CultureInfo.InvariantCulture.NumberFormat);
                 }
-
-                this.data.Add(image);
-
-#if OPENCL_ENABLED
                 int imageBytesSize = sizeof(float) * image.Length;
-                Mem tmpBufferImage = (Mem)Cl.CreateBuffer(  OpenCLSpace.Context,
+                Mem tmpBufferImage = (Mem)Cl.CreateBuffer(OpenCLSpace.Context,
                                                             MemFlags.ReadWrite | MemFlags.CopyHostPtr,
                                                             (IntPtr)imageBytesSize,
                                                             image,
                                                             out OpenCLSpace.ClError);
                 OpenCLSpace.CheckErr(OpenCLSpace.ClError, "DataSet(): Cl.CreateBuffer tmpBufferImage");
                 this.dataGPU.Add(tmpBufferImage);
+#else
+                double[] image = new double[columns.Length];
+                for (int i = 0; i < columns.Length; i++)
+                {
+                    image[i] = double.Parse(columns[i], CultureInfo.InvariantCulture.NumberFormat);
+                }
+                this.data.Add(image);
+#endif
+
+
+#if OPENCL_ENABLED
+                
 #endif
 
             }
@@ -134,12 +148,10 @@ namespace JaNet
             foreach (var line in System.IO.File.ReadAllLines(labelsPath))
             {
                 int label = Convert.ToInt16(line);
-                float[] labelArray = new float[nClasses];
-                labelArray[label] = 1.0f;
+                int[] labelArray = new int[nClasses];
+                labelArray[label] = 1;
 
                 this.labels.Add(label);
-                this.labelArrays.Add(labelArray);
-
 #if OPENCL_ENABLED
                 Mem tmpBufferLabel = (Mem)Cl.CreateBuffer(  OpenCLSpace.Context,
                                                             MemFlags.ReadWrite | MemFlags.CopyHostPtr,
@@ -156,10 +168,12 @@ namespace JaNet
                                                                 out OpenCLSpace.ClError);
                 OpenCLSpace.CheckErr(OpenCLSpace.ClError, "DataSet(): Cl.CreateBuffer tmpBufferLabelArray");
                 this.labelArraysGPU.Add(tmpBufferLabelArray);
-#endif                
+#else
+                this.labelArrays.Add(labelArray);
+#endif
             }
 
-            Console.WriteLine("\tImported {0} images. \n\tImage dimension: {1}.\n", this.size, this.GetDataPoint(0).Length);
+            Console.WriteLine("\tImported {0} images. \n\tImage dimension: {1}.\n", size, nPointsPerImage);
         }
 
     }

@@ -10,7 +10,6 @@ namespace JaNet
 
     class NetworkEvaluator
     {
-        // CLEAN
 
         #region Fields
 
@@ -34,10 +33,10 @@ namespace JaNet
 
             //TODO: do this using OpenCL
 
-            float[] outputScores = new float[dataSet.NumberOfClasses];
+            double[] outputScores = new double[dataSet.NumberOfClasses];
             int assignedLabel;
             int trueLabel;
-            int outputBufferBytesSize = dataSet.NumberOfClasses * sizeof(float);
+            //int outputBufferBytesSize = dataSet.NumberOfClasses * sizeof(float);
             int[] miniBatchItems = new int[network.MiniBatchSize];
             // loop through all data points in dataSet (ordered mini-batches)
 
@@ -54,18 +53,9 @@ namespace JaNet
                 }
                 network.FeedData(dataSet, miniBatchItems);
 
-#if DEBUGGING_STEPBYSTEP
-                Console.WriteLine("Data fed.");
-                Console.ReadKey();
-#endif
 
                 // Run network forward
                 network.ForwardPass();
-
-#if DEBUGGING_STEPBYSTEP
-                Console.WriteLine("Forward pass complete.");
-                Console.ReadKey();
-#endif
 
                 // Find maximum output score (i.e. assigned class) of each mini batch item
                 for (int m = 0; m < network.MiniBatchSize; m++)

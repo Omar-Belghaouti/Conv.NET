@@ -87,10 +87,36 @@ namespace JaNet
             get { return outputWidth; }
         }
 
-        public virtual List<float[]> OutputClassScores
+        public virtual List<double[]> OutputClassScores
         {
             get { return null; }
         }
+
+#if GRADIENT_CHECK
+        // accessors for gradient check 
+
+        public virtual double[,] Weights
+        {
+            get { return null; }
+            set { }
+        }
+
+        public virtual double[] Biases
+        {
+            get { return null; }
+            set { }
+        }
+
+        public virtual double[,] WeightsGradients
+        {
+            get { return null; }
+        }
+
+        public virtual double[] BiasesGradients
+        {
+            get { return null; }
+        }
+#endif
 
         #endregion
 

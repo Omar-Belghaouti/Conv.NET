@@ -103,17 +103,12 @@ namespace JaNet
                 layers.Add(newLayer);
                 nLayers++;
 
-                if (nLayers == 1)
-                {
-                    Console.Write(" OK\n");
-                }
-                else
+                if (nLayers > 1)
                 {
                     layers[newLayer.ID].ConnectTo(layers[newLayer.ID-1]); // connect last layer to second last
                     layers[newLayer.ID].InitializeParameters();
-                    Console.Write(" OK\n");
                 }
-
+                Console.Write(" OK\n");
             }
             catch (Exception exception)
             {
@@ -169,7 +164,15 @@ namespace JaNet
 
             /* ------------------------- END DEBUGGING --------------------------------------------- */
 #endif
+        }
 
+        public void FeedDatum(DataSet dataSet, int iExample)
+        {
+#if OPENCL_ENABLED
+            layers[0].OutputNeurons.ActivationsGPU[0] = dataSet.DataGPU(iExample); // Copied by reference
+#else
+            layers[0].OutputNeurons.SetHost(0, dataSet.GetDataPoint(iExample));
+#endif
         }
 
 
@@ -256,7 +259,11 @@ namespace JaNet
         /// </summary>
         public void BackwardPass(double learningRate, double momentumMultiplier)
         {
-            for (int l = nLayers - 2; l > 0; l--) // propagate error signal backwards (layers L-2 to 1)
+#if GRADIENT_CHECK
+            learningRate = 0.0;
+#endif
+
+            for (int l = nLayers - 2; l > 0; l--) // propagate error signal backwards (layers L-2 to 1, i.e. second last to second)
             {
 
 #if DEBUGGING_STEPBYSTEP
@@ -327,11 +334,62 @@ namespace JaNet
 
                 /* ------------------------- END DEBUGGING --------------------------------------------- */
 #endif
+
+#if GRADIENT_CHECK
+                // do nothing
+#else
                 // 3. Update layer's parameters
                 layers[l].UpdateParameters();
+#endif
             }
         }
 
+
+        public void CrossEntropyGradient(DataSet DataSet, int[] iMiniBatch)
+        {
+
+            for (int m = 0; m < miniBatchSize; m++)
+            {
+                int iDataPoint = iMiniBatch[m];
+                int trueLabel = DataSet.GetLabel(iDataPoint);
+
+                double[] crossEntropyGradient = layers.Last().OutputClassScores[m];
+                crossEntropyGradient[trueLabel] -= 1.0F;
+
+                // now write gradient to input neurons of softmax layer (i.e. to output neurons of classifier)
+#if OPENCL_ENABLED
+                float[] fltCrossEntropyGradient = new float[crossEntropyGradient.Length];
+                for (int c = 0; c < crossEntropyGradient.Length; c++)
+                {
+                    fltCrossEntropyGradient[c] = (float)crossEntropyGradient[c];
+                }
+
+                OpenCLSpace.ClError = Cl.EnqueueWriteBuffer(OpenCLSpace.Queue, 
+                                                            layers.Last().InputNeurons.DeltaGPU[m], 
+                                                            OpenCL.Net.Bool.True, 
+                                                            (IntPtr)0, 
+                                                            (IntPtr) (sizeof(float) * crossEntropyGradient.Length),
+                                                            fltCrossEntropyGradient, 
+                                                            0, 
+                                                            null, 
+                                                            out OpenCLSpace.ClEvent);
+                OpenCLSpace.CheckErr(OpenCLSpace.ClError, "NetworkTrainer.CrossEntropyGradient(): Cl.EnqueueWriteBuffer");
+
+
+                OpenCLSpace.ClError = Cl.ReleaseEvent(OpenCLSpace.ClEvent);
+                OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.ReleaseEvent");
+#else
+                layers.Last().InputNeurons.DeltaHost[m] = crossEntropyGradient;
+#endif
+
+#if OPENCL_ENABLED
+            OpenCLSpace.ClError = Cl.Finish(OpenCLSpace.Queue);
+            OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.Finish");
+#endif
+
+            }
+
+        }
         #endregion
 
     } 

@@ -9,7 +9,7 @@ namespace JaNet
 
     public static class Global
     {
-        public const double EPSILON = 0.000001;
+        public const double EPSILON = 0.0001;
         public const int SEED = 2016;
 
         public static Random rng = new Random(); //(SEED);
@@ -24,10 +24,10 @@ namespace JaNet
         /// </summary>
         /// <param name="outputScores"></param>
         /// <returns></returns>
-        public static int IndexOfMax(float[] outputScores)
+        public static int IndexOfMax(double[] outputScores)
         {
             int iMax = 0;
-            float max = outputScores[0];
+            double max = outputScores[0];
             for (int j = 1; j < outputScores.Length; j++)
             {
                 if (outputScores[j] > max)
@@ -45,15 +45,15 @@ namespace JaNet
         /// <param name="A"></param>
         /// <param name="b"></param>
         /// <returns></returns>
-        public static float[] MultiplyMatrixByVector(float[,] A, float[] b)
+        public static double[] MultiplyMatrixByVector(double[,] A, double[] b)
         {
             if (A.GetLength(1) != b.GetLength(0))
                 throw new System.ArgumentException("Invalid matrix-vector multiplication.");
 
-            float[] c = new float[A.GetLength(0)];
+            double[] c = new double[A.GetLength(0)];
 
             for (int row = 0; row < A.GetLength(0); row++) {
-                float sum = 0.0f;
+                double sum = 0.0f;
                 for (int col = 0; col < A.GetLength(1); col++)
                 {
                     sum += A[row, col] * b[col];
@@ -63,7 +63,7 @@ namespace JaNet
             return c;
         }
 
-        public static float[ , ] MatrixMultiply(float[ , ] A, float[ , ] B)
+        public static double[,] MatrixMultiply(double[,] A, double[,] B)
         {
             int rowsA = A.GetLength(0);
             int colsA = A.GetLength(1);
@@ -73,7 +73,7 @@ namespace JaNet
             if (colsA != rowsB)
                 throw new Exception("Non-conformable matrices in MatrixMultiply");
 
-            float[,] C = new float[rowsA, colsB];
+            double[,] C = new double[rowsA, colsB];
 
             for (int row = 0; row < rowsA; row++)
             {
@@ -95,16 +95,16 @@ namespace JaNet
         /// <param name="A"></param>
         /// <param name="B"></param>
         /// <returns></returns>
-        public static float[] MultiplyMatrixTranspByVector(float[,] A, float[] b)
+        public static double[] MultiplyMatrixTranspByVector(double[,] A, double[] b)
         {
             if (A.GetLength(0) != b.GetLength(0))
                 throw new System.ArgumentException("Invalid matrix^T-vector multiplication.");
 
-            float[] c = new float[A.GetLength(1)];
+            double[] c = new double[A.GetLength(1)];
 
             for (int row = 0; row < A.GetLength(1); row++)
             {
-                float sum = 0.0f;
+                double sum = 0.0f;
                 for (int col = 0; col < A.GetLength(0); col++)
                 {
                     sum += A[col, row] * b[col];

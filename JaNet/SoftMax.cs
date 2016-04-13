@@ -12,14 +12,14 @@ namespace JaNet
     {
         #region Fields
 
-        private List<float[]> outputClassScores;
+        private List<double[]> outputClassScores;
 
         #endregion
 
 
         #region Properties
 
-        public override List<float[]> OutputClassScores
+        public override List<double[]> OutputClassScores
         {
             get { return outputClassScores; }
         }
@@ -36,7 +36,7 @@ namespace JaNet
         public SoftMax()
         {
             this.type = "SoftMax";
-            this.outputClassScores = new List<float[]>();
+            this.outputClassScores = new List<double[]>();
         }
 
         /// <summary>
@@ -64,14 +64,14 @@ namespace JaNet
             if (outputClassScores.Count == 0)
             {
                 for (int m = 0; m < inputNeurons.MiniBatchSize; m++)
-                outputClassScores.Add( new float[nOutputUnits] );
+                    outputClassScores.Add(new double[nOutputUnits]);
             }
 
             for (int m = 0; m < inputNeurons.MiniBatchSize; m++)
             {
                 // get preactivations
-                float[] preActivations = new float[nInputUnits];
 #if OPENCL_ENABLED
+                float[] preActivations = new float[nInputUnits];
                 OpenCLSpace.ClError = Cl.EnqueueReadBuffer( OpenCLSpace.Queue,
                                                             inputNeurons.ActivationsGPU[m], // source
                                                             Bool.True,
@@ -86,23 +86,23 @@ namespace JaNet
                 OpenCLSpace.ClError = Cl.ReleaseEvent(OpenCLSpace.ClEvent);
                 OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.ReleaseEvent");
 #else
-                preActivations = inputNeurons.GetHost()[m];
+                double[] preActivations = inputNeurons.GetHost()[m];
 #endif
 
                 // rescale to improve numerical stability
-                float maxPreactivation = preActivations[0];
+                double maxPreactivation = preActivations[0];
                 for (int i = 1; i < nInputUnits; i++)
                 {
                     if (preActivations[i] > maxPreactivation)
                         maxPreactivation = preActivations[i];
                 }
 
-                float[] tmpActivations = new float[nOutputUnits];
+                double[] tmpActivations = new double[nOutputUnits];
                 for (int i = 0; i < nOutputUnits; i++)
                 {
-                    tmpActivations[i] = (float)Math.Exp(preActivations[i] - maxPreactivation);
+                    tmpActivations[i] = Math.Exp(preActivations[i] - maxPreactivation);
                 }
-                float sum = tmpActivations.Sum();
+                double sum = tmpActivations.Sum();
                 for (int i = 0; i < nOutputUnits; i++)
                 {
                     tmpActivations[i] /= sum;

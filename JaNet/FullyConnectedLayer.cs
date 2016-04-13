@@ -12,13 +12,6 @@ namespace JaNet
 
         #region Fields
 
-        // Host
-        private float[,] weights;
-        private float[] biases;
-
-        private float[,] weightsUpdateSpeed;
-        private float[] biasesUpdateSpeed;
-
 #if OPENCL_ENABLED
 
         private Mem weightsGPU;
@@ -34,6 +27,19 @@ namespace JaNet
         private IntPtr[] backwardLocalWorkSizePtr;
         private IntPtr[] updateGlobalWorkSizePtr;
         private IntPtr[] updateLocalWorkSizePtr;
+#else
+        // Host
+        private double[,] weights;
+        private double[] biases;
+
+        private double[,] weightsUpdateSpeed;
+        private double[] biasesUpdateSpeed;
+
+#if GRADIENT_CHECK
+        private double[,] weightsGradients;
+        private double[] biasesGradients;
+#endif
+
 #endif
 
         #endregion
@@ -46,6 +52,31 @@ namespace JaNet
             get { return nOutputUnits; }
         }
 
+#if GRADIENT_CHECK
+        // Accessors for gradient check
+
+        public override double[,] Weights
+        {
+            get { return weights; }
+            set { this.weights = value; }
+        }
+
+        public override double[] Biases
+        {
+            get { return biases; }
+            set { this.biases = value; }
+        }
+
+        public override double[,] WeightsGradients
+        {
+            get { return weightsGradients; }
+        }
+
+        public override double[] BiasesGradients
+        {
+            get { return biasesGradients; }
+        }
+#endif
         #endregion
 
 
@@ -167,67 +198,92 @@ namespace JaNet
             // Biases are initialized as normally distributed numbers with mean 0 and std 1
 
             // Host
+#if OPENCL_ENABLED
+            float[,] initWeights = new float[outputNeurons.NumberOfUnits, inputNeurons.NumberOfUnits];
+            float[] initBiases = new float[outputNeurons.NumberOfUnits];
+#else
+            this.weights = new double[outputNeurons.NumberOfUnits, inputNeurons.NumberOfUnits];
+            this.biases = new double[outputNeurons.NumberOfUnits];
+#endif
 
-            this.weights = new float[this.OutputNeurons.NumberOfUnits, this.InputNeurons.NumberOfUnits];
-            this.biases = new float[this.OutputNeurons.NumberOfUnits];
+#if GRADIENT_CHECK
+            this.weightsGradients = new double[this.OutputNeurons.NumberOfUnits, this.InputNeurons.NumberOfUnits];
+            this.biasesGradients = new double[this.OutputNeurons.NumberOfUnits];
+#endif
 
             double weightsStdDev = Math.Sqrt(2.0/this.inputNeurons.NumberOfUnits);
             double uniformRand1;
             double uniformRand2;
             double tmp;
 
-            for (int iRow = 0; iRow < this.weights.GetLength(0); iRow++)
+            for (int iRow = 0; iRow < outputNeurons.NumberOfUnits; iRow++)
             {
-                
-                for (int iCol = 0; iCol < this.weights.GetLength(1); iCol++)
+
+                for (int iCol = 0; iCol < inputNeurons.NumberOfUnits; iCol++)
                 {
                     uniformRand1 = Global.rng.NextDouble();
                     uniformRand2 = Global.rng.NextDouble();
                     // Use a Box-Muller transform to get a random normal(0,1)
                     tmp = Math.Sqrt(-2.0 * Math.Log(uniformRand1)) * Math.Sin(2.0 * Math.PI * uniformRand2);
                     tmp = weightsStdDev * tmp; // rescale
-
-                    weights[iRow, iCol] = (float)tmp;
+#if OPENCL_ENABLED
+                    initWeights[iRow, iCol] = (float)tmp;
+#else
+                    weights[iRow, iCol] = tmp;
+#endif
                 }
-
-                biases[iRow] = 0.01F; // (float)tmp;
+#if OPENCL_ENABLED
+                initBiases[iRow] = 0.01f;
+#else
+                biases[iRow] = 0.01;
+#endif
                 
             }
 
-            // Also initialize updates speeds to zero (for momentum)
-            this.weightsUpdateSpeed = new float[this.OutputNeurons.NumberOfUnits, this.InputNeurons.NumberOfUnits];
-            this.biasesUpdateSpeed = new float[this.OutputNeurons.NumberOfUnits];
 
+            
 
 #if OPENCL_ENABLED
-            
-            int weightBufferSize = sizeof(float) * (this.OutputNeurons.NumberOfUnits * this.InputNeurons.NumberOfUnits);
-            int biasesBufferSize = sizeof(float) * this.OutputNeurons.NumberOfUnits;
+            // Create weights and biases buffers and copy initial values
+
+            int weightBufferSize = sizeof(float) * (outputNeurons.NumberOfUnits * inputNeurons.NumberOfUnits);
+            int biasesBufferSize = sizeof(float) * outputNeurons.NumberOfUnits;
 
             this.weightsGPU = (Mem)Cl.CreateBuffer( OpenCLSpace.Context,
                                                     MemFlags.ReadWrite | MemFlags.CopyHostPtr,
                                                     (IntPtr)weightBufferSize,
-                                                    weights,
+                                                    initWeights,
                                                     out OpenCLSpace.ClError);
             this.biasesGPU = (Mem)Cl.CreateBuffer(  OpenCLSpace.Context,
                                                     MemFlags.ReadWrite | MemFlags.CopyHostPtr,
                                                     (IntPtr)biasesBufferSize,
-                                                    biases,
+                                                    initBiases,
                                                     out OpenCLSpace.ClError);
 
+            // Also create weightsSpeed and biasesSpeed buffers, without copying anything.
+            // This USUALLY means they're initialized to zeros...
+
             this.weightsSpeedGPU = (Mem)Cl.CreateBuffer(  OpenCLSpace.Context,
-                                                                MemFlags.ReadWrite | MemFlags.CopyHostPtr,
+                                                                MemFlags.ReadWrite,
                                                                 (IntPtr)weightBufferSize,
-                                                                weightsUpdateSpeed,
                                                                 out OpenCLSpace.ClError);
+
             this.biasesSpeedGPU = (Mem)Cl.CreateBuffer(   OpenCLSpace.Context,
-                                                                MemFlags.ReadWrite | MemFlags.CopyHostPtr,
+                                                                MemFlags.ReadWrite,
                                                                 (IntPtr)biasesBufferSize,
-                                                                biasesUpdateSpeed,
                                                                 out OpenCLSpace.ClError);
             OpenCLSpace.CheckErr(OpenCLSpace.ClError, "InitializeParameters(): Cl.CreateBuffer");
 
+            // ...but better make extra sure and enforce this.
+            OpenCLSpace.WipeBuffer(weightsSpeedGPU, (nInputUnits*nOutputUnits), typeof(float));
+            OpenCLSpace.WipeBuffer(biasesSpeedGPU, nOutputUnits, typeof(float));
             
+
+#else
+            // Initialize updates speeds to zero
+
+            this.weightsUpdateSpeed = new double[this.OutputNeurons.NumberOfUnits, this.InputNeurons.NumberOfUnits];
+            this.biasesUpdateSpeed = new double[this.OutputNeurons.NumberOfUnits];
 #endif
         }
 
@@ -268,8 +324,8 @@ namespace JaNet
                 OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.ReleaseEvent");
 #else
 
-                float[] unbiasedOutput = Utils.MultiplyMatrixByVector(this.weights, this.inputNeurons.GetHost()[m]);
-                this.outputNeurons.SetHost(m, unbiasedOutput.Zip(this.biases, (x, y) => x + y).ToArray());
+                double[] unbiasedOutput = Utils.MultiplyMatrixByVector(weights, inputNeurons.GetHost()[m]);
+                this.outputNeurons.SetHost(m, unbiasedOutput.Zip(biases, (x, y) => x + y).ToArray());
 #endif
             }
 
@@ -309,7 +365,7 @@ namespace JaNet
                 OpenCLSpace.ClError = Cl.ReleaseEvent(OpenCLSpace.ClEvent);
                 OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.ReleaseEvent");
 #else
-                this.inputNeurons.DeltaHost[m] = Utils.MultiplyMatrixTranspByVector(this.weights, this.outputNeurons.DeltaHost[m]);
+                inputNeurons.DeltaHost[m] = Utils.MultiplyMatrixTranspByVector(weights, outputNeurons.DeltaHost[m]);
 #endif
             }
 
@@ -512,16 +568,25 @@ namespace JaNet
                     for (int j = 0; j < nInputUnits; j++)
                     {
                         if (m == 0)
-                            this.weightsUpdateSpeed[i, j] *= (float)momentumCoefficient;
+                            weightsUpdateSpeed[i, j] *= momentumCoefficient;
 
-                        this.weightsUpdateSpeed[i, j] -= (float) learningRate/miniBatchSize * this.inputNeurons.GetHost()[m][j] * this.outputNeurons.DeltaHost[m][i];
+                        weightsUpdateSpeed[i, j] -= learningRate/miniBatchSize * inputNeurons.GetHost()[m][j] * outputNeurons.DeltaHost[m][i];
+#if GRADIENT_CHECK
+                        weightsGradients[i, j] = inputNeurons.GetHost()[m][j] * outputNeurons.DeltaHost[m][i];
+#endif
+                    
                     }
 
                     // update biases
                     if (m == 0)
-                            this.biasesUpdateSpeed[i] *= (float)momentumCoefficient;
+                            biasesUpdateSpeed[i] *= momentumCoefficient;
 
-                    this.biasesUpdateSpeed[i] -= (float) learningRate/miniBatchSize * this.outputNeurons.DeltaHost[m][i];
+                    biasesUpdateSpeed[i] -= learningRate/miniBatchSize * outputNeurons.DeltaHost[m][i];
+
+#if GRADIENT_CHECK
+                    biasesGradients[i] = outputNeurons.DeltaHost[m][i];
+#endif
+
                 }
 
 #endif
@@ -627,7 +692,7 @@ namespace JaNet
             OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.Finish");
 #endif
 
-        }
+        } // loop over mini-batch
 
         public override void UpdateParameters()
         {
@@ -642,7 +707,7 @@ namespace JaNet
                 OpenCLSpace.CheckErr(OpenCLSpace.ClError, "FullyConnected.UpdateParameters(): Cl.SetKernelArg");
 
                 // Run kernel
-                OpenCLSpace.ClError = Cl.EnqueueNDRangeKernel(OpenCLSpace.Queue,
+                OpenCLSpace.ClError = Cl.EnqueueNDRangeKernel(  OpenCLSpace.Queue,
                                                                 OpenCLSpace.FCUpdateParameters,
                                                                 2,
                                                                 null,
@@ -667,11 +732,11 @@ namespace JaNet
 
                     for (int j = 0; j < nInputUnits; j++)
                     {
-                        this.weights[i, j] += this.weightsUpdateSpeed[i, j];
+                        weights[i, j] += weightsUpdateSpeed[i, j];
                     }
 
                     // update biases
-                    this.biases[i] += this.biasesUpdateSpeed[i];
+                    biases[i] += biasesUpdateSpeed[i];
                 }
 #endif
         }

@@ -252,10 +252,7 @@ namespace JaNet
                 for (int iStartMiniBatch = 0; iStartMiniBatch < trainingSet.Size; iStartMiniBatch += miniBatchSize)  
                 {
                     // Feed a mini-batch to the network
-                    for (int m = 0; m < network.MiniBatchSize; m++)
-                    {
-                        iMiniBatch[m] = indicesSequence[iStartMiniBatch + m]; 
-                    }
+                    iMiniBatch = indicesSequence.GetMiniBatchIndices(iStartMiniBatch, miniBatchSize);
                     network.FeedData(trainingSet, iMiniBatch);
 
                     // Forward pass
@@ -265,7 +262,7 @@ namespace JaNet
 
                     // Compute gradient
                     stopwatchGrad.Start();
-                    CrossEntropyGradient(iMiniBatch);
+                    network.CrossEntropyGradient(trainingSet, iMiniBatch);
                     stopwatchGrad.Stop();
 
                     // Backpropagate gradient and update parameters
@@ -281,86 +278,15 @@ namespace JaNet
                     stopwatchFwd.ElapsedMilliseconds, stopwatchGrad.ElapsedMilliseconds, stopwatchBwd.ElapsedMilliseconds);
 
                 epoch++;
+
             }
 
             stopwatch.Stop();
         }
 
-
-        private void CrossEntropyGradient(int[] iMiniBatch)
-        {
-
-            for (int m = 0; m < miniBatchSize; m++)
-            {
-                int iDataPoint = iMiniBatch[m];
-                int trueLabel = trainingSet.GetLabel(iDataPoint);
-
-                float[] crossEntropyGradient = network.Layers.Last().OutputClassScores[m];
-                crossEntropyGradient[trueLabel] -= 1.0F;
-
-                // now write gradient to input neurons of softmax layer (i.e. to output neurons of classifier)
-#if OPENCL_ENABLED
-                OpenCLSpace.ClError = Cl.EnqueueWriteBuffer(OpenCLSpace.Queue, 
-                                                            network.Layers.Last().InputNeurons.DeltaGPU[m], 
-                                                            OpenCL.Net.Bool.True, 
-                                                            (IntPtr)0, 
-                                                            (IntPtr) (sizeof(float) * crossEntropyGradient.Length), 
-                                                            crossEntropyGradient, 
-                                                            0, 
-                                                            null, 
-                                                            out OpenCLSpace.ClEvent);
-                OpenCLSpace.CheckErr(OpenCLSpace.ClError, "NetworkTrainer.CrossEntropyGradient(): Cl.EnqueueWriteBuffer");
-
-
-                OpenCLSpace.ClError = Cl.ReleaseEvent(OpenCLSpace.ClEvent);
-                OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.ReleaseEvent");
-#else
-                network.Layers.Last().InputNeurons.DeltaHost[m] = crossEntropyGradient;
-#endif
-
-            }
-
-#if OPENCL_ENABLED
-            OpenCLSpace.ClError = Cl.Finish(OpenCLSpace.Queue);
-            OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.Finish");
-#endif
-
-        }
-
-
-
         #region Deprecated methods
 
         /*
-
-        /// <summary>
-        /// Only use for SINGLE OUTPUT UNIT networks! 
-        /// </summary>
-        /// <param name="network"></param>
-        /// <param name="dataSet"></param>
-        /// <returns></returns>
-        [Obsolete("This method was originally created to deal with the toy 2d example.")]
-        static double ClassificationErrorSign(NeuralNetwork network, DataSet dataSet)
-        {
-            double classificationError = 0;
-
-            for (int i = 0; i < dataSet.Size; i++)
-            {
-                network.Layers[0].Input.SetHost(dataSet.GetDataPoint(i));
-
-                // Run forward
-                for (int l = 0; l < network.Layers.Count; l++)
-                {
-                    network.Layers[l].FeedForward();
-                }
-
-                // Check for correct/wrong classification
-                int outputClass = Math.Sign(network.Layers.Last().Output.GetHost()[0]);
-                classificationError += Math.Abs(outputClass - dataSet.GetLabel(i));
-            }
-
-            return classificationError / (2* dataSet.Size);
-        }
 
 
 

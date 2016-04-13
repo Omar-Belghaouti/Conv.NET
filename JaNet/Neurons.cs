@@ -20,8 +20,8 @@ namespace JaNet
         private List<Mem> activationsGPU;
         private List<Mem> deltaGPU;
 #else
-        private List<float[]> activations;
-        private List<float[]> delta;
+        private List<double[]> activations;
+        private List<double[]> delta;
 #endif
 
         #endregion
@@ -54,17 +54,17 @@ namespace JaNet
             set { this.deltaGPU = value; }
         }
 #else       
-        public List<float[]> GetHost()
+        public List<double[]> GetHost()
         {
             return activations;
         }
 
-        public void SetHost(int iExample, float[] value)
+        public void SetHost(int iExample, double[] value)
         {
             this.activations[iExample] = value;
         }
 
-        public List<float[]> DeltaHost
+        public List<double[]> DeltaHost
         {
             get { return delta; }
             set { this.delta = value; }
@@ -100,11 +100,11 @@ namespace JaNet
 
             OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Neurons constructor: Cl.CreateBuffer");
 #else
-            this.activations = new List<float[]>();
-            this.activations.Add( new float[nUnits] );
-            
-            this.delta = new List<float[]>();
-            this.delta.Add( new float[nUnits] );
+            this.activations = new List<double[]>();
+            this.activations.Add(new double[nUnits]);
+
+            this.delta = new List<double[]>();
+            this.delta.Add(new double[nUnits]);
 #endif
 
         }
@@ -128,8 +128,8 @@ namespace JaNet
                                                         out OpenCLSpace.ClError));
                 OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Neurons constructor: Cl.CreateBuffer");
 #else
-                this.activations.Add( new float[nUnits] );
-                this.delta.Add( new float[nUnits] );
+                this.activations.Add(new double[nUnits]);
+                this.delta.Add(new double[nUnits]);
 #endif
             }
 

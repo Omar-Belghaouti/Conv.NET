@@ -55,7 +55,7 @@ namespace JaNet
             //network.AddLayer(new ReLU());
 
 
-            network.AddLayer(new FullyConnectedLayer(16));
+            network.AddLayer(new FullyConnectedLayer(256));
             //network.AddLayer(new Tanh(0.5));
             network.AddLayer(new ReLU());
 

@@ -18,6 +18,7 @@ namespace JaNet
         #region Fields
 
         public static readonly int BASE_GROUP_SIZE = 32; // constant
+        public static readonly int OPTIMAL_GROUP_SIZE = 128; // depends on device
 
         private static Context context;
         private static Device device;
@@ -95,6 +96,8 @@ namespace JaNet
         public static Kernel FCBackward;
         public static Kernel FCUpdateSpeeds;
         public static Kernel FCUpdateParameters;
+        public static Kernel FCForwardParallel;
+        public static Kernel FCBackwardParallel;
 
         // ReLU layer
         public static Kernel ReLUForward;
@@ -116,7 +119,7 @@ namespace JaNet
         #endregion
 
 
-    #region OpenCL setup
+        #region OpenCL setup
 
         public static void SetupSpace()
         {
@@ -192,7 +195,7 @@ namespace JaNet
     #endregion
 
 
-    #region Kernel loading and building
+        #region Kernel loading and building
 
         public static Kernel LoadAndBuildKernel(string kernelFilePath, string kernelName)
         {
@@ -250,6 +253,7 @@ namespace JaNet
             FCBackward = LoadAndBuildKernel(kernelsPath + "/FCBackward.cl", "FCBackward");
             FCUpdateSpeeds = LoadAndBuildKernel(kernelsPath + "/FCUpdateSpeeds.cl", "FCUpdateSpeeds");
             FCUpdateParameters = LoadAndBuildKernel(kernelsPath + "/FCUpdateParameters.cl", "FCUpdateParameters");
+            FCForwardParallel = LoadAndBuildKernel(kernelsPath + "/FCForwardParallel.cl", "FCForwardParallel");
 
             // ReLU layer
             ReLUForward = LoadAndBuildKernel(kernelsPath + "/ReLUForward.cl", "ReLUForward");
@@ -275,7 +279,7 @@ namespace JaNet
     #endregion
 
 
-    #region Helper methods
+        #region Helper methods
 
         public static void WipeBuffer(Mem buffer, int nElementsInBuffer, Type type)
         {

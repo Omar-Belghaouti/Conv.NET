@@ -198,44 +198,32 @@ namespace JaNet
             // TODO: update this using OutputNeurons.MiniBatchSize
 
             // Work group sizes will be set as follows:
-            //      global work size = smallest multiple of BASE_GROUP_SIZE larger than the total number of processes needed (for efficiency)
-            //      local work size = BASE_GROUP_SIZE or small multiples of it (making sure that global worksize is a multiple of this)
-            // BASE_GROUP_SIZE is a constant multiple of 2. Suggested values: 32 (Nvidia) or 64 (AMD).
+            //      global work size = smallest multiple of OPTIMAL_GROUP_SIZE larger than 
+            //                         the total number of processes needed (for efficiency).
+            //      local work size = as close as possible to OPTIMAL_GROUP_SIZE (making sure 
+            //                        that global worksize is a multiple of this)
+            // OPTIMAL_GROUP_SIZE is a small multiple of BASE_GROUP_SIZE, which in turn is a 
+            //                    constant multiple of 2, platform-dependent, e.g. 32 (Nvidia 
+            //                    WARP) or 64 (AMD WAVEFRONT).
 
-            // FeedForward (1D) ________________________________________________________________________________
-            
-            // Global
-            int totalWorkItemsNeeded = nOutputUnits;
-            int smallestMultipleOfBGS = (int)(OpenCLSpace.BASE_GROUP_SIZE * Math.Ceiling((double)(totalWorkItemsNeeded) / (double)OpenCLSpace.BASE_GROUP_SIZE));
-            this.forwardGlobalWorkSizePtr = new IntPtr[] { (IntPtr)(smallestMultipleOfBGS) };
+            int miniBatchSize = outputNeurons.MiniBatchSize;
+
+            // FeedForward (2D) ________________________________________________________________________________
             
             // Local
-            int maxFWDKernelWorkGroupSize = Cl.GetKernelWorkGroupInfo(  OpenCLSpace.FCForward,
-                                                                        OpenCLSpace.Device,
-                                                                        KernelWorkGroupInfo.WorkGroupSize,
-                                                                        out OpenCLSpace.ClError).CastTo<int>();
-            int localWorkSize = OpenCLSpace.BASE_GROUP_SIZE;
-            while (true)
-            {
-                int tmpLocalWorkSize = 2 * localWorkSize;
+            int optimalLocalWorkSize0 = OpenCLSpace.OPTIMAL_GROUP_SIZE / miniBatchSize;
+            this.forwardLocalWorkSizePtr = new IntPtr[] { (IntPtr)(optimalLocalWorkSize0), (IntPtr)miniBatchSize };
 
-                bool globalDividesLocal = smallestMultipleOfBGS % tmpLocalWorkSize == 0;
-                bool isLocalGroupTooLarge = tmpLocalWorkSize > OpenCLSpace.MaxWorkGroupSize;
-                isLocalGroupTooLarge |= tmpLocalWorkSize > maxFWDKernelWorkGroupSize;
-
-                if (globalDividesLocal && !isLocalGroupTooLarge) // if global divides local and it's not too large
-                    localWorkSize = tmpLocalWorkSize;
-                else
-                    break;
-            }
-            this.forwardLocalWorkSizePtr = new IntPtr[] { (IntPtr)(localWorkSize) };
+            // Global
+            int smallestMultiple = (int)(optimalLocalWorkSize0 * Math.Ceiling((double)(nOutputUnits) / (double)optimalLocalWorkSize0));
+            this.forwardGlobalWorkSizePtr = new IntPtr[] { (IntPtr)smallestMultiple, (IntPtr)miniBatchSize };
 
 
             // BackPropagate (1D) _________________________________________________________________________________
             
             // Global
-            totalWorkItemsNeeded = nInputUnits;
-            smallestMultipleOfBGS = (int)(OpenCLSpace.BASE_GROUP_SIZE * Math.Ceiling((double)(totalWorkItemsNeeded) / (double)OpenCLSpace.BASE_GROUP_SIZE));
+            int totalWorkItemsNeeded = nInputUnits;
+            int smallestMultipleOfBGS = (int)(OpenCLSpace.BASE_GROUP_SIZE * Math.Ceiling((double)(totalWorkItemsNeeded) / (double)OpenCLSpace.BASE_GROUP_SIZE));
             this.backwardGlobalWorkSizePtr = new IntPtr[] { (IntPtr)smallestMultipleOfBGS };
 
             // Local
@@ -243,7 +231,7 @@ namespace JaNet
                                                                         OpenCLSpace.Device,
                                                                         KernelWorkGroupInfo.WorkGroupSize,
                                                                         out OpenCLSpace.ClError).CastTo<int>();
-            localWorkSize = OpenCLSpace.BASE_GROUP_SIZE;
+            int localWorkSize = OpenCLSpace.BASE_GROUP_SIZE;
 
 
             while (true)
@@ -288,18 +276,19 @@ namespace JaNet
             {
 #if OPENCL_ENABLED
                 // Set kernel arguments
-                OpenCLSpace.ClError = Cl.SetKernelArg(OpenCLSpace.FCForward, 0, outputNeurons.ActivationsGPU);
-                OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.FCForward, 1, inputNeurons.ActivationsGPU);
-                OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.FCForward, 2, weightsGPU);
-                OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.FCForward, 3, biasesGPU);
-                OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.FCForward, 4, (IntPtr)sizeof(int), inputNeurons.NumberOfUnits);
-                OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.FCForward, 5, (IntPtr)sizeof(int), outputNeurons.NumberOfUnits);
+                OpenCLSpace.ClError = Cl.SetKernelArg(OpenCLSpace.FCForwardParallel, 0, outputNeurons.ActivationsGPU);
+                OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.FCForwardParallel, 1, inputNeurons.ActivationsGPU);
+                OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.FCForwardParallel, 2, weightsGPU);
+                OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.FCForwardParallel, 3, biasesGPU);
+                OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.FCForwardParallel, 4, (IntPtr)sizeof(int), nInputUnits);
+                OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.FCForwardParallel, 5, (IntPtr)sizeof(int), nOutputUnits);
+                OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.FCForwardParallel, 6, (IntPtr)sizeof(int), inputNeurons.MiniBatchSize);
                 OpenCLSpace.CheckErr(OpenCLSpace.ClError, "FullyConnected.FeedForward(): Cl.SetKernelArg");
 
                 // Run kernel
                 OpenCLSpace.ClError = Cl.EnqueueNDRangeKernel(  OpenCLSpace.Queue,
-                                                                OpenCLSpace.FCForward,
-                                                                1,
+                                                                OpenCLSpace.FCForwardParallel,
+                                                                2,
                                                                 null,
                                                                 forwardGlobalWorkSizePtr,
                                                                 forwardLocalWorkSizePtr,

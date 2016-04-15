@@ -124,29 +124,40 @@ namespace JaNet
         #region Setup methods
 
         /// <summary>
-        /// Connect this layer to previous one.
+        /// Points input of this layer to output of previous layer.
         /// </summary>
         /// <param name="PreviousLayer"></param>
         public virtual void ConnectTo(Layer PreviousLayer)
         {
-            this.InputNeurons = PreviousLayer.OutputNeurons; // assignment by reference! 
+            this.InputNeurons = PreviousLayer.OutputNeurons; // remember that this assignment is by reference! 
             this.nInputUnits = PreviousLayer.NOutputUnits;
-            // In memory, output neurons of previous layer and input neurons of current layer are the same thing!
-
+            
             this.inputWidth = PreviousLayer.OutputWidth;
             this.inputHeight = PreviousLayer.OutputHeight;
             this.inputDepth = PreviousLayer.OutputDepth;
         }
 
+        /// <summary>
+        /// (abstract method) Call after ConnectTo() in order to setup output units. Implementation is layer type-specific.
+        /// </summary>
+        public abstract void SetupOutput(); // depends on layer type
 
         /// <summary>
-        /// Initialize layer parameters.
+        /// Initialize layer parameters. Layer type-specific.
         /// </summary>
         public virtual void InitializeParameters()
         {
             // Base class: just make sure output neurons exist (i.e. this method is called AFTER method ConnectTo() )
             if (outputNeurons == null)
                 throw new MissingFieldException("Cannot call InitializeParameters() if parameters do not exist yet! Make sure layer has been connected.");
+        }
+
+        /// <summary>
+        ///  Setup global/local work group sizes used by OpenCL kernels.
+        /// </summary>
+        public virtual void SetWorkGroups()
+        {
+            // Implementation is layer type-specific.
         }
 
         #endregion
@@ -179,17 +190,6 @@ namespace JaNet
         public virtual void UpdateParameters()
         {
         }
-
-        #endregion
-
-        // TODO: kill this
-        #region Debugging
-
-        public virtual void DisplayParameters()
-        {
-
-        }
-
 
         #endregion
 

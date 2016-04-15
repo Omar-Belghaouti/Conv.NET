@@ -73,19 +73,7 @@ namespace JaNet
         public int MiniBatchSize
         {
             get { return miniBatchSize; }
-            set 
-            { 
-                miniBatchSize = value;
-                network.MiniBatchSize = value;
-
-                if (miniBatchSize > 1)
-                {
-                    for (int l = 0; l < network.NumberOfLayers; l++)
-                    {
-                        network.Layers[l].OutputNeurons.SetupMiniBatch(miniBatchSize);
-                    }
-                }
-            }
+            set { miniBatchSize = value; }
         }
 
         public double ErrorTolerance
@@ -166,6 +154,9 @@ namespace JaNet
 
         public void Train()
         {
+            // Setup network before training
+            network.Setup(miniBatchSize);
+
             int epoch = 0;
             bool isOutputEpoch = true;
             int epochsRemainingToOutput = (evaluateBeforeTraining == true) ? 0 : consoleOutputLag;
@@ -284,15 +275,11 @@ namespace JaNet
             stopwatch.Stop();
         }
 
+
         #region Deprecated methods
 
         /*
 
-
-
-
-
-        
         [Obsolete("Deprecated. Use cross-entropy cost instead.")]
         static double QuadraticCost(float[] targetValues, float[] networkOutputs, out float[] gradient)
         {
@@ -331,6 +318,7 @@ namespace JaNet
          * */
 
         #endregion
+
 
         #region Junk
 #if TOY

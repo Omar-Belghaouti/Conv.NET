@@ -12,10 +12,18 @@ namespace JaNet
     /// </summary>
     class InputLayer : Layer
     {
+        #region Fields
+
+        private int imageChannels;
+        private int imageHeight;
+        private int imageWidth;
+
+        #endregion
+
+
         /// <summary>
         /// InputLayer class standard constructor.
         /// </summary>
-        /// <param name="MiniBatchSize"></param>
         /// <param name="DataDepth"></param>
         /// <param name="DataHeight"></param>
         /// <param name="DataWidth"></param>
@@ -26,16 +34,23 @@ namespace JaNet
             if (DataHeight != DataWidth)
                 throw new ArgumentException("Non-square input images are currently not supported.");
 
-            this.nOutputUnits = DataDepth * DataHeight * DataWidth;
+            this.imageChannels = DataDepth;
+            this.imageHeight = DataHeight;
+            this.imageWidth = DataWidth;
 
-            this.outputDepth = DataDepth;
-            this.outputHeight = DataHeight;
-            this.outputWidth = DataWidth;
+        }
+
+        public override void SetupOutput()
+        {
+            this.outputDepth = imageChannels;
+            this.outputHeight = imageHeight;
+            this.outputWidth = imageWidth;
+
+            this.nOutputUnits = outputDepth * outputHeight * outputWidth;
 
             this.outputNeurons = new Neurons(this.nOutputUnits);
-
-            Console.WriteLine();
         }
+
 
         public override void FeedForward()
         {

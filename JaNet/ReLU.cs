@@ -7,14 +7,11 @@ using OpenCL.Net;
 
 namespace JaNet
 {
-    // CLEAN
-
     class ReLU : Layer
     {
         #region Fields
 
 #if OPENCL_ENABLED
-
         private IntPtr[] globalWorkSizePtr;
         private IntPtr[] localWorkSizePtr; 
         // in this case nInput = nOutput  ==>  only need to set one global/local work size 
@@ -34,29 +31,23 @@ namespace JaNet
             this.type = "ReLU";
         }
 
-        /// <summary>
-        ///  Connect current layer to layer given as argument.
-        /// </summary>
-        /// <param name="PreviousLayer"></param>
-        public override void ConnectTo(Layer PreviousLayer)
+
+        public override void SetupOutput()
         {
-            base.ConnectTo(PreviousLayer);
-
-            this.nOutputUnits = PreviousLayer.OutputNeurons.NumberOfUnits;
-            this.outputNeurons = new Neurons(this.nOutputUnits);
-
             this.outputWidth = inputWidth;
             this.outputHeight = inputHeight;
             this.outputDepth = inputDepth;
 
-#if OPENCL_ENABLED
-            SetWorkGroupSizes();
-#endif
+            this.nOutputUnits = nInputUnits;
+            this.outputNeurons = new Neurons(nOutputUnits);
         }
 
-#if OPENCL_ENABLED
-        private void SetWorkGroupSizes()
+
+        public override void SetWorkGroups()
         {
+#if OPENCL_ENABLED
+            // TODO: update this using OutputNeurons.MiniBatchSize
+
             // Work group sizes will be set as follows:
             //      global work size = smallest multiple of BASE_GROUP_SIZE larger than the total number of processes needed (for efficiency)
             //      local work size = largest multiple of BASE_GROUP_SIZE that global work size is a multiple of, with the constraint of being 
@@ -91,13 +82,14 @@ namespace JaNet
                     break;
             }
             this.localWorkSizePtr = new IntPtr[] { (IntPtr)(localWorkSize) };
-        }
 #endif
+        }
+
 
         #endregion
 
 
-        #region Training methods
+        #region Methods
 
         public override void FeedForward()
         {
@@ -105,8 +97,8 @@ namespace JaNet
             {
 #if OPENCL_ENABLED
                 // Set kernel arguments
-                OpenCLSpace.ClError = Cl.SetKernelArg(OpenCLSpace.ReLUForward, 0, OutputNeurons.ActivationsGPU[m]);
-                OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.ReLUForward, 1, InputNeurons.ActivationsGPU[m]);
+                OpenCLSpace.ClError = Cl.SetKernelArg(OpenCLSpace.ReLUForward, 0, OutputNeurons.ActivationsGPU);
+                OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.ReLUForward, 1, InputNeurons.ActivationsGPU);
                 OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.ReLUForward, 2, (IntPtr)sizeof(int), OutputNeurons.NumberOfUnits);
                 OpenCLSpace.CheckErr(OpenCLSpace.ClError, "ReLU.FeedForward(): Cl.SetKernelArg");
 
@@ -151,9 +143,9 @@ namespace JaNet
             {
 #if OPENCL_ENABLED
                 // Set kernel arguments
-                OpenCLSpace.ClError  = Cl.SetKernelArg(OpenCLSpace.ReLUBackward, 0, InputNeurons.DeltaGPU[m]);
-                OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.ReLUBackward, 1, OutputNeurons.DeltaGPU[m]);
-                OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.ReLUBackward, 2, InputNeurons.ActivationsGPU[m]);
+                OpenCLSpace.ClError  = Cl.SetKernelArg(OpenCLSpace.ReLUBackward, 0, InputNeurons.DeltaGPU);
+                OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.ReLUBackward, 1, OutputNeurons.DeltaGPU);
+                OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.ReLUBackward, 2, InputNeurons.ActivationsGPU);
                 OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.ReLUBackward, 3, (IntPtr)sizeof(int), InputNeurons.NumberOfUnits);
                 OpenCLSpace.CheckErr(OpenCLSpace.ClError, "ReLU.BackPropagate(): Cl.SetKernelArg");
 

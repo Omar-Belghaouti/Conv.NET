@@ -10,7 +10,7 @@ namespace JaNet
     public static class Global
     {
         public const double EPSILON = 0.000001;
-        public const int SEED = 2016;
+        //public const int SEED = 2016;
 
         public static Random rng = new Random(); //(SEED);
     }
@@ -121,6 +121,7 @@ namespace JaNet
         /// </summary>
         /// <param name="maxN"></param>
         /// <returns></returns>
+        [Obsolete("Replaced by Sequence class")]
         public static int[] GenerateRandomPermutation(int maxN)
         {
             

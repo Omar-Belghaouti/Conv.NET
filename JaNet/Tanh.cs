@@ -10,7 +10,7 @@ namespace JaNet
     
     class Tanh : Layer
     {
-        #region Tanh layer class fields (private)
+        #region Fields
 
         private double beta;
 
@@ -25,7 +25,7 @@ namespace JaNet
         #endregion
 
 
-        #region Setup methods (to be called once)
+        #region Setup methods
 
         /// <summary>
         /// Constructor of Tanh layer. Specify beta parameter as argument.
@@ -39,26 +39,21 @@ namespace JaNet
             this.type = "Tanh";
         }
 
-        public override void ConnectTo(Layer PreviousLayer)
+        public override void SetupOutput()
         {
-            base.ConnectTo(PreviousLayer);
-
-            this.nOutputUnits = nInputUnits;
-            this.outputNeurons = new Neurons(nOutputUnits);
-
             this.outputWidth = inputWidth;
             this.outputHeight = inputHeight;
             this.outputDepth = inputDepth;
 
-#if OPENCL_ENABLED
-            SetWorkGroupSizes();
-#endif
+            this.nOutputUnits = nInputUnits;
+            this.outputNeurons = new Neurons(nOutputUnits);
         }
 
-#if OPENCL_ENABLED
-        private void SetWorkGroupSizes()
+
+        public override void SetWorkGroups()
         {
-            // TODO: 
+#if OPENCL_ENABLED
+            // TODO: update this using OutputNeurons.MiniBatchSize
             
             // Work group sizes will be set as follows:
             //      global work size = smallest multiple of BASE_GROUP_SIZE larger than the total number of processes needed (for efficiency)
@@ -93,13 +88,14 @@ namespace JaNet
                     break;
             }
             this.localWorkSizePtr = new IntPtr[] { (IntPtr)(localWorkSize) };
-        }
 #endif
+        }
+
 
         #endregion
 
 
-        #region Training methods
+        #region Methods
 
         public override void FeedForward()
         {
@@ -107,8 +103,8 @@ namespace JaNet
             {
 #if OPENCL_ENABLED
                 // Set kernel arguments
-                OpenCLSpace.ClError = Cl.SetKernelArg(OpenCLSpace.TanhForward, 0, OutputNeurons.ActivationsGPU[m]);
-                OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.TanhForward, 1, InputNeurons.ActivationsGPU[m]);
+                OpenCLSpace.ClError = Cl.SetKernelArg(OpenCLSpace.TanhForward, 0, OutputNeurons.ActivationsGPU);
+                OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.TanhForward, 1, InputNeurons.ActivationsGPU);
                 OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.TanhForward, 2, (IntPtr)sizeof(float), beta);
                 OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.TanhForward, 3, (IntPtr)sizeof(int), OutputNeurons.NumberOfUnits);
                 OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Tanh.FeedForward(): Cl.SetKernelArg");
@@ -150,9 +146,9 @@ namespace JaNet
             {
 #if OPENCL_ENABLED
                 // Set kernel arguments
-                OpenCLSpace.ClError  = Cl.SetKernelArg(OpenCLSpace.TanhBackward, 0, inputNeurons.DeltaGPU[m]);
-                OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.TanhBackward, 1, outputNeurons.DeltaGPU[m]);
-                OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.TanhBackward, 2, outputNeurons.ActivationsGPU[m]);
+                OpenCLSpace.ClError  = Cl.SetKernelArg(OpenCLSpace.TanhBackward, 0, inputNeurons.DeltaGPU);
+                OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.TanhBackward, 1, outputNeurons.DeltaGPU);
+                OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.TanhBackward, 2, outputNeurons.ActivationsGPU);
                 OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.TanhBackward, 3, (IntPtr)sizeof(float), beta);
                 OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.TanhBackward, 3, (IntPtr)sizeof(int), inputNeurons.NumberOfUnits);
                 OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Tanh.BackPropagate(): Cl.SetKernelArg");
@@ -184,23 +180,9 @@ namespace JaNet
             OpenCLSpace.ClError = Cl.Finish(OpenCLSpace.Queue);
             OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.Finish");
 #endif
-
-
-
-
-
-
-
-
-
         }
-
-
-        
 
         #endregion
 
-
     }
-
 }

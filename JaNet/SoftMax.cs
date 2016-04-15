@@ -39,17 +39,17 @@ namespace JaNet
             this.outputClassScores = new List<double[]>();
         }
 
-        /// <summary>
-        ///  Connect current layer to layer given as argument.
-        /// </summary>
-        /// <param name="PreviousLayer"></param>
-        public override void ConnectTo(Layer PreviousLayer)
+
+        public override void SetupOutput()
         {
-            base.ConnectTo(PreviousLayer);
+            this.nOutputUnits = nInputUnits;
+            this.outputNeurons = new Neurons(nOutputUnits);
+        }
 
-            this.nOutputUnits = PreviousLayer.OutputNeurons.NumberOfUnits;
-            this.outputNeurons = new Neurons(this.nOutputUnits);
-
+        public void SetupOutputScores(int miniBatchSize)
+        {
+            for (int m = 0; m < miniBatchSize; m++)
+                outputClassScores.Add(new double[nOutputUnits]);
         }
 
         #endregion
@@ -59,13 +59,6 @@ namespace JaNet
 
         public override void FeedForward()
         {
-            // inelegant workaround to create list of output scores once in the beginning
-            // TODO: find a more elegant solution for this
-            if (outputClassScores.Count == 0)
-            {
-                for (int m = 0; m < inputNeurons.MiniBatchSize; m++)
-                    outputClassScores.Add(new double[nOutputUnits]);
-            }
 
             for (int m = 0; m < inputNeurons.MiniBatchSize; m++)
             {
@@ -73,7 +66,7 @@ namespace JaNet
 #if OPENCL_ENABLED
                 float[] preActivations = new float[nInputUnits];
                 OpenCLSpace.ClError = Cl.EnqueueReadBuffer( OpenCLSpace.Queue,
-                                                            inputNeurons.ActivationsGPU[m], // source
+                                                            inputNeurons.ActivationsGPU, // source
                                                             Bool.True,
                                                             (IntPtr)0,
                                                             (IntPtr)(sizeof(float) * nInputUnits),

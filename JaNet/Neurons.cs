@@ -14,11 +14,11 @@ namespace JaNet
         #region Neuron class fields (private)
 
         private int nUnits;
-        private int miniBatchSize = 1;
+        private int miniBatchSize;
 
 #if OPENCL_ENABLED
-        private List<Mem> activationsGPU;
-        private List<Mem> deltaGPU;
+        private Mem activationsGPU;
+        private Mem deltaGPU;
 #else
         private List<double[]> activations;
         private List<double[]> delta;
@@ -42,13 +42,13 @@ namespace JaNet
 
 #if OPENCL_ENABLED
 
-        public List<Mem> ActivationsGPU 
+        public Mem ActivationsGPU 
         { 
             get { return this.activationsGPU; }
             set { this.activationsGPU = value; }
         }
 
-        public List<Mem> DeltaGPU 
+        public Mem DeltaGPU 
         { 
             get { return this.deltaGPU; }
             set { this.deltaGPU = value; }
@@ -86,19 +86,23 @@ namespace JaNet
             this.nUnits = NumberOfUnits;
 
 #if OPENCL_ENABLED
+            /*
             this.activationsGPU = new List<Mem>();
             this.activationsGPU.Add( (Mem)Cl.CreateBuffer(  OpenCLSpace.Context,
                                                             MemFlags.ReadWrite,
                                                             (IntPtr)(sizeof(float) * NumberOfUnits),
                                                             out OpenCLSpace.ClError) );
+            
 
             this.deltaGPU = new List<Mem>();
+            
             this.deltaGPU.Add( (Mem)Cl.CreateBuffer(OpenCLSpace.Context,
                                                     MemFlags.ReadWrite,
                                                     (IntPtr)(sizeof(float) * NumberOfUnits),
                                                     out OpenCLSpace.ClError) );
 
             OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Neurons constructor: Cl.CreateBuffer");
+            */
 #else
             this.activations = new List<double[]>();
             this.activations.Add(new double[nUnits]);
@@ -111,27 +115,29 @@ namespace JaNet
         
         #endregion
 
-        public void SetupMiniBatch(int MiniBatchSize)
+        public void SetupBuffers(int MiniBatchSize)
         {
             this.miniBatchSize = MiniBatchSize;
 
-            for (int m = 1; m < MiniBatchSize; m++) // add MiniBatchSize - 1 buffers (to the existing list of one element)
-            {
+            
 #if OPENCL_ENABLED
-                this.activationsGPU.Add((Mem)Cl.CreateBuffer(   OpenCLSpace.Context,
-                                                                MemFlags.ReadWrite,
-                                                                (IntPtr)(sizeof(float) * NumberOfUnits),
-                                                                out OpenCLSpace.ClError));
-                this.deltaGPU.Add((Mem)Cl.CreateBuffer( OpenCLSpace.Context,
+            this.activationsGPU = (Mem)Cl.CreateBuffer( OpenCLSpace.Context,
                                                         MemFlags.ReadWrite,
-                                                        (IntPtr)(sizeof(float) * NumberOfUnits),
-                                                        out OpenCLSpace.ClError));
-                OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Neurons constructor: Cl.CreateBuffer");
+                                                        (IntPtr)(sizeof(float) * NumberOfUnits * MiniBatchSize),
+                                                        out OpenCLSpace.ClError);
+            this.deltaGPU = (Mem)Cl.CreateBuffer(   OpenCLSpace.Context,
+                                                    MemFlags.ReadWrite,
+                                                    (IntPtr)(sizeof(float) * NumberOfUnits * MiniBatchSize),
+                                                    out OpenCLSpace.ClError);
+            OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Neurons constructor: Cl.CreateBuffer");
 #else
+            for (int m = 0; m < MiniBatchSize; m++)
+            {
                 this.activations.Add(new double[nUnits]);
                 this.delta.Add(new double[nUnits]);
-#endif
             }
+#endif
+
 
         }
 

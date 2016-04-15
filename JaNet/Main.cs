@@ -46,20 +46,20 @@ namespace JaNet
 
             NeuralNetwork network = new NeuralNetwork();
 
-            network.AddLayer(new InputLayer(3, 32, 32));
+            network.AddLayer(new InputLayer(1, 28, 28));
 
-            network.AddLayer(new ConvolutionalLayer(5, 8, 1, 0));
-            network.AddLayer(new ReLU());
+            //network.AddLayer(new ConvolutionalLayer(5, 8, 1, 0));
+            //network.AddLayer(new ReLU());
 
-            network.AddLayer(new ConvolutionalLayer(5, 8, 1, 0));
-            network.AddLayer(new ReLU());
+            //network.AddLayer(new ConvolutionalLayer(5, 8, 1, 0));
+            //network.AddLayer(new ReLU());
 
 
             network.AddLayer(new FullyConnectedLayer(16));
             //network.AddLayer(new Tanh(0.5));
             network.AddLayer(new ReLU());
 
-            network.AddLayer(new FullyConnectedLayer(43));
+            network.AddLayer(new FullyConnectedLayer(10));
             network.AddLayer(new SoftMax());
 
 
@@ -71,25 +71,41 @@ namespace JaNet
             Console.WriteLine("    Importing data");
             Console.WriteLine("=========================================\n");
 
+            #region Paths to datasets
+
             // Original MNIST training set
-            //DataSet trainingSetMNIST = new DataSet(10, "C:/Users/jacopo/Dropbox/Chalmers/MSc thesis/MNIST/mnistTrainImages.dat", "C:/Users/jacopo/Dropbox/Chalmers/MSc thesis/MNIST/mnistTrainLabels.dat");
+            string MNISTtrainingData = "C:/Users/jacopo/Dropbox/Chalmers/MSc thesis/MNIST/mnistTrainImages.dat";
+            string MNISTtrainingLabels = "C:/Users/jacopo/Dropbox/Chalmers/MSc thesis/MNIST/mnistTrainLabels.dat";
 
             // Original MNIST test set
-            //DataSet testSetMNIST = new DataSet(10, "C:/Users/jacopo/Dropbox/Chalmers/MSc thesis/MNIST/mnistTestImages.dat", "C:/Users/jacopo/Dropbox/Chalmers/MSc thesis/MNIST/mnistTestLabels.dat");
+            string MNISTtestData = "C:/Users/jacopo/Dropbox/Chalmers/MSc thesis/MNIST/mnistTestImages.dat";
+            string MNISTtestLabels = "C:/Users/jacopo/Dropbox/Chalmers/MSc thesis/MNIST/mnistTestLabels.dat";
 
             // Reduced MNIST dataset (1000 data points, 100 per digit)
-            //DataSet reducedMNIST = new DataSet(10, "C:/Users/jacopo/Dropbox/Chalmers/MSc thesis/MNIST/mnistImagesSubset.dat", "C:/Users/jacopo/Dropbox/Chalmers/MSc thesis/MNIST/mnistLabelsSubset.dat");
+            string MNISTreducedData = "C:/Users/jacopo/Dropbox/Chalmers/MSc thesis/MNIST/mnistImagesSubset.dat";
+            string MNISTreducedLabels = "C:/Users/jacopo/Dropbox/Chalmers/MSc thesis/MNIST/mnistLabelsSubset.dat";
 
             // GTSRB training set (WARNING: counterfait!)
-            //DataSet trainingGTSRB = new DataSet(43, "C:/Users/jacopo/Dropbox/Chalmers/MSc thesis/GTSRB/Preprocessed/02_training_images.dat", "C:/Users/jacopo/Dropbox/Chalmers/MSc thesis/GTSRB/Preprocessed/training_labels_full.dat");
+            string GTSRBtrainingData = "C:/Users/jacopo/Dropbox/Chalmers/MSc thesis/GTSRB/Preprocessed/02_training_images.dat";
+            string GTSRBtrainingLabels = "C:/Users/jacopo/Dropbox/Chalmers/MSc thesis/GTSRB/Preprocessed/training_labels_full.dat";
 
-            // GTSRB test set
-            DataSet testGTSRB = new DataSet(43, "C:/Users/jacopo/Dropbox/Chalmers/MSc thesis/GTSRB/Preprocessed/03_test_images.dat", "C:/Users/jacopo/Dropbox/Chalmers/MSc thesis/GTSRB/Preprocessed/test_labels_full.dat");
+            // GTSRB test set (RGB)
+            string GTSRBtestDataRGB = "C:/Users/jacopo/Dropbox/Chalmers/MSc thesis/GTSRB/Preprocessed/03_test_images.dat";
+            string GTSRBtestLabelsRGB = "C:/Users/jacopo/Dropbox/Chalmers/MSc thesis/GTSRB/Preprocessed/test_labels_full.dat";
 
+            // GTSRB test set (grayscale)
+            string GTSRBtestDataGS = "C:/Users/jacopo/Dropbox/Chalmers/MSc thesis/GTSRB/Preprocessed/02_test_images.dat";
+            string GTSRBtestLabelsGS = "C:/Users/jacopo/Dropbox/Chalmers/MSc thesis/GTSRB/Preprocessed/test_labels_full.dat";
 
+            #endregion
 
+            Console.WriteLine("Importing training set...");
+
+            DataSet trainingSet = new DataSet(10);
+
+            trainingSet.ReadData(MNISTreducedData);
+            trainingSet.ReadLabels(MNISTreducedLabels);
             
-
 
             /*****************************************************
              * (3) Train network
@@ -100,7 +116,7 @@ namespace JaNet
 
 
 
-            NetworkTrainer networkTrainer = new NetworkTrainer(network, testGTSRB, null);
+            NetworkTrainer networkTrainer = new NetworkTrainer(network, trainingSet, null);
 
             networkTrainer.LearningRate = 0.002;
             networkTrainer.MomentumMultiplier = 0.9;
@@ -126,7 +142,7 @@ namespace JaNet
 
             double loss;
             double error;
-            networkEvaluator.ComputeLossError(network, testGTSRB, out loss, out error);
+            networkEvaluator.ComputeLossError(network, trainingSet, out loss, out error);
             Console.WriteLine("Final evaluation\n\tLoss = {0}\n\tError = {1}", loss, error);
 #if GRADIENT_CHECK
             GradientChecker.Check(network, reducedMNIST);

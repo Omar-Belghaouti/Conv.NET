@@ -15,7 +15,7 @@ namespace JaNet
 
         private List<Layer> layers;
         private int nLayers;
-        private int miniBatchSize;
+        private SoftMax outputLayer;
 
         #endregion
 
@@ -32,12 +32,13 @@ namespace JaNet
             get { return nLayers; }
         }
 
-        public int MiniBatchSize
+        /* // shouldn't need this
+        public SoftMax OutputLayer
         {
-            get { return miniBatchSize; }
-            set { this.miniBatchSize = value; }
+            get { return outputLayer; }
+            set { this.outputLayer = value; }
         }
-            
+        */
         #endregion
 
 
@@ -69,7 +70,7 @@ namespace JaNet
                 }
 
                 switch (newLayer.Type)
-                {
+                { // TODO: add more error handling
                     case "Input":
                         {
                             if (!layers.Any()) // if list of layers is empty
@@ -78,7 +79,7 @@ namespace JaNet
                             }
                             else // list is not empty
                             {
-                                throw new ArgumentException("Adding an InputLayer to a non-empty network.");
+                                throw new ArgumentException("You cannot add an InputLayer to a non-empty network.");
                             }
                             break;
                         }
@@ -94,6 +95,19 @@ namespace JaNet
                             }
                             break;
                         }
+                    case "SoftMax":
+                        {
+                            if (layers.Last().Type != "FullyConnected")
+                            {
+                                throw new ArgumentException("You should only connect a SoftMax layer to a classifier (FullyConnected layer).");
+                            }
+                            else
+                            {
+                                newLayer.ID = layers.Last().ID + 1;
+                                this.outputLayer = (SoftMax)newLayer;
+                            }
+                            break;
+                        }
                     default: // valid connection
                         newLayer.ID = layers.Last().ID + 1;
                         break;
@@ -102,12 +116,13 @@ namespace JaNet
                 Console.Write("\tAdding layer [" + newLayer.ID + "]: " + newLayer.Type + "...");
                 layers.Add(newLayer);
                 nLayers++;
-
+                /*
                 if (nLayers > 1)
                 {
                     layers[newLayer.ID].ConnectTo(layers[newLayer.ID-1]); // connect last layer to second last
                     layers[newLayer.ID].InitializeParameters();
                 }
+                */
                 Console.Write(" OK\n");
             }
             catch (Exception exception)
@@ -116,6 +131,36 @@ namespace JaNet
             }
         }
 
+
+        public void Setup(int miniBatchSize)
+        {
+            // Input layer (only setup output and buffers)
+            layers[0].SetupOutput();
+            layers[0].OutputNeurons.SetupBuffers(miniBatchSize);
+
+            // Hidden layers and output layer
+            for (int l = 1; l < nLayers; l++)
+            {
+                // 1. Setup input using output of previous layer.
+                layers[l].ConnectTo(layers[l - 1]);
+
+                // 2. Setup output neurons architecture using input and layer-specific properties
+                // (e.g. filterSize and strideLenght in case of a ConvLayer)
+                layers[l].SetupOutput();
+
+                // 3. Allocate memory (if CPU) / buffers (if OpenCL) according to mini-batch size
+                layers[l].OutputNeurons.SetupBuffers(miniBatchSize);
+
+                // 4. Initialize layer's parameters
+                layers[l].InitializeParameters();
+
+                // 5. (extra) If using OpenCL, set global / local work group sizes for kernels
+                layers[l].SetWorkGroups();
+            }
+
+            // Output layer only
+            outputLayer.SetupOutputScores(miniBatchSize);
+        }
         #endregion
 
 
@@ -123,10 +168,23 @@ namespace JaNet
 
         public void FeedData(DataSet dataSet, int[] iExamples)
         {
-            for (int m = 0; m < miniBatchSize; m++)
+            int dataPointSize = dataSet.DataDimension;
+
+            for (int m = 0; m < layers[0].OutputNeurons.MiniBatchSize; m++)
             {
 #if OPENCL_ENABLED
-                layers[0].OutputNeurons.ActivationsGPU[m] = dataSet.DataGPU(iExamples[m]); // Copied by reference
+                int iDataPoint = iExamples[m];
+                
+                OpenCLSpace.ClError = Cl.EnqueueCopyBuffer( OpenCLSpace.Queue,
+                                                            dataSet.DataGPU[iDataPoint], // source
+                                                            layers[0].OutputNeurons.ActivationsGPU, // destination
+                                                            (IntPtr)0, // source offset (in bytes)
+                                                            (IntPtr)(sizeof(float) * m * dataPointSize), // destination offset (in bytes)
+                                                            (IntPtr)(sizeof(float) * dataPointSize),  // size of buffer to copy
+                                                            0,
+                                                            null,
+                                                            out OpenCLSpace.ClEvent);
+                OpenCLSpace.CheckErr(OpenCLSpace.ClError, "NeuralNetwork.FeedData Cl.clEnqueueReadBuffer inputData");
 #else
                 layers[0].OutputNeurons.SetHost(m, dataSet.GetDataPoint(iExamples[m]));
 #endif
@@ -166,8 +224,14 @@ namespace JaNet
 
             /* ------------------------- END DEBUGGING --------------------------------------------- */
 #endif
+
+#if OPENCL_ENABLED
+            OpenCLSpace.ClError = Cl.Finish(OpenCLSpace.Queue);
+            OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.Finish");
+#endif
         }
 
+        /*
         public void FeedDatum(DataSet dataSet, int iExample)
         {
 #if OPENCL_ENABLED
@@ -176,7 +240,7 @@ namespace JaNet
             layers[0].OutputNeurons.SetHost(0, dataSet.GetDataPoint(iExample));
 #endif
         }
-
+        */
 
         public void ForwardPass()
         {
@@ -358,28 +422,28 @@ namespace JaNet
         public void CrossEntropyGradient(DataSet DataSet, int[] iMiniBatch)
         {
 
-            for (int m = 0; m < miniBatchSize; m++)
+            for (int m = 0; m < layers.Last().OutputNeurons.MiniBatchSize; m++)
             {
                 int iDataPoint = iMiniBatch[m];
-                int trueLabel = DataSet.GetLabel(iDataPoint);
+                int trueLabel = DataSet.Labels[iDataPoint];
 
                 double[] crossEntropyGradient = layers.Last().OutputClassScores[m];
                 crossEntropyGradient[trueLabel] -= 1.0F;
 
                 // now write gradient to input neurons of softmax layer (i.e. to output neurons of classifier)
 #if OPENCL_ENABLED
-                float[] fltCrossEntropyGradient = new float[crossEntropyGradient.Length];
+                float[] floatCrossEntropyGradient = new float[crossEntropyGradient.Length];
                 for (int c = 0; c < crossEntropyGradient.Length; c++)
                 {
-                    fltCrossEntropyGradient[c] = (float)crossEntropyGradient[c];
+                    floatCrossEntropyGradient[c] = (float)crossEntropyGradient[c];
                 }
 
                 OpenCLSpace.ClError = Cl.EnqueueWriteBuffer(OpenCLSpace.Queue, 
-                                                            layers.Last().InputNeurons.DeltaGPU[m], 
-                                                            OpenCL.Net.Bool.True, 
-                                                            (IntPtr)0, 
+                                                            layers.Last().InputNeurons.DeltaGPU, 
+                                                            OpenCL.Net.Bool.True,
+                                                            (IntPtr) (sizeof(float) * m * crossEntropyGradient.Length), 
                                                             (IntPtr) (sizeof(float) * crossEntropyGradient.Length),
-                                                            fltCrossEntropyGradient, 
+                                                            floatCrossEntropyGradient, 
                                                             0, 
                                                             null, 
                                                             out OpenCLSpace.ClEvent);

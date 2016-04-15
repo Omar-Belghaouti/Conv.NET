@@ -11,7 +11,7 @@ namespace JaNet
     {
 
         const double EPSILON = 0.0001;
-        const double TOLERANCE_REL = 0.001;
+        const double TOLERANCE_REL = 0.01;
         const double learningRate = 0;
         const double momentumMultiplier = 0;
 
@@ -29,7 +29,6 @@ namespace JaNet
                 network.ForwardPass();
                 double[] outputScores = network.Layers.Last().OutputClassScores[0];
                 int trueLabel = dataSet.GetLabel(iDataPoint);
-                double loss = -Math.Log(outputScores[trueLabel]);
                 network.CrossEntropyGradient(dataSet, new int[] { iDataPoint });
                 network.BackwardPass(learningRate, momentumMultiplier);
 
@@ -61,42 +60,37 @@ namespace JaNet
                                 double[,] weights = network.Layers[iLayer].Weights;
                                 double[,] weightsGradients = network.Layers[iLayer].WeightsGradients;
 
-                                if (Math.Abs(weightsGradients[i, j]) > EPSILON)
+                                // decrease weight [i,j] by EPSILON and compute loss
+                                double[,] weightsMinus = weights;
+                                weightsMinus[i, j] -= EPSILON;
+                                network.Layers[iLayer].Weights = weightsMinus;
+                                network.FeedDatum(dataSet, iDataPoint );
+                                network.ForwardPass();
+                                double[] outputScoresPlus = network.Layers.Last().OutputClassScores[0];
+                                double lossMinus = -Math.Log(outputScoresPlus[trueLabel]);
+                                    
+                                // increase weight [i,j] by EPSILON and compute loss
+                                double[,] weightsPlus = weights;
+                                weightsPlus[i, j] += EPSILON;
+                                network.Layers[iLayer].Weights = weightsPlus;
+                                network.FeedDatum(dataSet, iDataPoint );
+                                network.ForwardPass();
+                                double[] outputScoresMinus = network.Layers.Last().OutputClassScores[0];
+                                double lossPlus = -Math.Log(outputScoresMinus[trueLabel]);
+
+                                
+                                double approxGradient = (lossPlus - lossMinus) / (EPSILON);
+
+                                if (Math.Abs(approxGradient) > EPSILON)
                                 {
-                                    nChecks++;
-                                    //Console.Write("\nChecking gradient wrt weight {0}... ", i * weights.GetLength(1) + j);
-
-                                    
-                                    // decrease weight [i,j] by EPSILON and compute loss
-                                    double[,] weightsMinus = weights;
-                                    weightsMinus[i, j] -= EPSILON;
-                                    network.Layers[iLayer].Weights = weightsMinus;
-                                    network.FeedDatum(dataSet, iDataPoint );
-                                    network.ForwardPass();
-                                    double[] outputScoresPlus = network.Layers.Last().OutputClassScores[0];
-                                    double lossMinus = -Math.Log(outputScoresPlus[trueLabel]);
-                                    
-                                    
-
-                                    // increase weight [i,j] by EPSILON and compute loss
-                                    double[,] weightsPlus = weights;
-                                    weightsPlus[i, j] += EPSILON;
-                                    network.Layers[iLayer].Weights = weightsPlus;
-                                    network.FeedDatum(dataSet, iDataPoint );
-                                    network.ForwardPass();
-                                    double[] outputScoresMinus = network.Layers.Last().OutputClassScores[0];
-                                    double lossPlus = -Math.Log(outputScoresMinus[trueLabel]);
-
-                                    //double approxGradient = (lossPlus - loss) / (EPSILON);
-                                    double approxGradient = (lossPlus - lossMinus) / (EPSILON);
-
+                                        nChecks++;
                                     // compare gradient from backprop and approximate gradient
                                     double relativeError = Math.Abs(approxGradient - weightsGradients[i, j]) / 
                                         Math.Max( Math.Abs(weightsGradients[i, j]), Math.Abs(approxGradient) );
                                     if (relativeError > TOLERANCE_REL)
                                     {
                                         Console.Write("OUCH! Gradient check failed at weight {0}\n", i * weights.GetLength(1) + j);
-                                        Console.WriteLine("\tBackpropagation gradient: {0}", weightsGradients[i, j]);
+                                       Console.WriteLine("\tBackpropagation gradient: {0}", weightsGradients[i, j]);
                                         Console.WriteLine("\tFinite difference gradient: {0}", approxGradient);
                                         Console.WriteLine("\tRelative error: {0}", relativeError);
                                         //Console.ReadKey();
@@ -110,14 +104,20 @@ namespace JaNet
                                 }
                             }
                         }
-                        if (nErrors == 0)
-                            Console.Write("OK");
                         if (nChecks == 0)
-                            Console.Write("...maybe!");
+                            Console.Write("SUSPECT! (all gradients are zero)");
+                        else if (nErrors == 0)
+                            Console.Write("OK :D");
+                        else
+                            Console.Write("{0} errors out of {1} checks.", nErrors, nChecks);
+                        
                     }
                     
 
                 }
+
+
+                Console.Write("\n\n");
             }
 
 

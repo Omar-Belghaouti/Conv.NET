@@ -106,6 +106,8 @@ namespace JaNet
                 for (int i = 0; i < nOutputUnits; i++)
                 {
                     tmpActivations[i] /= sum;
+                    if (tmpActivations[i] < 0)
+                        System.Diagnostics.Debugger.Launch();
                 }
 
                 outputClassScores[m] = tmpActivations;

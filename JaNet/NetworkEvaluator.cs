@@ -97,6 +97,7 @@ namespace JaNet
             } // end loop over mini-batches
              
             error /= dataSet.Size;
+            loss /= dataSet.Size;
         }
     }
 }

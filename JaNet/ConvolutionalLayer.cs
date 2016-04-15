@@ -64,17 +64,15 @@ namespace JaNet
         private IntPtr[] updateParametersLocalWorkSizePtr;
 
 #else
-        private double[] paddedInput; // dimension [inputD * (inputH + 2*padding) * (inutW + 2*padding)]
+        private List<double[]> paddedInput; // dimension [inputD * (inputH + 2*padding) * (inutW + 2*padding)]
         private int[,] lookupTable; // dimension [receptiveFieldSize , nReceptiveFields] = [inputDepth*filterSize^2 , outputWidth*outputHeight]
         
 
         private double[,] weights; // dimension [nFilters , inputDepth*filterSize^2]
         private double[] biases; // dimension [nFilters , 1]
 
-#if GRADIENT_CHECK
         private double[,] weightsGradients;
         private double[] biasesGradients;
-#endif
 
         private double[,] weightsUpdateSpeed; // dimension [nFilters , inputDepth*filterSize^2]
         private double[] biasesUpdateSpeed; // dimension [nFilters , 1]
@@ -196,7 +194,8 @@ namespace JaNet
 #else
             // Cpu code
 
-            this.paddedInput = new double[paddedInputSize];
+            this.paddedInput = new List<double[]>();
+            this.paddedInput.Add( new double[paddedInputSize] );
             this.lookupTable = new int[receptiveFieldSize, nReceptiveFields];
 #endif
 
@@ -320,9 +319,9 @@ namespace JaNet
             double uniformRand2;
             double tmp;
 
-            for (int iRow = 0; iRow < initWeights.GetLength(0); iRow++)
+            for (int iRow = 0; iRow < nFilters; iRow++)
             {
-                for (int iCol = 0; iCol < initWeights.GetLength(1); iCol++)
+                for (int iCol = 0; iCol < receptiveFieldSize; iCol++)
                 {
                     uniformRand1 = Global.rng.NextDouble();
                     uniformRand2 = Global.rng.NextDouble();
@@ -381,12 +380,12 @@ namespace JaNet
 
             this.weightsUpdateSpeed = new double[nFilters, receptiveFieldSize]; // zeors
             this.biasesUpdateSpeed = new double[nFilters]; // zeros
-#endif
 
-#if GRADIENT_CHECK
             this.weightsGradients = new double[nFilters, receptiveFieldSize];
             this.biasesGradients = new double[nFilters];
 #endif
+
+
         }
 
         #endregion
@@ -482,19 +481,22 @@ namespace JaNet
                 OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.ReleaseEvent");
             }
 #else
-            // TODO: cpu code
-            if (inputNeurons.MiniBatchSize > 1)
-                throw new ArgumentException("Only online-training is supported if using CPU.");
+            // inelegant workaround to add memory buffers to List<Mem> paddedInputGPU in case miniBatchSize > 1
+            // TODO: find a more elegant solution for this
+            while (inputNeurons.MiniBatchSize > paddedInput.Count)
+            {
+                paddedInput.Add(new double[paddedInputSize]);
+            }
 
-            // Padding
-            if (zeroPadding > 0)
-                paddedInput = ZeroPadCPU(inputNeurons.GetHost()[0], zeroPadding, inputDepth, inputHeight, inputWidth);
+            for (int m = 0; m < inputNeurons.MiniBatchSize; m++)
+            {
+                if (zeroPadding > 0)
+                    paddedInput[m] = ZeroPadCPU(inputNeurons.GetHost()[m], zeroPadding, inputDepth, inputHeight, inputWidth);
+                else
+                    paddedInput[m] = inputNeurons.GetHost()[m];
 
-            // Forward (matrix multiplication)
-            outputNeurons.SetHost(0, ConvForwardCPU(paddedInput));
-
-
-
+                outputNeurons.SetHost(m, ConvForwardCPU(paddedInput[m]));
+            }
 #endif
 
 #if OPENCL_ENABLED
@@ -508,19 +510,20 @@ namespace JaNet
             for (int m = 0; m < inputNeurons.MiniBatchSize; m++)
             {
 #if OPENCL_ENABLED
-                if (zeroPadding > 0)
-                {
-                    // 1. Wipe out paddedInput buffer (will be cumulated!)
-                    OpenCLSpace.WipeBuffer(paddedInputGPU[m], paddedInputSize, typeof(float));
+                // 1. Wipe out buffer where we are going to cumulate gradients 
+                //(gradients wrt different locations in receptive field will be cumulated, as it should be!)
 
-                    OpenCLSpace.ClError = Cl.Finish(OpenCLSpace.Queue);
-                    OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.Finish");
-                }
+                if (zeroPadding > 0)
+                    OpenCLSpace.WipeBuffer(paddedInputGPU[m], paddedInputSize, typeof(float));
+                else
+                    OpenCLSpace.WipeBuffer(inputNeurons.DeltaGPU[m], nInputUnits, typeof(float));
+                OpenCLSpace.ClError = Cl.Finish(OpenCLSpace.Queue);
+                OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.Finish");
 
                 // 2. BackPropagate kernel
                 
                 // Set kernel arguments
-                if (zeroPadding > 0)
+                if (zeroPadding > 0)                          
                     OpenCLSpace.ClError = Cl.SetKernelArg(OpenCLSpace.ConvBackPropagate, 0, paddedInputGPU[m]);
                 else
                     OpenCLSpace.ClError = Cl.SetKernelArg(OpenCLSpace.ConvBackPropagate, 0, inputNeurons.DeltaGPU[m]);
@@ -581,17 +584,27 @@ namespace JaNet
                     OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.ReleaseEvent");
                 }
 #else
-            //TODO: cpu code for backprop.
+                // 1. Wipe out deltaX buffer (will be cumulated!)
+
+                //Array.Clear(paddedInput[m], 0, paddedInputSize); // no longer needed
+                
+                // 2. Backpropagate error
+
+                paddedInput[m] = ConvBackwardCPU(outputNeurons.DeltaHost[m]);
+
+                // 3. Unpad (if necessary)
+
+                if (zeroPadding > 0)
+                    inputNeurons.DeltaHost[m] = ZeroUnpadCPU(paddedInput[m]);
+                else
+                    inputNeurons.DeltaHost[m] = paddedInput[m];
 #endif
-            }
+            } // end of loop over mini-batch
 
 #if OPENCL_ENABLED
             OpenCLSpace.ClError = Cl.Finish(OpenCLSpace.Queue);
             OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.Finish");
 #endif
-
-
-
         }
 
 
@@ -629,10 +642,31 @@ namespace JaNet
                 OpenCLSpace.ClError = Cl.ReleaseEvent(OpenCLSpace.ClEvent);
                 OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.ReleaseEvent");
 #else
-                if (inputNeurons.MiniBatchSize > 1)
-                    throw new ArgumentException("Only miniBatchSize = 1 is currently supported if using CPU");
 
-                ConvGradientsCPU(ref weightsGradients, ref biasesGradients, outputNeurons.DeltaHost[0], paddedInput);
+                ConvGradientsCPU(ref weightsGradients, ref biasesGradients, outputNeurons.DeltaHost[m], paddedInput[m]);
+
+                //double gradientNorm = 0;
+
+                for (int iFilter = 0; iFilter < nFilters; iFilter++)
+                {
+                    for (int iElement = 0; iElement < receptiveFieldSize; iElement++)
+                    {
+                        weightsUpdateSpeed[iFilter, iElement] *= momentumCoefficient;
+                        weightsUpdateSpeed[iFilter, iElement] -= (learningRate * weightsGradients[iFilter, iElement]);
+                        //gradientNorm += Math.Pow(weightsGradients[iFilter, iElement], 2);
+                    }
+
+                    // update biases
+                    biasesUpdateSpeed[iFilter] *= momentumCoefficient;
+                    biasesUpdateSpeed[iFilter] -= (learningRate * biasesGradients[iFilter]);
+                }
+
+                //gradientNorm = Math.Sqrt(gradientNorm);
+
+                //Console.WriteLine("Layer {0}\n\tGradient norm: {1}", this.ID, gradientNorm);
+                //if (gradientNorm < Global.EPSILON)
+                    //Console.WriteLine("BUSTED");
+                    //System.Diagnostics.Debugger.Launch();
 
 #endif
             }
@@ -672,18 +706,32 @@ namespace JaNet
             OpenCLSpace.ClError = Cl.ReleaseEvent(OpenCLSpace.ClEvent);
             OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.ReleaseEvent");
 #else
+            //double weightNorm = 0;
+            //double updateNorm = 0;
+
             for (int iFilter = 0; iFilter < nFilters; iFilter++)
             {
                 // weights update
 
                 for (int iElement = 0; iElement < receptiveFieldSize; iElement++)
                 {
+                    //weightNorm += Math.Pow(weights[iFilter, iElement], 2);
+                    //updateNorm += Math.Pow(weightsUpdateSpeed[iFilter, iElement], 2);
+
                     weights[iFilter, iElement] += weightsUpdateSpeed[iFilter, iElement];
-                }
+                    
+                }   
 
                 // update biases
                 biases[iFilter] += biasesUpdateSpeed[iFilter];
             }
+
+            //weightNorm = Math.Sqrt(weightNorm);
+            //updateNorm = Math.Sqrt(updateNorm);
+
+            //Console.WriteLine("\tWeight norm: {0}\n\tSpeed norm: {1}\n\tRatio: {2}", weightNorm, updateNorm, updateNorm / weightNorm );
+            //Console.WriteLine("Speed/weight ratio: {0}", updateNorm / weightNorm);
+            //Console.ReadKey();
 #endif
         }
 
@@ -718,12 +766,12 @@ namespace JaNet
         }
 
 
-        private static double[] ZeroUnpadCPU(double[] paddedArray, int padding, int inputDepth, int inputHeight, int inputWidth)
+        private double[] ZeroUnpadCPU(double[] paddedArray)
         {
             int area = inputHeight * inputWidth;
             int volume = inputDepth * inputHeight * inputWidth;
-            int nZerosTopRows = padding * (2 * padding + inputWidth);
-            int zerosPerSlice = 2 * padding * (inputHeight + inputWidth + 2 * padding);
+            int nZerosTopRows = zeroPadding * (2 * zeroPadding + inputWidth);
+            int zerosPerSlice = 2 * zeroPadding * (inputHeight + inputWidth + 2 * zeroPadding);
 
             double[] unpaddedArray = new double[volume];
 
@@ -734,7 +782,7 @@ namespace JaNet
             {
                 iSlice = (iUnpadded % volume) / area; // find index of channel within an input volume
                 iRow = (iUnpadded % area) / inputWidth; // find index of row within an input channel
-                iPadded = zerosPerSlice * iSlice + nZerosTopRows + padding * (2 * iRow + 1) + iUnpadded;
+                iPadded = zerosPerSlice * iSlice + nZerosTopRows + zeroPadding * (2 * iRow + 1) + iUnpadded;
 
                 unpaddedArray[iUnpadded] = paddedArray[iPadded];
             }
@@ -830,6 +878,38 @@ namespace JaNet
             return output;
         }
 
+        private double[] ConvBackwardCPU(double[] deltaY)
+        {
+            double[] deltaX = new double[paddedInputSize];
+
+            for (int iElement = 0; iElement < receptiveFieldSize; iElement++)
+            {
+                for (int iReceptiveField = 0; iReceptiveField < nReceptiveFields; iReceptiveField++)
+                {
+                    double tmpDeltaX = 0.0F;
+
+                    for (int iFilter = 0; iFilter < nFilters; iFilter++)
+                    {
+                        // Get filter element from transpose of wSpeeds
+                        double filterElement = weights[iFilter, iElement];
+
+                        // Get error signal corresponding to this filter and this receptiveField
+                        double deltaElement = deltaY[iFilter * nReceptiveFields + iReceptiveField];
+
+                        // Multiply & cumulate in gradW
+                        tmpDeltaX += filterElement * deltaElement;
+                    }
+
+                    // Now cumulate this in correct place of deltaX (using lookup table)
+                    int inputLocation = lookupTable[iElement, iReceptiveField];
+                    deltaX[inputLocation] += tmpDeltaX;
+                }
+            }
+
+            return deltaX;
+        }
+
+        
         private void ConvGradientsCPU(ref double[,] weightsGradients, ref double[] biasesGradients, double[] deltaY, double[] input)
         {
 
@@ -859,6 +939,7 @@ namespace JaNet
 		            }
 
                     weightsGradients[iFilter, iElement] = tmpGradW;
+
                     if (iElement == 0)
                     {
                         biasesGradients[iFilter] = tmpGradB;
@@ -869,6 +950,7 @@ namespace JaNet
 
 
         }
+        
 #endif
 
         #endregion

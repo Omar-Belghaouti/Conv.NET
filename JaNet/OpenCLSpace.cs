@@ -100,6 +100,10 @@ namespace JaNet
         public static Kernel ReLUForward;
         public static Kernel ReLUBackward;
 
+        // Tanh layer
+        public static Kernel TanhForward;
+        public static Kernel TanhBackward;
+
         // Softmax layer
         public static Kernel SoftmaxForward;
 
@@ -112,7 +116,7 @@ namespace JaNet
         #endregion
 
 
-        #region OpenCL setup
+    #region OpenCL setup
 
         public static void SetupSpace()
         {
@@ -185,10 +189,10 @@ namespace JaNet
         }
 
 
-        #endregion
+    #endregion
 
 
-        #region Kernel loading and building
+    #region Kernel loading and building
 
         public static Kernel LoadAndBuildKernel(string kernelFilePath, string kernelName)
         {
@@ -251,6 +255,10 @@ namespace JaNet
             ReLUForward = LoadAndBuildKernel(kernelsPath + "/ReLUForward.cl", "ReLUForward");
             ReLUBackward = LoadAndBuildKernel(kernelsPath + "/ReLUBackward.cl", "ReLUBackward");
 
+            // Tanh layer
+            TanhForward = LoadAndBuildKernel(kernelsPath + "/TanhForward.cl", "TanhForward");
+            TanhBackward = LoadAndBuildKernel(kernelsPath + "/TanhBackward.cl", "TanhBackward");
+
             // Softmax layer
             SoftmaxForward = LoadAndBuildKernel(kernelsPath + "/SoftmaxForward.cl", "SoftmaxForward");
 
@@ -264,10 +272,10 @@ namespace JaNet
         }
 
 
-        #endregion
+    #endregion
 
 
-        #region Helper methods
+    #region Helper methods
 
         public static void WipeBuffer(Mem buffer, int nElementsInBuffer, Type type)
         {
@@ -308,7 +316,7 @@ namespace JaNet
             Console.WriteLine("OpenCL Notification: " + errInfo);
         }
 
-        #endregion
+    #endregion
 
     }
 

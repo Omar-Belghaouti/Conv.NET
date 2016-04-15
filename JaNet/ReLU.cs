@@ -131,7 +131,7 @@ namespace JaNet
                     if (this.inputNeurons.GetHost()[m][i] > 0)
                         tmpOutput[i] = this.inputNeurons.GetHost()[m][i];
                     else
-                        tmpOutput[i] = 0.0F;
+                        tmpOutput[i] = 0.0;
                 }
                 this.outputNeurons.SetHost(m, tmpOutput);
 #endif
@@ -173,7 +173,7 @@ namespace JaNet
                 OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.ReleaseEvent");
 #else
                 for (int i = 0; i < nOutputUnits; i++)
-                    inputNeurons.DeltaHost[m][i] = inputNeurons.GetHost()[m][i] > 0 ? outputNeurons.DeltaHost[m][i] : 0.0F;
+                    inputNeurons.DeltaHost[m][i] = inputNeurons.GetHost()[m][i] > 0 ? outputNeurons.DeltaHost[m][i] : 0.0;
 #endif
             }
 

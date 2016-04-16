@@ -195,7 +195,6 @@ namespace JaNet
         public override void SetWorkGroups()
         {
 #if OPENCL_ENABLED
-            // TODO: update this using OutputNeurons.MiniBatchSize
 
             // Work group sizes will be set as follows:
             //      global work size = smallest multiple of OPTIMAL_GROUP_SIZE larger than 

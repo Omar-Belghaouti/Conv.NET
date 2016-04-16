@@ -46,42 +46,22 @@ namespace JaNet
         public override void SetWorkGroups()
         {
 #if OPENCL_ENABLED
-            // TODO: update this using OutputNeurons.MiniBatchSize
-
             // Work group sizes will be set as follows:
-            //      global work size = smallest multiple of BASE_GROUP_SIZE larger than the total number of processes needed (for efficiency)
-            //      local work size = largest multiple of BASE_GROUP_SIZE that global work size is a multiple of, with the constraint of being 
-            //                          lesser or equal to current device's MaxWorkGroupSize and fwd/bwd kernels' maxKernelWorkGroupSize.
-            // BASE_GROUP_SIZE is a constant, multiple of 2. Suggested values: 32 (Nvidia WARP) or 64 (AMD WAVEFRONT).
+            //      global work size = smallest multiple of OPTIMAL_GROUP_SIZE larger than 
+            //                         the total number of processes needed (for efficiency).
+            //      local work size = as close as possible to OPTIMAL_GROUP_SIZE (making sure 
+            //                        that global worksize is a multiple of this)
+            // OPTIMAL_GROUP_SIZE is a small multiple of BASE_GROUP_SIZE, which in turn is a 
+            //                    constant multiple of 2, platform-dependent, e.g. 32 (Nvidia 
+            //                    WARP) or 64 (AMD WAVEFRONT).
 
-            int totalWorkItemsNeeded = OutputNeurons.NumberOfUnits;
-            int smallestMultipleOfBGS = (int)(OpenCLSpace.BASE_GROUP_SIZE * Math.Ceiling((double)(totalWorkItemsNeeded) / (double)OpenCLSpace.BASE_GROUP_SIZE));
-            this.globalWorkSizePtr = new IntPtr[] { (IntPtr)(smallestMultipleOfBGS) };
+            // Local
+            this.localWorkSizePtr = new IntPtr[] { (IntPtr)OpenCLSpace.OPTIMAL_GROUP_SIZE };
 
-            int maxKernelWorkGroupSize = (int)Math.Max(Cl.GetKernelWorkGroupInfo(OpenCLSpace.ReLUForward,
-                                                                                    OpenCLSpace.Device,
-                                                                                    KernelWorkGroupInfo.WorkGroupSize,
-                                                                                    out OpenCLSpace.ClError).CastTo<int>(),
-                                                        Cl.GetKernelWorkGroupInfo(OpenCLSpace.ReLUBackward,
-                                                                                    OpenCLSpace.Device,
-                                                                                    KernelWorkGroupInfo.WorkGroupSize,
-                                                                                    out OpenCLSpace.ClError).CastTo<int>());
-
-            int localWorkSize = OpenCLSpace.BASE_GROUP_SIZE;
-            while (true)
-            {
-                int tmpLocalWorkSize = 2 * localWorkSize;
-
-                bool globalDividesLocal = smallestMultipleOfBGS % tmpLocalWorkSize == 0;
-                bool isLocalGroupTooLarge = tmpLocalWorkSize > OpenCLSpace.MaxWorkGroupSize;
-                isLocalGroupTooLarge |= tmpLocalWorkSize > maxKernelWorkGroupSize;
-
-                if (globalDividesLocal && !isLocalGroupTooLarge) // if global divides local and it's not too large
-                    localWorkSize = tmpLocalWorkSize;
-                else
-                    break;
-            }
-            this.localWorkSizePtr = new IntPtr[] { (IntPtr)(localWorkSize) };
+            // Global
+            int totalWorkItemsNeeded = nOutputUnits * outputNeurons.MiniBatchSize;
+            int smallestMultipleOfLocal = (int)(OpenCLSpace.OPTIMAL_GROUP_SIZE * Math.Ceiling((double)(totalWorkItemsNeeded) / (double)OpenCLSpace.OPTIMAL_GROUP_SIZE));
+            this.globalWorkSizePtr = new IntPtr[] { (IntPtr)(smallestMultipleOfLocal) };
 #endif
         }
 

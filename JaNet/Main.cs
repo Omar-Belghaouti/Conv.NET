@@ -55,7 +55,7 @@ namespace JaNet
             //network.AddLayer(new ReLU());
 
 
-            network.AddLayer(new FullyConnectedLayer(256));
+            network.AddLayer(new FullyConnectedLayer(64));
             //network.AddLayer(new Tanh(0.5));
             network.AddLayer(new ReLU());
 
@@ -103,9 +103,15 @@ namespace JaNet
 
             DataSet trainingSet = new DataSet(10);
 
-            trainingSet.ReadData(MNISTreducedData);
-            trainingSet.ReadLabels(MNISTreducedLabels);
-            
+            trainingSet.ReadData(MNISTtestData);
+            trainingSet.ReadLabels(MNISTtestLabels);
+
+            Console.WriteLine("Importing validation set...");
+
+            DataSet validationSet = new DataSet(10);
+
+            validationSet.ReadData(MNISTreducedData);
+            validationSet.ReadLabels(MNISTreducedLabels);
 
             /*****************************************************
              * (3) Train network
@@ -116,7 +122,7 @@ namespace JaNet
 
 
 
-            NetworkTrainer networkTrainer = new NetworkTrainer(network, trainingSet, null);
+            NetworkTrainer networkTrainer = new NetworkTrainer(network, trainingSet, validationSet);
 
             networkTrainer.LearningRate = 0.0005;
             networkTrainer.MomentumMultiplier = 0.9;

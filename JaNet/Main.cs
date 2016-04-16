@@ -118,7 +118,7 @@ namespace JaNet
 
             NetworkTrainer networkTrainer = new NetworkTrainer(network, trainingSet, null);
 
-            networkTrainer.LearningRate = 0.002;
+            networkTrainer.LearningRate = 0.0005;
             networkTrainer.MomentumMultiplier = 0.9;
             networkTrainer.MaxTrainingEpochs = 1000;
             networkTrainer.MiniBatchSize = 1; // property includes buffer increase

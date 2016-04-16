@@ -41,7 +41,7 @@ namespace JaNet
             {
                 // Feed a mini-batch to the network
                 int[] miniBatch = indicesSequence.GetMiniBatchIndices(iStartMiniBatch, miniBatchSize);
-                network.FeedData(dataSet, miniBatch);
+                network.InputLayer.FeedData(dataSet, miniBatch);
 
                 // Run network forward
                 network.ForwardPass();

@@ -15,6 +15,8 @@ namespace JaNet
 
         private List<Layer> layers;
         private int nLayers;
+
+        private InputLayer inputLayer;
         private SoftMax outputLayer;
 
         #endregion
@@ -32,13 +34,18 @@ namespace JaNet
             get { return nLayers; }
         }
 
-        /* // shouldn't need this
+        public InputLayer InputLayer
+        {
+            get { return inputLayer; }
+            set { this.inputLayer = value; }
+        }
+
         public SoftMax OutputLayer
         {
             get { return outputLayer; }
             set { this.outputLayer = value; }
         }
-        */
+
         #endregion
 
 
@@ -76,6 +83,7 @@ namespace JaNet
                             if (!layers.Any()) // if list of layers is empty
                             {
                                 newLayer.ID = 0;
+                                this.inputLayer = (InputLayer)newLayer;
                             }
                             else // list is not empty
                             {
@@ -166,70 +174,7 @@ namespace JaNet
 
         #region Training methods
 
-        public void FeedData(DataSet dataSet, int[] iExamples)
-        {
-            int dataPointSize = dataSet.DataDimension;
-
-            for (int m = 0; m < layers[0].OutputNeurons.MiniBatchSize; m++)
-            {
-#if OPENCL_ENABLED
-                int iDataPoint = iExamples[m];
-                
-                OpenCLSpace.ClError = Cl.EnqueueCopyBuffer( OpenCLSpace.Queue,
-                                                            dataSet.DataGPU[iDataPoint], // source
-                                                            layers[0].OutputNeurons.ActivationsGPU, // destination
-                                                            (IntPtr)0, // source offset (in bytes)
-                                                            (IntPtr)(sizeof(float) * m * dataPointSize), // destination offset (in bytes)
-                                                            (IntPtr)(sizeof(float) * dataPointSize),  // size of buffer to copy
-                                                            0,
-                                                            null,
-                                                            out OpenCLSpace.ClEvent);
-                OpenCLSpace.CheckErr(OpenCLSpace.ClError, "NeuralNetwork.FeedData Cl.clEnqueueReadBuffer inputData");
-#else
-                layers[0].OutputNeurons.SetHost(m, dataSet.GetDataPoint(iExamples[m]));
-#endif
-            }
-
-#if DEBUGGING_STEPBYSTEP
-            /* ------------------------- DEBUGGING --------------------------------------------- */
-
-
-            // Display input layer-by-layer
-            for (int m = 0; m < miniBatchSize; m++)
-            {
-
-                
-#if OPENCL_ENABLED
-                float[] inputData = new float[layers[0].OutputNeurons.NumberOfUnits];
-                OpenCLSpace.ClError = Cl.EnqueueReadBuffer(OpenCLSpace.Queue,
-                                                            layers[0].OutputNeurons.ActivationsGPU[m], // source
-                                                            Bool.True,
-                                                            (IntPtr)0,
-                                                            (IntPtr)(layers[0].OutputNeurons.NumberOfUnits * sizeof(float)),
-                                                            inputData,  // destination
-                                                            0,
-                                                            null,
-                                                            out OpenCLSpace.ClEvent);
-                OpenCLSpace.CheckErr(OpenCLSpace.ClError, "NeuralNetwork.FeedData Cl.clEnqueueReadBuffer inputData");
-#else
-                double[] inputData = new double[layers[0].OutputNeurons.NumberOfUnits];
-                inputData = layers[0].OutputNeurons.GetHost()[m];
-#endif
-                Console.WriteLine("\nLayer 0 (Input) output activations (mini-batch item {0}):", m);
-                for (int j = 0; j < inputData.Length; j++)
-                    Console.Write("{0}  ", inputData[j]);
-                Console.WriteLine();
-                Console.ReadKey();
-            }
-
-            /* ------------------------- END DEBUGGING --------------------------------------------- */
-#endif
-
-#if OPENCL_ENABLED
-            OpenCLSpace.ClError = Cl.Finish(OpenCLSpace.Queue);
-            OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.Finish");
-#endif
-        }
+        
 
         /*
         public void FeedDatum(DataSet dataSet, int iExample)

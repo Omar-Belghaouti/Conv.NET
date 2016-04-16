@@ -244,7 +244,7 @@ namespace JaNet
                 {
                     // Feed a mini-batch to the network
                     iMiniBatch = indicesSequence.GetMiniBatchIndices(iStartMiniBatch, miniBatchSize);
-                    network.FeedData(trainingSet, iMiniBatch);
+                    network.InputLayer.FeedData(trainingSet, iMiniBatch);
 
                     // Forward pass
                     stopwatchFwd.Start();

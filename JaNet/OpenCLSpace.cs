@@ -98,6 +98,7 @@ namespace JaNet
         public static Kernel FCUpdateParameters;
         public static Kernel FCForwardParallel;
         public static Kernel FCBackwardParallel;
+        public static Kernel FCUpdateSpeedsParallel;
 
         // ReLU layer
         public static Kernel ReLUForward;
@@ -254,6 +255,8 @@ namespace JaNet
             FCUpdateSpeeds = LoadAndBuildKernel(kernelsPath + "/FCUpdateSpeeds.cl", "FCUpdateSpeeds");
             FCUpdateParameters = LoadAndBuildKernel(kernelsPath + "/FCUpdateParameters.cl", "FCUpdateParameters");
             FCForwardParallel = LoadAndBuildKernel(kernelsPath + "/FCForwardParallel.cl", "FCForwardParallel");
+            FCBackwardParallel = LoadAndBuildKernel(kernelsPath + "/FCBackwardParallel.cl", "FCBackwardParallel");
+            FCUpdateSpeedsParallel = LoadAndBuildKernel(kernelsPath + "/FCUpdateSpeedsParallel.cl", "FCUpdateSpeedsParallel");
 
             // ReLU layer
             ReLUForward = LoadAndBuildKernel(kernelsPath + "/ReLUForward.cl", "ReLUForward");

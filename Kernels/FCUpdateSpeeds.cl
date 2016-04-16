@@ -3,12 +3,12 @@
  */
 
 __kernel void 
-FCUpdateSpeeds(	__global write_only float * wSpeed, 	// arg 0
-				__global write_only float * bSpeed, 	// arg 1
+FCUpdateSpeeds(	__global float * wSpeed, 	// arg 0
+				__global float * bSpeed, 	// arg 1
 				__global read_only float * x,		// arg 2
 				__global read_only float * deltaY,	// arg 3
-				const int nInput,					// arg 4
-				const int nOutput,					// arg 5
+				const int nInputUnits,					// arg 4
+				const int nOutputUnits,					// arg 5
 				const float momCoeff,				// arg 6
 				const float learnRatePerItem,		// arg 7
 				const int miniBatchItem				// arg 8
@@ -23,9 +23,9 @@ FCUpdateSpeeds(	__global write_only float * wSpeed, 	// arg 0
 	// of these comparisons is greatly compensated by the increased efficiency of using a local work size
 	// that is a multiple of WARP (Nvidia) / WAVEFRONT (AMD).
 	
-	if(i < nOutput && j < nInput) 
+	if(i < nOutputUnits && j < nInputUnits) 
 	{
-		const int iWeight = i*nInput + j;
+		const int iWeight = i*nInputUnits + j;
 		
 		// 1. Update weights speed
 		

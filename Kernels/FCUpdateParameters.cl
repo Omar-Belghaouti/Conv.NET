@@ -21,7 +21,7 @@ FCUpdateParameters(	__global float * w,		// arg 0
 		int iWeight = i*nInput + j;
 		w[iWeight] += wSpeed[iWeight];
 		
-		if (j == 0) // no need to do this nInput times
+		if (j == 0) // this should be done once per output unit, NOT nInput times!
 		{
 			b[i] += bSpeed[i];
 		}

@@ -74,7 +74,7 @@ namespace JaNet
         }
         */
 #else
-        public double[] Data
+        public List<double[]> Data
         {
             get{ return this.data; }
         }
@@ -112,7 +112,7 @@ namespace JaNet
             //this.labelArraysGPU = new List<Mem>();
 #else
             this.data = new List<double[]>();
-            this.labelArrays = new List<int[]>();
+            //this.labelArrays = new List<int[]>();
 #endif
             this.labels = new List<int>();
         }

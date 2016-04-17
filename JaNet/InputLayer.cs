@@ -72,31 +72,34 @@ namespace JaNet
                                                             out OpenCLSpace.ClEvent);
                 OpenCLSpace.CheckErr(OpenCLSpace.ClError, "InputLayer.FeedData Cl.clEnqueueReadBuffer inputData");
 #else
-                outputNeurons.SetHost(m, dataSet.GetDataPoint(iExamples[m]));
+                outputNeurons.SetHost(m, dataSet.Data[iExamples[m]]);
 #endif
             }
 
-#if DEBUGGING_STEPBYSTEP
+#if DEBUGGING_STEPBYSTEP_INPUT
             /* ------------------------- DEBUGGING --------------------------------------------- */
 
 
             // Display input layer-by-layer
-            for (int m = 0; m < miniBatchSize; m++)
-            {
-
-                
 #if OPENCL_ENABLED
-                float[] inputData = new float[layers[0].OutputNeurons.NumberOfUnits];
-                OpenCLSpace.ClError = Cl.EnqueueReadBuffer(OpenCLSpace.Queue,
-                                                            layers[0].OutputNeurons.ActivationsGPU[m], // source
-                                                            Bool.True,
-                                                            (IntPtr)0,
-                                                            (IntPtr)(layers[0].OutputNeurons.NumberOfUnits * sizeof(float)),
-                                                            inputData,  // destination
-                                                            0,
-                                                            null,
-                                                            out OpenCLSpace.ClEvent);
-                OpenCLSpace.CheckErr(OpenCLSpace.ClError, "NeuralNetwork.FeedData Cl.clEnqueueReadBuffer inputData");
+            float[] allInputData = new float[outputNeurons.NumberOfUnits * inputNeurons.MiniBatchSize];
+            OpenCLSpace.ClError = Cl.EnqueueReadBuffer(OpenCLSpace.Queue,
+                                                        outputNeurons.ActivationsGPU, // source
+                                                        Bool.True,
+                                                        (IntPtr)0,
+                                                        (IntPtr)(outputNeurons.NumberOfUnits * inputNeurons.MiniBatchSize * sizeof(float)),
+                                                        allInputData,  // destination
+                                                        0,
+                                                        null,
+                                                        out OpenCLSpace.ClEvent);
+            OpenCLSpace.CheckErr(OpenCLSpace.ClError, "NeuralNetwork.FeedData Cl.clEnqueueReadBuffer inputData");
+#endif
+            for (int m = 0; m < inputNeurons.MiniBatchSize; m++)
+            {
+                Console.WriteLine("\n ---- Mini-batch item {0} ---- ", m);
+#if OPENCL_ENABLED
+                float[] inputData = new float[outputNeurons.NumberOfUnits];
+                Array.Copy(allInputData, m * outputNeurons.NumberOfUnits, inputData, 0, outputNeurons.NumberOfUnits);
 #else
                 double[] inputData = new double[layers[0].OutputNeurons.NumberOfUnits];
                 inputData = layers[0].OutputNeurons.GetHost()[m];

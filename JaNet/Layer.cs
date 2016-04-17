@@ -87,11 +87,6 @@ namespace JaNet
             get { return outputWidth; }
         }
 
-        public virtual List<double[]> OutputClassScores
-        {
-            get { return null; }
-        }
-
 #if GRADIENT_CHECK
         // accessors for gradient check 
 

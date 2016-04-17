@@ -73,30 +73,34 @@ namespace JaNet
 
         public override void FeedForward()
         {
+#if OPENCL_ENABLED
+            // Set kernel arguments
+            OpenCLSpace.ClError = Cl.SetKernelArg(OpenCLSpace.ReLUForward, 0, OutputNeurons.ActivationsGPU);
+            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.ReLUForward, 1, InputNeurons.ActivationsGPU);
+            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.ReLUForward, 2, (IntPtr)sizeof(int), OutputNeurons.NumberOfUnits * inputNeurons.MiniBatchSize);
+            OpenCLSpace.CheckErr(OpenCLSpace.ClError, "ReLU.FeedForward(): Cl.SetKernelArg");
+
+            // Run kernel
+            OpenCLSpace.ClError = Cl.EnqueueNDRangeKernel(  OpenCLSpace.Queue,
+                                                            OpenCLSpace.ReLUForward,
+                                                            1,
+                                                            null,
+                                                            globalWorkSizePtr,
+                                                            localWorkSizePtr,
+                                                            0,
+                                                            null,
+                                                            out OpenCLSpace.ClEvent);
+            OpenCLSpace.CheckErr(OpenCLSpace.ClError, "ReLU.FeedForward(): Cl.EnqueueNDRangeKernel");
+
+            OpenCLSpace.ClError = Cl.ReleaseEvent(OpenCLSpace.ClEvent);
+            OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.ReleaseEvent");
+
+            OpenCLSpace.ClError = Cl.Finish(OpenCLSpace.Queue);
+            OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.Finish");
+#else
             for (int m = 0; m < inputNeurons.MiniBatchSize; m++)
             {
-#if OPENCL_ENABLED
-                // Set kernel arguments
-                OpenCLSpace.ClError = Cl.SetKernelArg(OpenCLSpace.ReLUForward, 0, OutputNeurons.ActivationsGPU);
-                OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.ReLUForward, 1, InputNeurons.ActivationsGPU);
-                OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.ReLUForward, 2, (IntPtr)sizeof(int), OutputNeurons.NumberOfUnits);
-                OpenCLSpace.CheckErr(OpenCLSpace.ClError, "ReLU.FeedForward(): Cl.SetKernelArg");
 
-                // Run kernel
-                OpenCLSpace.ClError = Cl.EnqueueNDRangeKernel(  OpenCLSpace.Queue,
-                                                                OpenCLSpace.ReLUForward,
-                                                                1,
-                                                                null,
-                                                                globalWorkSizePtr,
-                                                                localWorkSizePtr,
-                                                                0,
-                                                                null,
-                                                                out OpenCLSpace.ClEvent);
-                OpenCLSpace.CheckErr(OpenCLSpace.ClError, "ReLU.FeedForward(): Cl.EnqueueNDRangeKernel");
-
-                OpenCLSpace.ClError = Cl.ReleaseEvent(OpenCLSpace.ClEvent);
-                OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.ReleaseEvent");
-#else
                 double[] tmpOutput = new double[this.nOutputUnits];
                 for (int i = 0; i < this.nOutputUnits; i++)
                 {
@@ -106,12 +110,8 @@ namespace JaNet
                         tmpOutput[i] = 0.0;
                 }
                 this.outputNeurons.SetHost(m, tmpOutput);
-#endif
-            }
 
-#if OPENCL_ENABLED
-            OpenCLSpace.ClError = Cl.Finish(OpenCLSpace.Queue);
-            OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.Finish");
+            }
 #endif
         }
 
@@ -119,39 +119,38 @@ namespace JaNet
 
         public override void BackPropagate()
         {
-            for (int m = 0; m < inputNeurons.MiniBatchSize; m++)
-            {
 #if OPENCL_ENABLED
-                // Set kernel arguments
-                OpenCLSpace.ClError  = Cl.SetKernelArg(OpenCLSpace.ReLUBackward, 0, InputNeurons.DeltaGPU);
-                OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.ReLUBackward, 1, OutputNeurons.DeltaGPU);
-                OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.ReLUBackward, 2, InputNeurons.ActivationsGPU);
-                OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.ReLUBackward, 3, (IntPtr)sizeof(int), InputNeurons.NumberOfUnits);
-                OpenCLSpace.CheckErr(OpenCLSpace.ClError, "ReLU.BackPropagate(): Cl.SetKernelArg");
+            // Set kernel arguments
+            OpenCLSpace.ClError  = Cl.SetKernelArg(OpenCLSpace.ReLUBackward, 0, inputNeurons.DeltaGPU);
+            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.ReLUBackward, 1, outputNeurons.DeltaGPU);
+            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.ReLUBackward, 2, inputNeurons.ActivationsGPU);
+            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.ReLUBackward, 3, (IntPtr)sizeof(int), nInputUnits * inputNeurons.MiniBatchSize);
+            OpenCLSpace.CheckErr(OpenCLSpace.ClError, "ReLU.BackPropagate(): Cl.SetKernelArg");
 
-                // Run kernel
-                OpenCLSpace.ClError = Cl.EnqueueNDRangeKernel(  OpenCLSpace.Queue,
-                                                                OpenCLSpace.ReLUBackward,
-                                                                1,
-                                                                null,
-                                                                globalWorkSizePtr,
-                                                                localWorkSizePtr,
-                                                                0,
-                                                                null,
-                                                                out OpenCLSpace.ClEvent);
-                OpenCLSpace.CheckErr(OpenCLSpace.ClError, "ReLU.BackPropagate(): Cl.EnqueueNDRangeKernel");
+            // Run kernel
+            OpenCLSpace.ClError = Cl.EnqueueNDRangeKernel(  OpenCLSpace.Queue,
+                                                            OpenCLSpace.ReLUBackward,
+                                                            1,
+                                                            null,
+                                                            globalWorkSizePtr,
+                                                            localWorkSizePtr,
+                                                            0,
+                                                            null,
+                                                            out OpenCLSpace.ClEvent);
+            OpenCLSpace.CheckErr(OpenCLSpace.ClError, "ReLU.BackPropagate(): Cl.EnqueueNDRangeKernel");
 
-                OpenCLSpace.ClError = Cl.ReleaseEvent(OpenCLSpace.ClEvent);
-                OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.ReleaseEvent");
-#else
-                for (int i = 0; i < nOutputUnits; i++)
-                    inputNeurons.DeltaHost[m][i] = inputNeurons.GetHost()[m][i] > 0 ? outputNeurons.DeltaHost[m][i] : 0.0;
-#endif
-            }
+            OpenCLSpace.ClError = Cl.ReleaseEvent(OpenCLSpace.ClEvent);
+            OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.ReleaseEvent");
 
-#if OPENCL_ENABLED
             OpenCLSpace.ClError = Cl.Finish(OpenCLSpace.Queue);
             OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.Finish");
+#else
+            for (int m = 0; m < inputNeurons.MiniBatchSize; m++)
+            {
+                for (int i = 0; i < nOutputUnits; i++)
+                    inputNeurons.DeltaHost[m][i] = inputNeurons.GetHost()[m][i] > 0 ? outputNeurons.DeltaHost[m][i] : 0.0;
+
+            }
 #endif
         }
 

@@ -49,7 +49,7 @@ namespace JaNet
                 // Find maximum output score (i.e. assigned class) of each mini batch item
                 for (int m = 0; m < miniBatchSize; m++)
                 {
-                    double[] outputScores = network.Layers.Last().OutputClassScores[m];
+                    double[] outputScores = network.OutputLayer.OutputClassScores[m];
 
                     /////////////// DEBUGGING (visualize true label vs network output)
                     /*

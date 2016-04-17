@@ -1,41 +1,57 @@
 // can be improved _A LOT_!!
 
 __kernel void 
-SoftmaxForward (__global float* y,
-				__global float* x,
+SoftmaxForward (__global write_only float* outputBatch,
+				__global read_only float* inputBatch,
 				__global float* auxFloat,
-				const int nUnits
+				const int nUnits,
+				const int miniBatchSize
                 )
 {
-	uint global_id = get_global_id(0);	
 	
-	if (global_id == 0) {
-		float maxInput = -INFINITY;
-		for (uint i = 0; i < nUnits; i++)
-		{
-			if (x[i] > maxInput)
-				maxInput = x[i];
-		}
-		*auxFloat = maxInput;
+	const int iMiniBatchItem = get_global_id(0);
+	const int iUnit = get_global_id(0);	
+	
+	if (iMiniBatchItem < miniBatchSize && iUnit < nUnits)
+	{
+		int iMiniBatchItemStart = iMiniBatchItem * nUnits;
+		int iOutputArray = iMiniBatchItemStart + iUnit;
 		
-		
-	}
-
-	barrier(CLK_GLOBAL_MEM_FENCE);
-	
-	y[global_id] = exp(x[global_id] - *auxFloat);
-	
-	barrier(CLK_GLOBAL_MEM_FENCE);
-	
-	if (global_id == 0) {
-		float sum = 0.0;
-		for (uint i = 0; i < nUnits; i++) {
-			sum += y[i];
+		// For each mini-batch item, find maximum preactivation
+		if (iUnit == 0) {
+			float maxInput = inputBatch[iOutputArray];
+			for (int j = 1; j < nUnits; j++)
+			{
+				if (inputBatch[iMiniBatchItemStart + j] > maxInput)
+					maxInput = inputBatch[iMiniBatchItemStart + j];
+			}
+			// write max in auxiliary variable
+			auxFloat[iMiniBatchItem] = maxInput;
 		}
-		*auxFloat = sum;
+		
+		// Wait for all threads to reach this point
+		barrier(CLK_GLOBAL_MEM_FENCE);
+		
+		// Compute exp(input - maxInput)
+		float tmpOutput = exp(inputBatch[iOutputArray] - auxFloat[iMiniBatchItem]);
+		
+		// Wait for all threads to reach this point
+		barrier(CLK_GLOBAL_MEM_FENCE);
+		
+		// Sum activations
+		if (iUnit == 0) {
+			float sum = 0.0;
+			for (int j = 0; j < nUnits; j++) {
+				sum += outputBatch[iMiniBatchItemStart + j];
+			}
+			// write sum in auxiliary variable
+			auxFloat[iMiniBatchItem] = sum;
+		}
+		
+		// Wait for all threads to reach this point
+		barrier(CLK_GLOBAL_MEM_FENCE);
+		
+		// Write output
+		outputBatch[iOutputArray] = tmpOutput / auxFloat[iMiniBatchItem];
 	}
-	
-	barrier(CLK_GLOBAL_MEM_FENCE);
-	
-	y[global_id] /= (*auxFloat);
 }

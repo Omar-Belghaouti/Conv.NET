@@ -172,20 +172,7 @@ namespace JaNet
         #endregion
 
 
-        #region Training methods
-
-        
-
-        /*
-        public void FeedDatum(DataSet dataSet, int iExample)
-        {
-#if OPENCL_ENABLED
-            layers[0].OutputNeurons.ActivationsGPU[0] = dataSet.DataGPU(iExample); // Copied by reference
-#else
-            layers[0].OutputNeurons.SetHost(0, dataSet.GetDataPoint(iExample));
-#endif
-        }
-        */
+        #region Methods
 
         public void ForwardPass()
         {
@@ -197,30 +184,34 @@ namespace JaNet
 
 #if DEBUGGING_STEPBYSTEP
                 /* ------------------------- DEBUGGING --------------------------------------------- */
+                int miniBatchSize = layers[0].OutputNeurons.MiniBatchSize;
 
-
+#if OPENCL_ENABLED
+                float[] layerInputAll = new float[layers[l].InputNeurons.NumberOfUnits * miniBatchSize];
+                OpenCLSpace.ClError = Cl.EnqueueReadBuffer(OpenCLSpace.Queue,
+                                                            layers[l].InputNeurons.ActivationsGPU, // source
+                                                            Bool.True,
+                                                            (IntPtr)0,
+                                                            (IntPtr)(layers[l].InputNeurons.NumberOfUnits * miniBatchSize * sizeof(float)),
+                                                            layerInputAll,  // destination
+                                                            0,
+                                                            null,
+                                                            out OpenCLSpace.ClEvent);
+                OpenCLSpace.CheckErr(OpenCLSpace.ClError, "NeuralNetwork.ForwardPass Cl.clEnqueueReadBuffer layerInput");
+#endif
                 // Display input layer-by-layer
                 for (int m = 0; m < miniBatchSize; m++)
                 {
+                    Console.WriteLine("\n --- Mini-batch item {0} -----", m);
 
-                    
 #if OPENCL_ENABLED
                     float[] layerInput = new float[layers[l].InputNeurons.NumberOfUnits];
-                    OpenCLSpace.ClError = Cl.EnqueueReadBuffer( OpenCLSpace.Queue,
-                                                                layers[l].InputNeurons.ActivationsGPU[m], // source
-                                                                Bool.True,
-                                                                (IntPtr)0,
-                                                                (IntPtr)(layers[l].InputNeurons.NumberOfUnits * sizeof(float)),
-                                                                layerInput,  // destination
-                                                                0,
-                                                                null,
-                                                                out OpenCLSpace.ClEvent);
-                    OpenCLSpace.CheckErr(OpenCLSpace.ClError, "NeuralNetwork.ForwardPass Cl.clEnqueueReadBuffer layerInput");
+                    Array.Copy(layerInputAll, m * layers[l].InputNeurons.NumberOfUnits, layerInput, 0, layers[l].InputNeurons.NumberOfUnits);
 #else
                     double[] layerInput = new double[layers[l].InputNeurons.NumberOfUnits];
                     layerInput = layers[l].InputNeurons.GetHost()[m];
 #endif
-                    Console.WriteLine("\nLayer {0} ({1}) input activations (mini-batch item {2}):", l, layers[l].Type, m);
+                    Console.WriteLine("\nLayer {0} ({1}) input activations:", l, layers[l].Type);
                     for (int j = 0; j < layerInput.Length; j++)
                         Console.Write("{0}  ", layerInput[j]);
                     Console.WriteLine();
@@ -235,27 +226,34 @@ namespace JaNet
                 /* ------------------------- DEBUGGING --------------------------------------------- */
 
                 // Display output layer-by-layer
+
+
+                /* ------------------------- DEBUGGING --------------------------------------------- */
+#if OPENCL_ENABLED
+                float[] layerOutputAll = new float[layers[l].OutputNeurons.NumberOfUnits * miniBatchSize];
+                OpenCLSpace.ClError = Cl.EnqueueReadBuffer(OpenCLSpace.Queue,
+                                                            layers[l].OutputNeurons.ActivationsGPU, // source
+                                                            Bool.True,
+                                                            (IntPtr)0,
+                                                            (IntPtr)(layers[l].OutputNeurons.NumberOfUnits * miniBatchSize * sizeof(float)),
+                                                            layerOutputAll,  // destination
+                                                            0,
+                                                            null,
+                                                            out OpenCLSpace.ClEvent);
+                OpenCLSpace.CheckErr(OpenCLSpace.ClError, "NeuralNetwork.ForwardPass Cl.clEnqueueReadBuffer layerInput");
+#endif
                 for (int m = 0; m < miniBatchSize; m++)
                 {
 
-                    
+                    Console.WriteLine("\n --- Mini-batch item {0} -----", m);
 #if OPENCL_ENABLED
                     float[] layerOutput = new float[layers[l].OutputNeurons.NumberOfUnits];
-                    OpenCLSpace.ClError = Cl.EnqueueReadBuffer( OpenCLSpace.Queue,
-                                                                layers[l].OutputNeurons.ActivationsGPU[m], // source
-                                                                Bool.True,
-                                                                (IntPtr)0,
-                                                                (IntPtr)(layers[l].OutputNeurons.NumberOfUnits * sizeof(float)),
-                                                                layerOutput,  // destination
-                                                                0,
-                                                                null,
-                                                                out OpenCLSpace.ClEvent);
-                    OpenCLSpace.CheckErr(OpenCLSpace.ClError, "NeuralNetwork.ForwardPass Cl.clEnqueueReadBuffer layerOutput");
+                    Array.Copy(layerOutputAll, m * layers[l].OutputNeurons.NumberOfUnits, layerOutput, 0, layers[l].OutputNeurons.NumberOfUnits);
 #else
                     double[] layerOutput = new double[layers[l].OutputNeurons.NumberOfUnits];
                     layerOutput = layers[l].OutputNeurons.GetHost()[m];
 #endif
-                    Console.WriteLine("\nLayer {0} ({1}) output activations (mini-batch item {2}):", l, layers[l].Type, m);
+                    Console.WriteLine("\nLayer {0} ({1}) output activations:", l, layers[l].Type);
                     for (int j = 0; j < layerOutput.Length; j++)
                         Console.Write("{0}  ", layerOutput[j]);
                     Console.WriteLine();
@@ -284,27 +282,35 @@ namespace JaNet
 #if DEBUGGING_STEPBYSTEP
                 /* ------------------------- DEBUGGING --------------------------------------------- */
 
-                // Display output delta layer-by-layer
+                // Display output delta  layer-by-layer
+                int miniBatchSize = layers[0].OutputNeurons.MiniBatchSize;
+
+                /* ------------------------- DEBUGGING --------------------------------------------- */
+#if OPENCL_ENABLED
+                float[] deltaOutputAll = new float[layers[l].OutputNeurons.NumberOfUnits * miniBatchSize];
+                OpenCLSpace.ClError = Cl.EnqueueReadBuffer(OpenCLSpace.Queue,
+                                                            layers[l].OutputNeurons.DeltaGPU, // source
+                                                            Bool.True,
+                                                            (IntPtr)0,
+                                                            (IntPtr)(layers[l].OutputNeurons.NumberOfUnits * miniBatchSize * sizeof(float)),
+                                                            deltaOutputAll,  // destination
+                                                            0,
+                                                            null,
+                                                            out OpenCLSpace.ClEvent);
+                OpenCLSpace.CheckErr(OpenCLSpace.ClError, "NeuralNetwork.ForwardPass Cl.clEnqueueReadBuffer deltaOutputAll");
+#endif
                 for (int m = 0; m < miniBatchSize; m++)
                 {
-                    
+
+                    Console.WriteLine("\n --- Mini-batch item {0} -----", m);
 #if OPENCL_ENABLED
                     float[] deltaOutput = new float[layers[l].OutputNeurons.NumberOfUnits];
-                    OpenCLSpace.ClError = Cl.EnqueueReadBuffer( OpenCLSpace.Queue,
-                                                                layers[l].OutputNeurons.DeltaGPU[m], // source
-                                                                Bool.True,
-                                                                (IntPtr)0,
-                                                                (IntPtr)(layers[l].OutputNeurons.NumberOfUnits * sizeof(float)),
-                                                                deltaOutput,  // destination
-                                                                0,
-                                                                null,
-                                                                out OpenCLSpace.ClEvent);
-                    OpenCLSpace.CheckErr(OpenCLSpace.ClError, "NeuralNetwork.BackwardPass Cl.clEnqueueReadBuffer deltaOutput");
+                    Array.Copy(deltaOutputAll, m * layers[l].OutputNeurons.NumberOfUnits, deltaOutput, 0, layers[l].OutputNeurons.NumberOfUnits);
 #else
                     double[] deltaOutput = new double[layers[l].OutputNeurons.NumberOfUnits];
                     deltaOutput = layers[l].OutputNeurons.DeltaHost[m];
 #endif
-                    Console.WriteLine("\nLayer {0} ({1}) output delta (mini-batch item {2}):", l, layers[l].Type, m);
+                    Console.WriteLine("\nLayer {0} ({1}) output delta:", l, layers[l].Type);
                     for (int j = 0; j < deltaOutput.Length; j++)
                         Console.Write("{0}  ", deltaOutput[j]);
                     Console.WriteLine();
@@ -313,38 +319,47 @@ namespace JaNet
 
                 /* ------------------------- END DEBUGGING --------------------------------------------- */
 #endif
+
+
                 // 1. Update layer's parameters' change speed using gradient 
                 layers[l].UpdateSpeeds(learningRate, momentumMultiplier);
 
                 // 2. Backpropagate errors to previous layer (no need to do it for layer 1)
                 if (l > 1)
                     layers[l].BackPropagate();
-                
+
 
 #if DEBUGGING_STEPBYSTEP
                 /* ------------------------- DEBUGGING --------------------------------------------- */
 
-                // Display input delta layer-by-layer
+                // Display input delta  layer-by-layer
+
+                /* ------------------------- DEBUGGING --------------------------------------------- */
+#if OPENCL_ENABLED
+                float[] deltaInputAll = new float[layers[l].InputNeurons.NumberOfUnits * miniBatchSize];
+                OpenCLSpace.ClError = Cl.EnqueueReadBuffer( OpenCLSpace.Queue,
+                                                            layers[l].InputNeurons.DeltaGPU, // source
+                                                            Bool.True,
+                                                            (IntPtr)0,
+                                                            (IntPtr)(layers[l].InputNeurons.NumberOfUnits * miniBatchSize * sizeof(float)),
+                                                            deltaInputAll,  // destination
+                                                            0,
+                                                            null,
+                                                            out OpenCLSpace.ClEvent);
+                OpenCLSpace.CheckErr(OpenCLSpace.ClError, "NeuralNetwork.ForwardPass Cl.clEnqueueReadBuffer deltaInputAll");
+#endif
                 for (int m = 0; m < miniBatchSize; m++)
                 {
-                    
+
+                    Console.WriteLine("\n --- Mini-batch item {0} -----", m);
 #if OPENCL_ENABLED
                     float[] deltaInput = new float[layers[l].InputNeurons.NumberOfUnits];
-                    OpenCLSpace.ClError = Cl.EnqueueReadBuffer( OpenCLSpace.Queue,
-                                                                layers[l].InputNeurons.DeltaGPU[m], // source
-                                                                Bool.True,
-                                                                (IntPtr)0,
-                                                                (IntPtr)(layers[l].InputNeurons.NumberOfUnits * sizeof(float)),
-                                                                deltaInput,  // destination
-                                                                0,
-                                                                null,
-                                                                out OpenCLSpace.ClEvent);
-                    OpenCLSpace.CheckErr(OpenCLSpace.ClError, "NeuralNetwork.BackwardPass Cl.clEnqueueReadBuffer deltaInput");
+                    Array.Copy(deltaInputAll, m * layers[l].InputNeurons.NumberOfUnits, deltaInput, 0, layers[l].InputNeurons.NumberOfUnits);
 #else
                     double[] deltaInput = new double[layers[l].InputNeurons.NumberOfUnits];
                     deltaInput = layers[l].InputNeurons.DeltaHost[m];
 #endif
-                    Console.WriteLine("\nLayer {0} ({1}) input delta (mini-batch item {2}):", l, layers[l].Type, m);
+                    Console.WriteLine("\nLayer {0} ({1}) input delta:", l, layers[l].Type);
                     for (int j = 0; j < deltaInput.Length; j++)
                         Console.Write("{0}  ", deltaInput[j]);
                     Console.WriteLine();
@@ -366,47 +381,50 @@ namespace JaNet
 
         public void CrossEntropyGradient(DataSet DataSet, int[] iMiniBatch)
         {
+            double[] crossEntropyGradientBatch = new double[layers.Last().NInputUnits * iMiniBatch.Length];
 
-            for (int m = 0; m < layers.Last().OutputNeurons.MiniBatchSize; m++)
+            for (int m = 0; m < iMiniBatch.Length; m++)
             {
                 int iDataPoint = iMiniBatch[m];
                 int trueLabel = DataSet.Labels[iDataPoint];
 
-                double[] crossEntropyGradient = layers.Last().OutputClassScores[m];
-                crossEntropyGradient[trueLabel] -= 1.0F;
+                double[] crossEntropyGradient = outputLayer.OutputClassScores[m];
+                crossEntropyGradient[trueLabel] -= 1.0;
 
-                // now write gradient to input neurons of softmax layer (i.e. to output neurons of classifier)
+                crossEntropyGradient.CopyTo(crossEntropyGradientBatch, m * crossEntropyGradient.Length);
+            }
+
+            // now write gradient to input neurons of softmax layer (i.e. to output neurons of classifier)
 #if OPENCL_ENABLED
-                float[] floatCrossEntropyGradient = new float[crossEntropyGradient.Length];
-                for (int c = 0; c < crossEntropyGradient.Length; c++)
-                {
-                    floatCrossEntropyGradient[c] = (float)crossEntropyGradient[c];
-                }
+            float[] floatCrossEntropyGradient = new float[crossEntropyGradientBatch.Length];
+            for (int c = 0; c < crossEntropyGradientBatch.Length; c++)
+            {
+                floatCrossEntropyGradient[c] = (float)crossEntropyGradientBatch[c];
+            }
 
-                OpenCLSpace.ClError = Cl.EnqueueWriteBuffer(OpenCLSpace.Queue, 
-                                                            layers.Last().InputNeurons.DeltaGPU, 
-                                                            OpenCL.Net.Bool.True,
-                                                            (IntPtr) (sizeof(float) * m * crossEntropyGradient.Length), 
-                                                            (IntPtr) (sizeof(float) * crossEntropyGradient.Length),
-                                                            floatCrossEntropyGradient, 
-                                                            0, 
-                                                            null, 
-                                                            out OpenCLSpace.ClEvent);
-                OpenCLSpace.CheckErr(OpenCLSpace.ClError, "NetworkTrainer.CrossEntropyGradient(): Cl.EnqueueWriteBuffer");
+            OpenCLSpace.ClError = Cl.EnqueueWriteBuffer(OpenCLSpace.Queue, 
+                                                        layers.Last().InputNeurons.DeltaGPU, 
+                                                        OpenCL.Net.Bool.True,
+                                                        (IntPtr) 0, 
+                                                        (IntPtr) (sizeof(float) * floatCrossEntropyGradient.Length),
+                                                        floatCrossEntropyGradient, 
+                                                        0, 
+                                                        null, 
+                                                        out OpenCLSpace.ClEvent);
+            OpenCLSpace.CheckErr(OpenCLSpace.ClError, "NetworkTrainer.CrossEntropyGradient(): Cl.EnqueueWriteBuffer");
 
 
-                OpenCLSpace.ClError = Cl.ReleaseEvent(OpenCLSpace.ClEvent);
-                OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.ReleaseEvent");
-#else
-                layers.Last().InputNeurons.DeltaHost[m] = crossEntropyGradient;
-#endif
+            OpenCLSpace.ClError = Cl.ReleaseEvent(OpenCLSpace.ClEvent);
+            OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.ReleaseEvent");
 
-#if OPENCL_ENABLED
             OpenCLSpace.ClError = Cl.Finish(OpenCLSpace.Queue);
             OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.Finish");
-#endif
-
+#else
+            for (int m = 0; m < iMiniBatch.Length; m++)
+            {
+                Array.Copy(crossEntropyGradientBatch, m * layers.Last().NInputUnits, layers.Last().InputNeurons.DeltaHost[m], 0, layers.Last().NInputUnits);
             }
+#endif
 
         }
         #endregion

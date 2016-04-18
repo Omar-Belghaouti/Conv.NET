@@ -91,7 +91,10 @@ namespace JaNet
         public static Kernel ConvUpdateParameters;
         public static Kernel ConvBackPropagate;
         public static Kernel ZeroPadBatch;
+        public static Kernel ZeroUnpadBatch;
         public static Kernel ConvForwardBatch;
+        public static Kernel ConvBackPropagateBatch;
+        public static Kernel ConvUpdateSpeedsBatch;
 
         // Fully connected layer
         public static Kernel FCForward;
@@ -251,7 +254,10 @@ namespace JaNet
             ConvUpdateParameters = LoadAndBuildKernel(kernelsPath + "/ConvUpdateParameters.cl", "ConvUpdateParameters");
             ConvBackPropagate = LoadAndBuildKernel(kernelsPath + "/ConvBackPropagate.cl", "ConvBackPropagate");
             ZeroPadBatch = LoadAndBuildKernel(kernelsPath + "/ZeroPadBatch.cl", "ZeroPadBatch");
+            ZeroUnpadBatch = LoadAndBuildKernel(kernelsPath + "/ZeroUnpadBatch.cl", "ZeroUnpadBatch");
             ConvForwardBatch = LoadAndBuildKernel(kernelsPath + "/ConvForwardBatch.cl", "ConvForwardBatch");
+            ConvBackPropagateBatch = LoadAndBuildKernel(kernelsPath + "/ConvBackPropagateBatch.cl", "ConvBackPropagateBatch");
+            ConvUpdateSpeedsBatch = LoadAndBuildKernel(kernelsPath + "/ConvUpdateSpeedsBatch.cl", "ConvUpdateSpeedsBatch");
 
             // Fully connected layer
             FCForward = LoadAndBuildKernel(kernelsPath + "/FCForward.cl", "FCForward");
@@ -300,16 +306,22 @@ namespace JaNet
             else
                 throw new ArgumentException("Type not supported. Use either float or int.");
 
-            ClError = Cl.EnqueueWriteBuffer(    queue,
-                                                buffer,
-                                                OpenCL.Net.Bool.True,
-                                                (IntPtr)0,
-                                                (IntPtr)(sizeOfElement * nElementsInBuffer),
-                                                zeros,
-                                                0,
-                                                null,
-                                                out ClEvent);
+            ClError = Cl.EnqueueWriteBuffer(queue,
+                                            buffer,
+                                            OpenCL.Net.Bool.True,
+                                            (IntPtr)0,
+                                            (IntPtr)(sizeOfElement * nElementsInBuffer),
+                                            zeros,
+                                            0,
+                                            null,
+                                            out ClEvent);
             CheckErr(ClError, "OpenCLSpace.WipeBuffer: Cl.EnqueueWriteBuffer");
+
+            ClError = Cl.ReleaseEvent(ClEvent);
+            CheckErr(ClError, "Cl.ReleaseEvent");
+
+            ClError = Cl.Finish(queue);
+            CheckErr(ClError, "Cl.Finish");
         }
         
         public static void CheckErr(ErrorCode err, string name)

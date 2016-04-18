@@ -134,7 +134,7 @@ namespace JaNet
             networkTrainer.EarlyStopping = false;
             
             
-            networkTrainer.Train();
+            //networkTrainer.Train();
             
 
             

@@ -475,83 +475,87 @@ namespace JaNet
 
         public override void BackPropagate()
         {
-            for (int m = 0; m < inputNeurons.MiniBatchSize; m++)
-            {
+
 #if OPENCL_ENABLED
-                // 1. Wipe out buffer where we are going to cumulate gradients 
-                //(gradients wrt different locations in receptive field will be cumulated, as it should be!)
+            // 1. Wipe out input buffers where we are going to write gradients 
+            // (this is important because gradients wrt different locations in receptive field have to be summed!)
 
-                if (zeroPadding > 0)
-                    OpenCLSpace.WipeBuffer(paddedInputBatchGPU, paddedInputSize, typeof(float));
-                else
-                    OpenCLSpace.WipeBuffer(inputNeurons.DeltaGPU, nInputUnits, typeof(float));
-                OpenCLSpace.ClError = Cl.Finish(OpenCLSpace.Queue);
-                OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.Finish");
-
-                // 2. BackPropagate kernel
+            if (zeroPadding > 0)
+                OpenCLSpace.WipeBuffer(paddedInputBatchGPU, paddedInputSize, typeof(float));
+            else
+                OpenCLSpace.WipeBuffer(inputNeurons.DeltaGPU, nInputUnits, typeof(float));
+            
+            // 2. Convolution backpropagation as matrix multiplication (see ConvBackPropagate kernel)
                 
+            // Set kernel arguments
+            if (zeroPadding > 0)                          
+                OpenCLSpace.ClError = Cl.SetKernelArg(OpenCLSpace.ConvBackPropagateBatch, 0, paddedInputBatchGPU);
+            else
+                OpenCLSpace.ClError = Cl.SetKernelArg(OpenCLSpace.ConvBackPropagateBatch, 0, inputNeurons.DeltaGPU);
+            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.ConvBackPropagateBatch, 1, outputNeurons.DeltaGPU);
+            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.ConvBackPropagateBatch, 2, weightsGPU);
+            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.ConvBackPropagateBatch, 3, lookupTableGPU);
+            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.ConvBackPropagateBatch, 4, (IntPtr)sizeof(int), nFilters);
+            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.ConvBackPropagateBatch, 5, (IntPtr)sizeof(int), receptiveFieldSize);
+            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.ConvBackPropagateBatch, 6, (IntPtr)sizeof(int), nReceptiveFields);
+            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.ConvBackPropagateBatch, 7, (IntPtr)sizeof(int), inputNeurons.MiniBatchSize);
+            OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Convolutional.BackPropagate(): Cl.SetKernelArg ConvBackPropagateBatch");
+
+            // Run kernel
+            OpenCLSpace.ClError = Cl.EnqueueNDRangeKernel(  OpenCLSpace.Queue,
+                                                            OpenCLSpace.ConvBackPropagateBatch,
+                                                            2,
+                                                            null,
+                                                            backwardGlobalWorkSizePtr,
+                                                            backwardLocalWorkSizePtr,
+                                                            0,
+                                                            null,
+                                                            out OpenCLSpace.ClEvent);
+            OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Convolutional.BackPropagate(): Cl.EnqueueNDRangeKernel ConvBackPropagateBatch");
+
+            OpenCLSpace.ClError = Cl.ReleaseEvent(OpenCLSpace.ClEvent);
+            OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.ReleaseEvent");
+
+            OpenCLSpace.ClError = Cl.Finish(OpenCLSpace.Queue);
+            OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.Finish");
+
+            // 3. (if needed) Unpad paddedInputBatchGPU to get deltaX
+
+            if (zeroPadding > 0)
+            {
                 // Set kernel arguments
-                if (zeroPadding > 0)                          
-                    OpenCLSpace.ClError = Cl.SetKernelArg(OpenCLSpace.ConvBackPropagate, 0, paddedInputBatchGPU);
-                else
-                    OpenCLSpace.ClError = Cl.SetKernelArg(OpenCLSpace.ConvBackPropagate, 0, inputNeurons.DeltaGPU);
-                OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.ConvBackPropagate, 1, outputNeurons.DeltaGPU);
-                OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.ConvBackPropagate, 2, weightsGPU);
-                OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.ConvBackPropagate, 3, lookupTableGPU);
-                OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.ConvBackPropagate, 4, (IntPtr)sizeof(int), nFilters);
-                OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.ConvBackPropagate, 5, (IntPtr)sizeof(int), receptiveFieldSize);
-                OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.ConvBackPropagate, 6, (IntPtr)sizeof(int), nReceptiveFields);
-                OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Convolutional.BackPropagate(): Cl.SetKernelArg ConvBackPropagate");
+                OpenCLSpace.ClError  = Cl.SetKernelArg(OpenCLSpace.ZeroUnpadBatch, 0, paddedInputBatchGPU);
+                OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.ZeroUnpadBatch, 1, inputNeurons.DeltaGPU);
+                OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.ZeroUnpadBatch, 2, (IntPtr)sizeof(int), inputWidth);
+                OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.ZeroUnpadBatch, 3, (IntPtr)sizeof(int), inputArea);
+                OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.ZeroUnpadBatch, 4, (IntPtr)sizeof(int), inputVolume);
+                OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.ZeroUnpadBatch, 5, (IntPtr)sizeof(int), zeroPadding);
+                OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.ZeroUnpadBatch, 6, (IntPtr)sizeof(int), nZerosTopRows);
+                OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.ZeroUnpadBatch, 7, (IntPtr)sizeof(int), nZerosPerChannel);
+                OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.ZeroUnpadBatch, 8, (IntPtr)sizeof(int), nZerosPerInputVolume);
+                OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Convolutional.BackPropagate(): Cl.SetKernelArg ZeroUnpadBatch");
 
                 // Run kernel
                 OpenCLSpace.ClError = Cl.EnqueueNDRangeKernel(  OpenCLSpace.Queue,
-                                                                OpenCLSpace.ConvBackPropagate,
-                                                                2,
+                                                                OpenCLSpace.ZeroUnpadBatch,
+                                                                1,
                                                                 null,
-                                                                backwardGlobalWorkSizePtr,
-                                                                backwardLocalWorkSizePtr,
+                                                                paddingGlobalWorkSizePtr,
+                                                                paddingLocalWorkSizePtr,
                                                                 0,
                                                                 null,
                                                                 out OpenCLSpace.ClEvent);
-                OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Convolutional.BackPropagate(): Cl.EnqueueNDRangeKernel ConvBackPropagate");
+                OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Convolutional.BackPropagate(): Cl.EnqueueNDRangeKernel ZeroUnpadBatch");
 
                 OpenCLSpace.ClError = Cl.ReleaseEvent(OpenCLSpace.ClEvent);
                 OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.ReleaseEvent");
 
-                if (zeroPadding > 0)
-                {
-                    OpenCLSpace.ClError = Cl.Finish(OpenCLSpace.Queue);
-                    OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.Finish");
-
-                    // 3. Unpad paddedInputGPU[m] to get deltaX
-
-                    // Set kernel arguments
-                    OpenCLSpace.ClError = Cl.SetKernelArg(OpenCLSpace.ZeroUnpad, 0, paddedInputBatchGPU);
-                    OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.ZeroUnpad, 1, inputNeurons.DeltaGPU);
-                    OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.ZeroUnpad, 2, (IntPtr)sizeof(int), inputWidth);
-                    OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.ZeroUnpad, 3, (IntPtr)sizeof(int), inputArea);
-                    OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.ZeroUnpad, 4, (IntPtr)sizeof(int), inputVolume);
-                    OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.ZeroUnpad, 5, (IntPtr)sizeof(int), zeroPadding);
-                    OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.ZeroUnpad, 6, (IntPtr)sizeof(int), nZerosTopRows);
-                    OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.ZeroUnpad, 7, (IntPtr)sizeof(int), nZerosPerChannel);
-                    OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Convolutional.BackPropagate(): Cl.SetKernelArg ZeroUnpad");
-
-                    // Run kernel
-                    OpenCLSpace.ClError = Cl.EnqueueNDRangeKernel(OpenCLSpace.Queue,
-                                                                    OpenCLSpace.ZeroUnpad,
-                                                                    1,
-                                                                    null,
-                                                                    paddingGlobalWorkSizePtr,
-                                                                    paddingLocalWorkSizePtr,
-                                                                    0,
-                                                                    null,
-                                                                    out OpenCLSpace.ClEvent);
-                    OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Convolutional.BackPropagate(): Cl.EnqueueNDRangeKernel ZeroUnpad");
-
-                    OpenCLSpace.ClError = Cl.ReleaseEvent(OpenCLSpace.ClEvent);
-                    OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.ReleaseEvent");
-                }
+                OpenCLSpace.ClError = Cl.Finish(OpenCLSpace.Queue);
+                OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.Finish");
+            }
 #else
+            for (int m = 0; m < inputNeurons.MiniBatchSize; m++)
+            {
                 // 1. Wipe out deltaX buffer (will be cumulated!)
 
                 //Array.Clear(paddedInput[m], 0, paddedInputSize); // no longer needed
@@ -566,51 +570,50 @@ namespace JaNet
                     inputNeurons.DeltaHost[m] = ZeroUnpadCPU(paddedInput[m]);
                 else
                     inputNeurons.DeltaHost[m] = paddedInput[m];
-#endif
             } // end of loop over mini-batch
-
-#if OPENCL_ENABLED
-            OpenCLSpace.ClError = Cl.Finish(OpenCLSpace.Queue);
-            OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.Finish");
 #endif
         }
 
 
         public override void UpdateSpeeds(double learningRate, double momentumCoefficient)
         {
-            for (int m = 0; m < inputNeurons.MiniBatchSize; m++)
-            {
+            
 #if OPENCL_ENABLED
-                // Set kernel arguments
-                OpenCLSpace.ClError = Cl.SetKernelArg(OpenCLSpace.ConvUpdateSpeeds, 0, weightsSpeedGPU);
-                OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.ConvUpdateSpeeds, 1, biasesSpeedGPU);
-                OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.ConvUpdateSpeeds, 2, OutputNeurons.DeltaGPU);
-                OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.ConvUpdateSpeeds, 3, InputNeurons.ActivationsGPU);
-                OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.ConvUpdateSpeeds, 4, lookupTableGPU);
-                OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.ConvUpdateSpeeds, 5, (IntPtr)sizeof(int), nFilters);
-                OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.ConvUpdateSpeeds, 6, (IntPtr)sizeof(int), receptiveFieldSize);
-                OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.ConvUpdateSpeeds, 7, (IntPtr)sizeof(int), nReceptiveFields);
-                OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.ConvUpdateSpeeds, 8, (IntPtr)sizeof(float), (float)momentumCoefficient);
-                OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.ConvUpdateSpeeds, 9, (IntPtr)sizeof(float), (float)(learningRate / inputNeurons.MiniBatchSize));
-                OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.ConvUpdateSpeeds, 10, (IntPtr)sizeof(int), m);
-                OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Convolutional.UpdateSpeeds(): Cl.SetKernelArg");
+            // Set kernel arguments
+            OpenCLSpace.ClError  = Cl.SetKernelArg(OpenCLSpace.ConvUpdateSpeedsBatch, 0, weightsSpeedGPU);
+            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.ConvUpdateSpeedsBatch, 1, biasesSpeedGPU);
+            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.ConvUpdateSpeedsBatch, 2, outputNeurons.DeltaGPU);
+            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.ConvUpdateSpeedsBatch, 3, inputNeurons.ActivationsGPU);
+            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.ConvUpdateSpeedsBatch, 4, lookupTableGPU);
+            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.ConvUpdateSpeedsBatch, 5, (IntPtr)sizeof(int), nFilters);
+            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.ConvUpdateSpeedsBatch, 6, (IntPtr)sizeof(int), receptiveFieldSize);
+            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.ConvUpdateSpeedsBatch, 7, (IntPtr)sizeof(int), nReceptiveFields);
+            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.ConvUpdateSpeedsBatch, 8, (IntPtr)sizeof(float), (float)momentumCoefficient);
+            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.ConvUpdateSpeedsBatch, 9, (IntPtr)sizeof(float), (float)learningRate);
+            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.ConvUpdateSpeedsBatch, 10, (IntPtr)sizeof(int), inputNeurons.MiniBatchSize);
+            OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Convolutional.UpdateSpeeds(): Cl.SetKernelArg ConvUpdateSpeedsBatch");
 
-                // Run kernel
-                OpenCLSpace.ClError = Cl.EnqueueNDRangeKernel(  OpenCLSpace.Queue,
-                                                                OpenCLSpace.FCUpdateSpeeds,
-                                                                2,
-                                                                null,
-                                                                updateParametersGlobalWorkSizePtr,
-                                                                updateParametersLocalWorkSizePtr,
-                                                                0,
-                                                                null,
-                                                                out OpenCLSpace.ClEvent);
-                OpenCLSpace.CheckErr(OpenCLSpace.ClError, "FullyConnected.UpdateSpeeds(): Cl.EnqueueNDRangeKernel");
+            // Run kernel
+            OpenCLSpace.ClError = Cl.EnqueueNDRangeKernel(  OpenCLSpace.Queue,
+                                                            OpenCLSpace.ConvUpdateSpeedsBatch,
+                                                            2,
+                                                            null,
+                                                            updateParametersGlobalWorkSizePtr,
+                                                            updateParametersLocalWorkSizePtr,
+                                                            0,
+                                                            null,
+                                                            out OpenCLSpace.ClEvent);
+            OpenCLSpace.CheckErr(OpenCLSpace.ClError, "FullyConnected.UpdateSpeeds(): Cl.EnqueueNDRangeKernel ConvUpdateSpeedsBatch");
 
-                OpenCLSpace.ClError = Cl.ReleaseEvent(OpenCLSpace.ClEvent);
-                OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.ReleaseEvent");
+            OpenCLSpace.ClError = Cl.ReleaseEvent(OpenCLSpace.ClEvent);
+            OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.ReleaseEvent");
+
+            OpenCLSpace.ClError = Cl.Finish(OpenCLSpace.Queue);
+            OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.Finish");
 #else
 
+            for (int m = 0; m < inputNeurons.MiniBatchSize; m++)
+            {
                 ConvGradientsCPU(ref weightsGradients, ref biasesGradients, outputNeurons.DeltaHost[m], paddedInput[m]);
 
                 //double gradientNorm = 0;
@@ -635,13 +638,9 @@ namespace JaNet
                 //if (gradientNorm < Global.EPSILON)
                     //Console.WriteLine("BUSTED");
                     //System.Diagnostics.Debugger.Launch();
-
-#endif
             }
-#if OPENCL_ENABLED
-            OpenCLSpace.ClError = Cl.Finish(OpenCLSpace.Queue);
-            OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.Finish");
 #endif
+
         }
 
         public override void UpdateParameters()

@@ -475,6 +475,7 @@ namespace JaNet
 
         public override void BackPropagate()
         {
+            //Console.WriteLine("Checkpoint C");
 
 #if OPENCL_ENABLED
             // 1. Wipe out input buffers where we are going to write gradients 
@@ -552,6 +553,9 @@ namespace JaNet
 
                 OpenCLSpace.ClError = Cl.Finish(OpenCLSpace.Queue);
                 OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.Finish");
+
+                //Console.WriteLine("Checkpoint D");
+
             }
 #else
             for (int m = 0; m < inputNeurons.MiniBatchSize; m++)
@@ -577,7 +581,7 @@ namespace JaNet
 
         public override void UpdateSpeeds(double learningRate, double momentumCoefficient)
         {
-            
+            //Console.WriteLine("Checkpoint A");
 #if OPENCL_ENABLED
             // Set kernel arguments
             OpenCLSpace.ClError  = Cl.SetKernelArg(OpenCLSpace.ConvUpdateSpeedsBatch, 0, weightsSpeedGPU);
@@ -610,6 +614,8 @@ namespace JaNet
 
             OpenCLSpace.ClError = Cl.Finish(OpenCLSpace.Queue);
             OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.Finish");
+
+            //Console.WriteLine("Checkpoint B");
 #else
 
             for (int m = 0; m < inputNeurons.MiniBatchSize; m++)
@@ -645,6 +651,8 @@ namespace JaNet
 
         public override void UpdateParameters()
         {
+            //Console.WriteLine("Checkpoint E");
+
 #if OPENCL_ENABLED
             // Set kernel arguments
             OpenCLSpace.ClError  = Cl.SetKernelArg(OpenCLSpace.ConvUpdateParameters, 0, weightsGPU);
@@ -672,6 +680,8 @@ namespace JaNet
 
             OpenCLSpace.ClError = Cl.ReleaseEvent(OpenCLSpace.ClEvent);
             OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.ReleaseEvent");
+
+            //Console.WriteLine("Checkpoint F");
 #else
             //double weightNorm = 0;
             //double updateNorm = 0;

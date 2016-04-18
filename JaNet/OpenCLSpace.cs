@@ -83,13 +83,15 @@ namespace JaNet
         #region Kernels
 
         // Convolutional layer
-        public static Kernel Im2colLookupTable;
+        public static Kernel CreateLookupTable;
         public static Kernel ZeroPad;
         public static Kernel ZeroUnpad;
         public static Kernel ConvForward;
         public static Kernel ConvUpdateSpeeds;
         public static Kernel ConvUpdateParameters;
         public static Kernel ConvBackPropagate;
+        public static Kernel ZeroPadBatch;
+        public static Kernel ConvForwardBatch;
 
         // Fully connected layer
         public static Kernel FCForward;
@@ -241,13 +243,15 @@ namespace JaNet
                 throw new MissingFieldException("Path to kernels' source must be specified before calling LoadKernels()");
 
             // Convolutional layer
-            Im2colLookupTable = LoadAndBuildKernel(kernelsPath + "/Im2colLookupTable.cl", "Im2colLookupTable");
+            CreateLookupTable = LoadAndBuildKernel(kernelsPath + "/CreateLookupTable.cl", "CreateLookupTable");
             ZeroPad = LoadAndBuildKernel(kernelsPath + "/ZeroPad.cl", "ZeroPad");
             ZeroUnpad = LoadAndBuildKernel(kernelsPath + "/ZeroUnpad.cl", "ZeroUnpad");
             ConvForward = LoadAndBuildKernel(kernelsPath + "/ConvForward.cl", "ConvForward");
             ConvUpdateSpeeds = LoadAndBuildKernel(kernelsPath + "/ConvUpdateSpeeds.cl", "ConvUpdateSpeeds");
             ConvUpdateParameters = LoadAndBuildKernel(kernelsPath + "/ConvUpdateParameters.cl", "ConvUpdateParameters");
             ConvBackPropagate = LoadAndBuildKernel(kernelsPath + "/ConvBackPropagate.cl", "ConvBackPropagate");
+            ZeroPadBatch = LoadAndBuildKernel(kernelsPath + "/ZeroPadBatch.cl", "ZeroPadBatch");
+            ConvForwardBatch = LoadAndBuildKernel(kernelsPath + "/ConvForwardBatch.cl", "ConvForwardBatch");
 
             // Fully connected layer
             FCForward = LoadAndBuildKernel(kernelsPath + "/FCForward.cl", "FCForward");

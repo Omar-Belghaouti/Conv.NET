@@ -71,7 +71,7 @@
     <Compile Include="NetworkEvaluator.cs" />
     <Compile Include="NetworkTrainer.cs" />
     <Compile Include="FullyConnectedLayer.cs" />
-    <None Include="ConvolutionalLayer.cs" />
+    <Compile Include="ConvolutionalLayer.cs" />
     <Compile Include="Layer.cs" />
     <Compile Include="NeuralNetwork.cs" />
     <Compile Include="Main.cs" />

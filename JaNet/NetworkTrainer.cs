@@ -87,10 +87,11 @@ namespace JaNet
             get { return miniBatchSize; }
             set 
             {
+#if OPENCL_ENABLED
                 if (OpenCLSpace.OPTIMAL_GROUP_SIZE % value != 0)
                     throw new ArgumentException("OPTIMAL_GROUP_SIZE should divide miniBatchSize.");
-                else
-                    miniBatchSize = value; 
+#endif
+                miniBatchSize = value; 
             }
         }
 

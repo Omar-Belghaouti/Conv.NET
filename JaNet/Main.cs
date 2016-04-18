@@ -48,14 +48,14 @@ namespace JaNet
 
             network.AddLayer(new InputLayer(1, 28, 28));
 
-            //network.AddLayer(new ConvolutionalLayer(5, 8, 1, 0));
-            //network.AddLayer(new ReLU());
+            network.AddLayer(new ConvolutionalLayer(5, 8, 1, 0));
+            network.AddLayer(new ReLU());
 
-            //network.AddLayer(new ConvolutionalLayer(5, 8, 1, 0));
-            //network.AddLayer(new ReLU());
+            network.AddLayer(new ConvolutionalLayer(5, 8, 1, 0));
+            network.AddLayer(new ReLU());
 
 
-            network.AddLayer(new FullyConnectedLayer(128));
+            network.AddLayer(new FullyConnectedLayer(16));
             //network.AddLayer(new Tanh(0.5));
             network.AddLayer(new ReLU());
 
@@ -103,15 +103,15 @@ namespace JaNet
 
             DataSet trainingSet = new DataSet(10);
 
-            trainingSet.ReadData(MNISTtestData);
-            trainingSet.ReadLabels(MNISTtestLabels);
+            trainingSet.ReadData(MNISTreducedData);
+            trainingSet.ReadLabels(MNISTreducedLabels);
 
-            Console.WriteLine("Importing validation set...");
+            //Console.WriteLine("Importing validation set...");
 
-            DataSet validationSet = new DataSet(10);
+            //DataSet validationSet = new DataSet(10);
 
-            validationSet.ReadData(MNISTreducedData);
-            validationSet.ReadLabels(MNISTreducedLabels);
+            //validationSet.ReadData(MNISTreducedData);
+            //validationSet.ReadLabels(MNISTreducedLabels);
 
             /*****************************************************
              * (3) Train network
@@ -127,10 +127,10 @@ namespace JaNet
             networkTrainer.LearningRate = 0.0005;
             networkTrainer.MomentumMultiplier = 0.9;
             networkTrainer.MaxTrainingEpochs = 1000;
-            networkTrainer.MiniBatchSize = 1; // property includes buffer increase
+            networkTrainer.MiniBatchSize = 8; // property includes buffer increase
             networkTrainer.ErrorTolerance = 0.0;
             networkTrainer.ConsoleOutputLag = 1; // 1 = print every epoch, N = print every N epochs
-            networkTrainer.EvaluateBeforeTraining = false;
+            networkTrainer.EvaluateBeforeTraining = true;
             networkTrainer.EarlyStopping = false;
             
             
@@ -143,7 +143,7 @@ namespace JaNet
              * (4) Test network
              ****************************************************/
 
-            
+            /*
             NetworkEvaluator networkEvaluator = new NetworkEvaluator();
 
             double loss;
@@ -153,6 +153,7 @@ namespace JaNet
 #if GRADIENT_CHECK
             GradientChecker.Check(network, reducedMNIST);
 #endif
+            */
         }
     }
 }

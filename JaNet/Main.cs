@@ -127,7 +127,7 @@ namespace JaNet
             networkTrainer.LearningRate = 0.0005;
             networkTrainer.MomentumMultiplier = 0.9;
             networkTrainer.MaxTrainingEpochs = 1000;
-            networkTrainer.MiniBatchSize = 16; // property includes buffer increase
+            networkTrainer.MiniBatchSize = 1; // property includes buffer increase
             networkTrainer.ErrorTolerance = 0.0;
             networkTrainer.ConsoleOutputLag = 1; // 1 = print every epoch, N = print every N epochs
             networkTrainer.EvaluateBeforeTraining = false;
@@ -148,7 +148,7 @@ namespace JaNet
 
             double loss;
             double error;
-            networkEvaluator.ComputeLossError(network, trainingSet, out loss, out error);
+            networkEvaluator.EvaluateNetwork(network, trainingSet, out loss, out error);
             Console.WriteLine("Final evaluation\n\tLoss = {0}\n\tError = {1}", loss, error);
 #if GRADIENT_CHECK
             GradientChecker.Check(network, reducedMNIST);

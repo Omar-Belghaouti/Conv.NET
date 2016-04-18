@@ -24,10 +24,8 @@ namespace JaNet
         }
         #endregion
 
-        public void ComputeLossError(NeuralNetwork network, DataSet dataSet, out double loss, out double error)
+        public void EvaluateNetwork(NeuralNetwork network, DataSet dataSet, out double loss, out double error)
         {
-            // pass network as argument if it doesn't work!
-
             loss = 0.0;
             error = 0.0;
 
@@ -87,5 +85,31 @@ namespace JaNet
             error /= dataSet.Size;
             loss /= dataSet.Size;
         }
+
+
+        public void ComputeBatchLossError(NeuralNetwork network, DataSet dataSet, int[] miniBatch, out double loss, out double error)
+        {
+            loss = 0.0;
+            error = 0.0;
+
+            // Find maximum output score (i.e. assigned class) of each mini batch item
+            for (int m = 0; m < miniBatch.Length; m++)
+            {
+                double[] outputScores = network.OutputLayer.OutputClassScores[m];
+
+                int assignedLabel = Utils.IndexOfMax(outputScores);
+                int trueLabel = dataSet.Labels[miniBatch[m]];
+
+                // Cumulate loss and error
+                loss -= Math.Log(outputScores[trueLabel]);
+                error += (assignedLabel == trueLabel) ? 0 : 1;
+
+            } // end loop within a mini-batch
+             
+            error /= dataSet.Size;
+            loss /= dataSet.Size;
+        }
+
+
     }
 }

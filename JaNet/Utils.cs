@@ -18,7 +18,6 @@ namespace JaNet
 
     static class Utils
     {
-
         /// <summary>
         /// Returns index of maximum element in the given input array.
         /// </summary>
@@ -232,10 +231,29 @@ namespace JaNet
         {
             int[] miniBatchIndices = new int[miniBatchSize];
 
-            for (int i = 0; i < miniBatchSize; i++)
-                miniBatchIndices[i] = data[iBeginning + i];
-
+            // If data.Length does not divide miniBatchSize, out of index exception can occur
+            // In order to prevent this, the following check is performed.
+            if (data.Length < iBeginning + miniBatchSize)
+            {
+                // If this occurs, read the remaining data... 
+                for (int i = 0; i < data.Length - iBeginning; i++)
+                    miniBatchIndices[i] = data[iBeginning + i];
+                // ...and then resample some random data to complete the mini-batch
+                for (int i = data.Length - iBeginning; i < miniBatchSize; i++)
+                {
+                    int iRandom = Global.rng.Next(data.Length);
+                    miniBatchIndices[i] = data[iRandom];
+                }
+                // TODO: find a better solution! This is not an issue while training, but affects evaluation!
+            }
+            else
+            {
+                for (int i = 0; i < miniBatchSize; i++)
+                    miniBatchIndices[i] = data[iBeginning + i];
+            }
             return miniBatchIndices;
         }
+
+
     }
 }

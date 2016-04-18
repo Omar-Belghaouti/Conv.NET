@@ -52,6 +52,18 @@ namespace JaNet
             get { return network; }
         }
 
+        public DataSet TrainingSet
+        {
+            get { return trainingSet; }
+            set { this.trainingSet = value; }
+        }
+
+        public DataSet ValidationSet
+        {
+            get { return validationSet; }
+            set { this.validationSet = value; }
+        }
+
         public double LearningRate
         {
             get { return learningRate; }
@@ -73,7 +85,13 @@ namespace JaNet
         public int MiniBatchSize
         {
             get { return miniBatchSize; }
-            set { miniBatchSize = value; }
+            set 
+            {
+                if (OpenCLSpace.OPTIMAL_GROUP_SIZE % value != 0)
+                    throw new ArgumentException("OPTIMAL_GROUP_SIZE should divide miniBatchSize.");
+                else
+                    miniBatchSize = value; 
+            }
         }
 
         public double ErrorTolerance
@@ -162,7 +180,7 @@ namespace JaNet
             int epochsRemainingToOutput = (evaluateBeforeTraining == true) ? 0 : consoleOutputLag;
 
             Sequence indicesSequence = new Sequence(trainingSet.Size);
-            int[] iMiniBatch = new int[miniBatchSize];
+            int[] miniBatch = new int[miniBatchSize];
 
             bool stopFlag = false;
 
@@ -189,7 +207,7 @@ namespace JaNet
                     // Evaluate all training set
                     Console.WriteLine("Evaluating on TRAINING set...");
                     stopwatch.Restart();
-                    networkEvaluator.ComputeLossError(network, trainingSet, out lossTraining, out errorTraining);
+                    networkEvaluator.EvaluateNetwork(network, trainingSet, out lossTraining, out errorTraining);
                     Console.WriteLine("\tLoss = {0}\n\tError = {1}\n\tEval runtime = {2}ms\n",
                                         lossTraining, errorTraining, stopwatch.ElapsedMilliseconds);
 
@@ -199,7 +217,7 @@ namespace JaNet
                         double tmpErrorValidation;
                         Console.WriteLine("Evaluating on VALIDATION set...");
                         stopwatch.Restart();
-                        networkEvaluator.ComputeLossError(network, validationSet, out lossValidation, out tmpErrorValidation);
+                        networkEvaluator.EvaluateNetwork(network, validationSet, out lossValidation, out tmpErrorValidation);
                         Console.WriteLine("\tLoss = {0}\n\tError = {1}\n\tEval runtime = {2}ms\n",
                                             lossValidation, tmpErrorValidation, stopwatch.ElapsedMilliseconds);
                         if (tmpErrorValidation < errorValidation || !earlyStopping)
@@ -239,21 +257,31 @@ namespace JaNet
                 stopwatchGrad.Reset();
                 stopwatchBwd.Reset();
 
+                Console.Write("\nEpoch {0}...", epoch);
+
+                int iMiniBatch = 0;
                 // Run over mini-batches 
                 for (int iStartMiniBatch = 0; iStartMiniBatch < trainingSet.Size; iStartMiniBatch += miniBatchSize)  
                 {
                     // Feed a mini-batch to the network
-                    iMiniBatch = indicesSequence.GetMiniBatchIndices(iStartMiniBatch, miniBatchSize);
-                    network.InputLayer.FeedData(trainingSet, iMiniBatch);
+                    miniBatch = indicesSequence.GetMiniBatchIndices(iStartMiniBatch, miniBatchSize);
+                    network.InputLayer.FeedData(trainingSet, miniBatch);
 
                     // Forward pass
                     stopwatchFwd.Start();
                     network.ForwardPass();
                     stopwatchFwd.Stop();
 
+                    // Compute loss and error on this mini-batch
+                    double lossBatch;
+                    double errorBatch;
+                    networkEvaluator.ComputeBatchLossError(network, trainingSet, miniBatch, out lossBatch, out errorBatch);
+                    //Console.WriteLine("Mini-batch {0} - loss = {1} - error = {2} ", iMiniBatch, lossBatch, errorBatch);
+                    // TODO: plot this (too invasive on console)!
+
                     // Compute gradient
                     stopwatchGrad.Start();
-                    network.CrossEntropyGradient(trainingSet, iMiniBatch);
+                    network.CrossEntropyGradient(trainingSet, miniBatch);
                     stopwatchGrad.Stop();
 
                     // Backpropagate gradient and update parameters
@@ -261,11 +289,12 @@ namespace JaNet
                     network.BackwardPass(learningRate, momentumMultiplier);
                     stopwatchBwd.Stop();
 
+                    iMiniBatch++;
                 } // end of training epoch
 
-                Console.WriteLine("\nEpoch {0} - Training runtime = {1}ms", epoch, stopwatch.ElapsedMilliseconds);
+                Console.Write(" Training runtime = {0}ms\n", stopwatch.ElapsedMilliseconds);
 
-                Console.WriteLine("Forward: {0}ms - Gradient: {1}ms - Backward: {2}ms",
+                Console.WriteLine("Forward: {0}ms - Gradient: {1}ms - Backward: {2}ms\n",
                     stopwatchFwd.ElapsedMilliseconds, stopwatchGrad.ElapsedMilliseconds, stopwatchBwd.ElapsedMilliseconds);
 
                 epoch++;

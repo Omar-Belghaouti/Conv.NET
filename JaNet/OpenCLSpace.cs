@@ -17,8 +17,8 @@ namespace JaNet
 
         #region Fields
 
-        public static readonly int BASE_GROUP_SIZE = 32; // constant
-        public static readonly int OPTIMAL_GROUP_SIZE = 128; // depends on device
+        public static readonly int BASE_GROUP_SIZE = 32; // constant, depends on platform, e.g. use 32 for Nvidia (WARP) and 64 for AMD (WAVEFRONT)
+        public static readonly int OPTIMAL_GROUP_SIZE = BASE_GROUP_SIZE * 4; // depends on device, e.g. 4 seems to be good for my GTX850M
 
         private static Context context;
         private static Device device;

@@ -23,7 +23,7 @@ ConvUpdateParameters(	__global float * w,				// arg 0
 		
 		w[iWeight] += wSpeed[iWeight];
 		
-		if (iElement == 0) // no need to do this multiple times
+		if (iElement == 0) // this must be done only once per filter
 		{
 			b[iBias] += bSpeed[iBias];
 		}

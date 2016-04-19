@@ -203,6 +203,7 @@ namespace JaNet
                 isOutputEpoch = epochsRemainingToOutput == 0;
                 if (isOutputEpoch)
                 {
+
                     Console.WriteLine("\nTime to evaluate the network!");
 
                     // Evaluate all training set
@@ -274,11 +275,11 @@ namespace JaNet
                     stopwatchFwd.Stop();
 
                     // Compute loss and error on this mini-batch
-                    double lossBatch;
-                    double errorBatch;
-                    networkEvaluator.ComputeBatchLossError(network, trainingSet, miniBatch, out lossBatch, out errorBatch);
+                    //double lossBatch;
+                    //double errorBatch;
+                    //networkEvaluator.ComputeBatchLossError(network, trainingSet, miniBatch, out lossBatch, out errorBatch);
                     //Console.WriteLine("Mini-batch {0} - loss = {1} - error = {2} ", iMiniBatch, lossBatch, errorBatch);
-                    // TODO: plot this (too invasive on console)!
+                    // TODO: plot this (maybe not ALL of them, just every now and then).
 
                     // Compute gradient
                     stopwatchGrad.Start();

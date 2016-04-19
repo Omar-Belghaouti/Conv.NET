@@ -1,9 +1,16 @@
+/* 
+ * OpenCL kernel for forward pass of ConvolutionalLayer class,
+ * implemented as a matrix multiplication between a filter matrix and a matrix of input receptive fields,
+ * constructed on-the-fly using a pre-constructed "lookup table". Then biases are added. 
+ * Input/output arrays actually contain a mini-batch of i/o examples.
+ */
+
 __kernel void 
-ConvForwardBatch(	__write_only __global float * outputBatch,
-					__read_only __global float * inputBatch, // already padded (if necessary)
-					__read_only __global int * lookupTable, 
-					__read_only __global float * weights,
-					__read_only __global float * biases,
+ConvForwardBatch(	__global float * outputBatch,
+					__global float * inputBatch, // already padded (if necessary)
+					__global int * lookupTable, 
+					__global float * weights,
+					__global float * biases,
 					const int nFilters, 		
 					const int receptiveFieldSize,
 					const int nReceptiveFields,
@@ -22,8 +29,8 @@ ConvForwardBatch(	__write_only __global float * outputBatch,
 	
 	if(iRow < nFilters * miniBatchSize && iReceptiveField < nReceptiveFields)
 	{
-		const int iMiniBatchItem = iRow / miniBatchSize;
-		const int iFilter = iRow % miniBatchSize;
+		const int iMiniBatchItem = iRow / nFilters;
+		const int iFilter = iRow % nFilters;
 		
 		const int iInputMiniBatchItemBeginning = iMiniBatchItem * inputVolume;
 		const int iFilterRowBeginning = iFilter * receptiveFieldSize;
@@ -37,10 +44,10 @@ ConvForwardBatch(	__write_only __global float * outputBatch,
 			
 			// Get receptive field element needed, reading it from inputBatch using the lookup table
 			int iInput = iInputMiniBatchItemBeginning + lookupTable[iElement * nReceptiveFields + iReceptiveField];
-			float receptiveFieldElement = inputBatch[iInput];
+			float inputElement = inputBatch[iInput];
 			
 			// Multiply & cumulate in sum
-			sum += filterElement * receptiveFieldElement;
+			sum += filterElement * inputElement;
 		}
 		
 		// Add bias

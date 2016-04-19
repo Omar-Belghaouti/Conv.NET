@@ -1,10 +1,11 @@
-__kernel void CreateLookupTable ( 	__write_only __global int* lookupTable,
-									const int inputWidth,
-									const int outputWidth, // already takes the stride into account
-									const int filterSize,
-									const int receptiveFieldSize,
-									const int stride
-								)
+__kernel void 
+CreateRecFieldsLookupTable (__global int* recFieldLookupTable,
+							const int inputWidth,  // already takes the padding into account
+							const int outputWidth, // already takes the stride into account
+							const int filterSize,
+							const int receptiveFieldSize,
+							const int stride
+							)
 {
     int i = get_global_id(0);
     int j = get_global_id(1);
@@ -18,13 +19,6 @@ __kernel void CreateLookupTable ( 	__write_only __global int* lookupTable,
 		
 		int iInput = 0; // will be incremented as we "zoom in" step by step
 		const int iOutput = iReceptiveFieldElement * nReceptiveFields + iReceptiveField; // destination index
-		
-		// 0. move to the beginning of the example that we are working on (using j)
-		// COMMENTED OUT: not parallelizing over mini-batches now
-		//const int iExample = j / nReceptiveFields;
-		//const int elementsPerExample = inputDepth * inputWidth * inputWidth;
-		//const int iBeginningOfExample = iExample * elementsPerExample;
-		//iInput += iBeginningOfExample;
 		
 		// 1. move to the beginning of channel that we are working on (using i)
 		const int iChannel = i / (filterSize * filterSize);
@@ -49,7 +43,7 @@ __kernel void CreateLookupTable ( 	__write_only __global int* lookupTable,
 		
 		iInput += iWithinReceptiveField;
 		
-		lookupTable[iOutput]= iInput;
+		recFieldLookupTable[iOutput]= iInput;
 	}
 	
 }

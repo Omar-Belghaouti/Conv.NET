@@ -71,48 +71,13 @@ namespace JaNet
                                                             null,
                                                             out OpenCLSpace.ClEvent);
                 OpenCLSpace.CheckErr(OpenCLSpace.ClError, "InputLayer.FeedData Cl.clEnqueueReadBuffer inputData");
+
+                OpenCLSpace.ClError = Cl.ReleaseEvent(OpenCLSpace.ClEvent);
+                OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.ReleaseEvent");
 #else
                 outputNeurons.SetHost(m, dataSet.Data[iExamples[m]]);
 #endif
             }
-
-#if DEBUGGING_STEPBYSTEP_INPUT
-            /* ------------------------- DEBUGGING --------------------------------------------- */
-
-
-            // Display input layer-by-layer
-#if OPENCL_ENABLED
-            float[] allInputData = new float[outputNeurons.NumberOfUnits * inputNeurons.MiniBatchSize];
-            OpenCLSpace.ClError = Cl.EnqueueReadBuffer(OpenCLSpace.Queue,
-                                                        outputNeurons.ActivationsGPU, // source
-                                                        Bool.True,
-                                                        (IntPtr)0,
-                                                        (IntPtr)(outputNeurons.NumberOfUnits * inputNeurons.MiniBatchSize * sizeof(float)),
-                                                        allInputData,  // destination
-                                                        0,
-                                                        null,
-                                                        out OpenCLSpace.ClEvent);
-            OpenCLSpace.CheckErr(OpenCLSpace.ClError, "NeuralNetwork.FeedData Cl.clEnqueueReadBuffer inputData");
-#endif
-            for (int m = 0; m < inputNeurons.MiniBatchSize; m++)
-            {
-                Console.WriteLine("\n ---- Mini-batch item {0} ---- ", m);
-#if OPENCL_ENABLED
-                float[] inputData = new float[outputNeurons.NumberOfUnits];
-                Array.Copy(allInputData, m * outputNeurons.NumberOfUnits, inputData, 0, outputNeurons.NumberOfUnits);
-#else
-                double[] inputData = new double[layers[0].OutputNeurons.NumberOfUnits];
-                inputData = layers[0].OutputNeurons.GetHost()[m];
-#endif
-                Console.WriteLine("\nLayer 0 (Input) output activations (mini-batch item {0}):", m);
-                for (int j = 0; j < inputData.Length; j++)
-                    Console.Write("{0}  ", inputData[j]);
-                Console.WriteLine();
-                Console.ReadKey();
-            }
-
-            /* ------------------------- END DEBUGGING --------------------------------------------- */
-#endif
 
 #if OPENCL_ENABLED
             OpenCLSpace.ClError = Cl.Finish(OpenCLSpace.Queue);

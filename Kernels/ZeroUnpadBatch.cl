@@ -3,40 +3,28 @@
  */
  
  __kernel void 
- ZeroUnpadBatch(__read_only __global float* paddedArrayBatch,
-				__write_only __global float* unpaddedArrayBatch,
-				const int inputWidth, // refers to the UNPADDED vector
-				const int inputArea, // same
-				const int inputVolume, // same
-				const int padding,
-				const int topRowsOfZeros,
-				const int zerosPerSlice,
-				const int zerosPerVolume
-                           )
+ ZeroUnpadBatch(__global float* unpaddedArrayBatch,
+				__global float* paddedArrayBatch,
+				__global int* paddingLookupTable,
+				const int unpaddedVolume,
+				const int paddedVolume,
+				const int miniBatchSize
+                )
 {	
-	const uint iUnpadded = get_global_id(0); // index of input element within current example
+	const int iUnpadded = get_global_id(0);
 		
-	if (iUnpadded < inputVolume) // this is important because of how local/global work sizes are set (more efficient)
+	if (iUnpadded < unpaddedVolume * miniBatchSize) // this is important because of how local/global work sizes are set (more efficient)
 	{
-		// 0. Initialize iPadded equal to iUnpadded
-		int iPadded = iUnpadded; 
+		int iExample = iUnpadded / unpaddedVolume;
+		int iUnpaddedWithinExample = iUnpadded % unpaddedVolume;
 		
-		// 1. Find index of mini-batch item that we are working on...
-		const uint iMiniBatchItem = iUnpadded / inputVolume; 
-		// ...and add the number of zeros padding all input volumes before this one
-		iPadded += zerosPerVolume * iMiniBatchItem;
+		// Find beginning of mini-batch item that we are working on in *padded* array
+		int iExampleBeginningInPadded = iExample * paddedVolume;
 		
-		// 2. Find index of input slice/channel that we are working on...
-		const uint iSlice = (iUnpadded % inputVolume) / inputArea;
-		/// ...and add the number of zeros padding all channels before this one
-		iPadded += zerosPerSlice * iSlice;
+		// Find index of source element (in padded array) using the lookup table
+		int iPadded = iExampleBeginningInPadded + paddingLookupTable[iUnpaddedWithinExample];
 		
-		// 3. Find index of row that we are working on...
-		const uint iRow = (iUnpadded % inputArea) / inputWidth;
-		// ...and add the number of zeros padding all rows before this one
-		iPadded += topRowsOfZeros + padding * (2*iRow + 1);
-		
-		// 4. Finally, write this paddedArrayBatch element to correct position in unpaddedArrayBatch
+		// Write value
 		unpaddedArrayBatch[iUnpadded] = paddedArrayBatch[iPadded];
 	}
 }

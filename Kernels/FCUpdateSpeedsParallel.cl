@@ -1,5 +1,7 @@
-/* OpenCL kernel to update weights and biases change speed in FC layers
- * using the gradient computed with backpropagation
+/* 
+ * OpenCL kernel for updating weights/biases speed in FC layers
+ * using the gradient computed with backpropagation, for a mini-batch
+ * of inputs / delta signals.
  */
 
 __kernel void 

@@ -125,11 +125,16 @@ namespace JaNet
                                                         MemFlags.ReadWrite,
                                                         (IntPtr)(sizeof(float) * NumberOfUnits * MiniBatchSize),
                                                         out OpenCLSpace.ClError);
+            OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.CreateBuffer Neurons.activationsGPU");
+            OpenCLSpace.WipeBuffer(activationsGPU, NumberOfUnits * MiniBatchSize, typeof(float));
+
             this.deltaGPU = (Mem)Cl.CreateBuffer(   OpenCLSpace.Context,
                                                     MemFlags.ReadWrite,
                                                     (IntPtr)(sizeof(float) * NumberOfUnits * MiniBatchSize),
                                                     out OpenCLSpace.ClError);
-            OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Neurons constructor: Cl.CreateBuffer");
+            OpenCLSpace.WipeBuffer(activationsGPU, NumberOfUnits * MiniBatchSize, typeof(float));
+            OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.CreateBuffer Neurons.deltaGPU");
+            
 #else
             for (int m = 0; m < MiniBatchSize; m++)
             {

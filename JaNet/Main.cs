@@ -46,20 +46,21 @@ namespace JaNet
 
             NeuralNetwork network = new NeuralNetwork();
 
-            network.AddLayer(new InputLayer(1, 28, 28));
+            network.AddLayer(new InputLayer(1, 32, 32));
 
-            network.AddLayer(new ConvolutionalLayer(3, 16, 1, 1));
+            network.AddLayer(new ConvolutionalLayer(5, 8, 1, 0));
+            //network.AddLayer(new FullyConnectedLayer(256));
             network.AddLayer(new ReLU());
 
-            network.AddLayer(new ConvolutionalLayer(3, 16, 1, 1));
+            network.AddLayer(new ConvolutionalLayer(5, 8, 1, 0));
+            //network.AddLayer(new FullyConnectedLayer(128));
             network.AddLayer(new ReLU());
 
 
-            //network.AddLayer(new FullyConnectedLayer(16));
-            //network.AddLayer(new Tanh(0.5));
-            //network.AddLayer(new ReLU());
+            network.AddLayer(new FullyConnectedLayer(64));
+            network.AddLayer(new ReLU());
 
-            network.AddLayer(new FullyConnectedLayer(10));
+            network.AddLayer(new FullyConnectedLayer(43));
             network.AddLayer(new SoftMax());
 
 
@@ -85,9 +86,9 @@ namespace JaNet
             string MNISTreducedData = "C:/Users/jacopo/Dropbox/Chalmers/MSc thesis/MNIST/mnistImagesSubset.dat";
             string MNISTreducedLabels = "C:/Users/jacopo/Dropbox/Chalmers/MSc thesis/MNIST/mnistLabelsSubset.dat";
 
-            // GTSRB training set (WARNING: counterfait!)
-            string GTSRBtrainingData = "C:/Users/jacopo/Dropbox/Chalmers/MSc thesis/GTSRB/Preprocessed/02_training_images.dat";
-            string GTSRBtrainingLabels = "C:/Users/jacopo/Dropbox/Chalmers/MSc thesis/GTSRB/Preprocessed/training_labels_full.dat";
+            // GTSRB training set grayscale (WARNING: counterfait!)
+            string GTSRBtrainingDataGS = "C:/Users/jacopo/Dropbox/Chalmers/MSc thesis/GTSRB/Preprocessed/02_training_images.dat";
+            string GTSRBtrainingLabelsGS = "C:/Users/jacopo/Dropbox/Chalmers/MSc thesis/GTSRB/Preprocessed/training_labels_full.dat";
 
             // GTSRB test set (RGB)
             string GTSRBtestDataRGB = "C:/Users/jacopo/Dropbox/Chalmers/MSc thesis/GTSRB/Preprocessed/03_test_images.dat";
@@ -101,17 +102,17 @@ namespace JaNet
 
             Console.WriteLine("Importing training set...");
 
-            DataSet trainingSet = new DataSet(10);
+            DataSet trainingSet = new DataSet(43);
 
-            trainingSet.ReadData(MNISTreducedData);
-            trainingSet.ReadLabels(MNISTreducedLabels);
+            trainingSet.ReadData(GTSRBtrainingDataGS);
+            trainingSet.ReadLabels(GTSRBtrainingLabelsGS);
 
-            //Console.WriteLine("Importing validation set...");
+            Console.WriteLine("Importing test set...");
 
-            //DataSet validationSet = new DataSet(10);
+            DataSet testSet = new DataSet(43);
 
-            //validationSet.ReadData(MNISTreducedData);
-            //validationSet.ReadLabels(MNISTreducedLabels);
+            testSet.ReadData(GTSRBtestDataGS);
+            testSet.ReadLabels(GTSRBtestLabelsGS);
 
             /*****************************************************
              * (3) Train network
@@ -122,15 +123,15 @@ namespace JaNet
 
 
 
-            NetworkTrainer networkTrainer = new NetworkTrainer(network, trainingSet, null);
+            NetworkTrainer networkTrainer = new NetworkTrainer(network, trainingSet, testSet);
 
-            networkTrainer.LearningRate = 0.001;
-            networkTrainer.MomentumMultiplier = 0;
+            networkTrainer.LearningRate = 0.0005;
+            networkTrainer.MomentumMultiplier = 0.9;
             networkTrainer.MaxTrainingEpochs = 1000;
-            networkTrainer.MiniBatchSize = 8; // property includes buffer increase
+            networkTrainer.MiniBatchSize = 30; // property includes buffer increase
             networkTrainer.ErrorTolerance = 0.0;
-            networkTrainer.ConsoleOutputLag = 5; // 1 = print every epoch, N = print every N epochs
-            networkTrainer.EvaluateBeforeTraining = false;
+            networkTrainer.ConsoleOutputLag = 3; // 1 = print every epoch, N = print every N epochs
+            networkTrainer.EvaluateBeforeTraining = true;
             networkTrainer.EarlyStopping = false;
             
             

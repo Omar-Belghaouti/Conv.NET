@@ -70,7 +70,7 @@ namespace JaNet
                                                             0,
                                                             null,
                                                             out OpenCLSpace.ClEvent);
-                OpenCLSpace.CheckErr(OpenCLSpace.ClError, "InputLayer.FeedData Cl.clEnqueueReadBuffer inputData");
+                OpenCLSpace.CheckErr(OpenCLSpace.ClError, "InputLayer.FeedData Cl.EnqueueCopyBuffer inputData");
 
                 OpenCLSpace.ClError = Cl.ReleaseEvent(OpenCLSpace.ClEvent);
                 OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.ReleaseEvent");

@@ -1,45 +1,53 @@
 __kernel void 
-ConvForward(	__global float * output,
+PoolingForward(	__global float * output,
 				__global float * input,
-				__global int * lookupTable, 
-				__global float * weights,
-				__global float * biases,
-				const int nFilters, 		
-				const int receptiveFieldSize,
-				const int nReceptiveFields
+				__global bool * switches, // same dim as input
+				__global int * poolingTable,
+				const int inputVolume,
+				const int inputArea,
+				const int outputVolume,
+				const int outputArea,
+				const int miniBatchSize
 			)
 {
-
-	const int iFilter = get_global_id(0); // index of output row (corresponds to one filter)
-	const int iReceptiveField = get_global_id(1); // index of output col (corresponds to a receptive field)
+	const int iOutput = get_global_id(0); // index of output activation
 	
-	// Because of how the local work sizes is set, the global work size can be larger than the output matrix, 
-	// therefore it is important to check that global indexes are within the matrix. The computational cost 
-	// of these comparisons is greatly compensated by the increased efficiency of using a local work size
+	// Because of how the work sizes are set, the global work size can be larger than the output array, 
+	// therefore it is important to check that global indexes are within the array. The computational cost 
+	// of this comparison is greatly compensated by the increased efficiency of using a local work size
 	// that is a multiple of WARP (Nvidia) / WAVEFRONT (AMD).
 	
-	if(iFilter < nFilters && iReceptiveField < nReceptiveFields)
+	if(iOutput < outputVolume * miniBatchSize)
 	{
-		float sum = 0.0;
+		int iExample = iOutput / outputVolume;
+		int iChannel = (iOutput % outputVolume) / outputArea;
+		int iOutputWithinChannel = iOutput % outputArea;
 		
-		for(int iElement = 0; iElement < receptiveFieldSize; iElement++)
+		int iInputChannelBeginning = iExample * inputVolume + iChannel * inputArea;
+		
+		// Get input elements to downsample
+		int iPoolingField[4];
+		float poolingField[4];
+		for (int i = 0; i < 4; i++)
 		{
-			// Get filter element needed 
-			float filterElement = weights[iFilter * receptiveFieldSize + iElement];
-			
-			// Get receptive field element needed, reading it from 
-			// inputPadded indexed using the receptive field lookup table
-			float receptiveFieldElement = input[ lookupTable[iElement * nReceptiveFields + iReceptiveField] ];
-			
-			// Multiply & cumulate in sum
-			sum += filterElement * receptiveFieldElement;
+			iPoolingField[i] = iInputChannelBeginning + poolingTable[4 * iOutputWithinChannel + i];
+			poolingField[i] = input[iPoolingField[i]];
+		}			
+		
+		// Downsample
+		float maxInput = -INFINITY;
+		for (int i = 0; i < 4; i++)
+		{
+			if (poolingField[i] > maxInput)
+				maxInput = poolingField[i];
+		}
+		output[iOutput] = maxInput;
+		
+		// Save indices of switches
+		for (int i = 0; i < 4; i++)
+		{
+			switches[iPoolingField[i]] = (poolingField[i] == maxInput) ? true : false;
 		}
 		
-		// Add bias
-		sum += biases[iFilter];
-		
-		// Finally, write output buffer
-		output[iFilter * nReceptiveFields + iReceptiveField] = sum;
 	}
 }
-

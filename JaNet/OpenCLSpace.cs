@@ -97,6 +97,11 @@ namespace JaNet
         public static Kernel ConvBackPropagateBatch;
         public static Kernel ConvUpdateSpeedsBatch;
 
+        // Pooling layer
+        public static Kernel CreatePoolingTable;
+        public static Kernel PoolingForward;
+        public static Kernel PoolingBackward;
+
         // Fully connected layer
         public static Kernel FCForward;
         public static Kernel FCBackward;
@@ -261,6 +266,12 @@ namespace JaNet
             ConvBackPropagateBatch = LoadAndBuildKernel(kernelsPath + "/ConvBackPropagateBatch.cl", "ConvBackPropagateBatch");
             ConvUpdateSpeedsBatch = LoadAndBuildKernel(kernelsPath + "/ConvUpdateSpeedsBatch.cl", "ConvUpdateSpeedsBatch");
 
+            // Pooling layer
+            CreatePoolingTable = LoadAndBuildKernel(kernelsPath + "/CreatePoolingTable.cl", "CreatePoolingTable");
+            PoolingForward = LoadAndBuildKernel(kernelsPath + "/PoolingForward.cl", "PoolingForward");
+            PoolingBackward = LoadAndBuildKernel(kernelsPath + "/PoolingBackward.cl", "PoolingBackward");
+
+
             // Fully connected layer
             FCForward = LoadAndBuildKernel(kernelsPath + "/FCForward.cl", "FCForward");
             FCBackward = LoadAndBuildKernel(kernelsPath + "/FCBackward.cl", "FCBackward");
@@ -305,8 +316,10 @@ namespace JaNet
                 sizeOfElement = sizeof(float);
             else if (type == typeof(int))
                 sizeOfElement = sizeof(int);
+            else if (type == typeof(bool))
+                sizeOfElement = sizeof(bool);
             else
-                throw new ArgumentException("Type not supported. Use either float or int.");
+                throw new ArgumentException("Type not supported. Use either float, int, or bool.");
 
             ClError = Cl.EnqueueWriteBuffer(queue,
                                             buffer,

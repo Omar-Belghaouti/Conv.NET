@@ -455,9 +455,6 @@ namespace JaNet
 
                 OpenCLSpace.ClError = Cl.ReleaseEvent(OpenCLSpace.ClEvent);
                 OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.ReleaseEvent");
-
-                OpenCLSpace.ClError = Cl.Finish(OpenCLSpace.Queue);
-                OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.Finish");
             }
 
             // 2. Convolve input and filter bank _________________________________________________________

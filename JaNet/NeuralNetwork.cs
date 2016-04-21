@@ -93,9 +93,9 @@ namespace JaNet
                         }
                     case "Pooling":
                         {
-                            if (layers.Last().Type != "Convolutional")
+                            if (layers.Last().Type != "ReLU")
                             {
-                                throw new ArgumentException("You should only connect a PoolingLayer to a ConvolutionalLayer");
+                                throw new ArgumentException("You should only connect a PoolingLayer to a non-linearity layer.");
                             }
                             else
                             {
@@ -117,8 +117,10 @@ namespace JaNet
                             break;
                         }
                     default: // valid connection
-                        newLayer.ID = layers.Last().ID + 1;
-                        break;
+                        {
+                            newLayer.ID = layers.Last().ID + 1;
+                            break;
+                        }
                 }
 
                 Console.Write("\tAdding layer [" + newLayer.ID + "]: " + newLayer.Type + "...");

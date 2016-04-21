@@ -48,14 +48,13 @@ namespace JaNet
 
             network.AddLayer(new InputLayer(1, 32, 32));
 
-            network.AddLayer(new ConvolutionalLayer(5, 8, 1, 0));
-            //network.AddLayer(new FullyConnectedLayer(256));
+            network.AddLayer(new ConvolutionalLayer(5, 16, 1, 0));
             network.AddLayer(new ReLU());
+            network.AddLayer(new PoolingLayer("max", 2, 2));
 
-            network.AddLayer(new ConvolutionalLayer(5, 8, 1, 0));
-            //network.AddLayer(new FullyConnectedLayer(128));
+            network.AddLayer(new ConvolutionalLayer(5, 32, 1, 0));
             network.AddLayer(new ReLU());
-
+            network.AddLayer(new PoolingLayer("max", 2, 2));
 
             network.AddLayer(new FullyConnectedLayer(64));
             network.AddLayer(new ReLU());
@@ -102,10 +101,10 @@ namespace JaNet
 
             Console.WriteLine("Importing training set...");
 
-            DataSet trainingSet = new DataSet(43);
+            //DataSet trainingSet = new DataSet(43);
 
-            trainingSet.ReadData(GTSRBtrainingDataGS);
-            trainingSet.ReadLabels(GTSRBtrainingLabelsGS);
+            //trainingSet.ReadData(GTSRBtrainingDataGS);
+            //trainingSet.ReadLabels(GTSRBtrainingLabelsGS);
 
             Console.WriteLine("Importing test set...");
 
@@ -123,15 +122,15 @@ namespace JaNet
 
 
 
-            NetworkTrainer networkTrainer = new NetworkTrainer(network, trainingSet, testSet);
+            NetworkTrainer networkTrainer = new NetworkTrainer(network, testSet, null);
 
-            networkTrainer.LearningRate = 0.0005;
+            networkTrainer.LearningRate = 0.001;
             networkTrainer.MomentumMultiplier = 0.9;
             networkTrainer.MaxTrainingEpochs = 1000;
             networkTrainer.MiniBatchSize = 30; // property includes buffer increase
             networkTrainer.ErrorTolerance = 0.0;
-            networkTrainer.ConsoleOutputLag = 3; // 1 = print every epoch, N = print every N epochs
-            networkTrainer.EvaluateBeforeTraining = true;
+            networkTrainer.ConsoleOutputLag = 1; // 1 = print every epoch, N = print every N epochs
+            networkTrainer.EvaluateBeforeTraining = false;
             networkTrainer.EarlyStopping = false;
             
             

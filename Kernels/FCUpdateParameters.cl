@@ -4,7 +4,8 @@ FCUpdateParameters(	__global float * w,		// arg 0
 					__global float * wSpeed, 	// arg 2
 					__global float * bSpeed, 	// arg 3
 					const int nInput,					// arg 4
-					const int nOutput					// arg 5
+					const int nOutput,					// arg 5
+					const float weightDecayCoeff
 					)
 					
 {
@@ -19,7 +20,7 @@ FCUpdateParameters(	__global float * w,		// arg 0
 	if(i < nOutput && j < nInput)
 	{
 		int iWeight = i*nInput + j;
-		w[iWeight] += wSpeed[iWeight];
+		w[iWeight] += wSpeed[iWeight] - weightDecayCoeff * w[iWeight];
 		
 		if (j == 0) // this should be done once per output unit, NOT nInput times!
 		{

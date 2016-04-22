@@ -277,7 +277,7 @@ namespace JaNet
         /// Run network backwards, propagating the gradient backwards and also updating parameters. 
         /// Requires that gradient has ALREADY BEEN WRITTEN in network.Layers[nLayers-1].InputNeurons.Delta
         /// </summary>
-        public void BackwardPass(double learningRate, double momentumMultiplier)
+        public void BackwardPass(double learningRate, double momentumMultiplier, double weightDecayCoeff)
         {
 #if GRADIENT_CHECK
             learningRate = 0.0;
@@ -381,7 +381,7 @@ namespace JaNet
                 // do nothing
 #else
                 // 3. Update layer's parameters
-                layers[l].UpdateParameters();
+                layers[l].UpdateParameters(weightDecayCoeff);
 #endif
             }
         }
@@ -391,12 +391,23 @@ namespace JaNet
         {
             double[] crossEntropyGradientBatch = new double[layers.Last().NInputUnits * iMiniBatch.Length];
 
+#if DEBUGGING_STEPBYSTEP
+            Console.WriteLine("\n CLASS SCORES");
+#endif
             for (int m = 0; m < iMiniBatch.Length; m++)
             {
                 int iDataPoint = iMiniBatch[m];
                 int trueLabel = DataSet.Labels[iDataPoint];
 
                 double[] crossEntropyGradient = outputLayer.OutputClassScores[m];
+
+#if DEBUGGING_STEPBYSTEP
+                Console.WriteLine("\n --- Mini-batch item {0} -----", m);
+                for (int j = 0; j < outputLayer.OutputClassScores[m].Length; j++)
+                    Console.Write("{0}  ", outputLayer.OutputClassScores[m][j]);
+                Console.WriteLine();
+                Console.ReadKey();
+#endif
                 crossEntropyGradient[trueLabel] -= 1.0;
 
                 crossEntropyGradient.CopyTo(crossEntropyGradientBatch, m * crossEntropyGradient.Length);

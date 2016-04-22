@@ -344,7 +344,7 @@ namespace JaNet
             this.biases = new double[nFilters];
 #endif
 
-            double weightsStdDev = Math.Sqrt(2.0 / this.inputNeurons.NumberOfUnits);
+            double weightsStdDev = Math.Sqrt(2.0 / (filterSize * filterSize * inputDepth));
             double uniformRand1;
             double uniformRand2;
             double tmp;
@@ -365,7 +365,7 @@ namespace JaNet
 #endif
                 }
 #if OPENCL_ENABLED
-                initBiases[iRow] = 0.01f;
+                initBiases[iRow] = 0.01f; // experiment with these
 #else
                 biases[iRow] = 0.01;
 #endif
@@ -694,7 +694,7 @@ namespace JaNet
 
         }
 
-        public override void UpdateParameters()
+        public override void UpdateParameters(double weightDecayCoeff)
         {
             //Console.WriteLine("Checkpoint E");
 
@@ -706,6 +706,7 @@ namespace JaNet
             OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.ConvUpdateParameters, 3, biasesSpeedGPU);
             OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.ConvUpdateParameters, 4, (IntPtr)sizeof(int), nFilters);
             OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.ConvUpdateParameters, 5, (IntPtr)sizeof(int), receptiveFieldSize);
+            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.ConvUpdateParameters, 6, (IntPtr)sizeof(float), (float)weightDecayCoeff);
             OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Convolutional.UpdateParameters(): Cl.SetKernelArg");
 
             // Run kernel

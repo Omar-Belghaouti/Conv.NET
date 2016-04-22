@@ -158,7 +158,7 @@ namespace JaNet
         #endregion
 
 
-        #region Operating methods
+        #region Methods
 
 
         /// <summary>
@@ -182,7 +182,7 @@ namespace JaNet
         /// <summary>
         /// Updates layer parameters (if any)
         /// </summary>
-        public virtual void UpdateParameters()
+        public virtual void UpdateParameters(double weightDecayCoeff)
         {
         }
 

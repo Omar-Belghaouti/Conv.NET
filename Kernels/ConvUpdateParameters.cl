@@ -4,7 +4,8 @@ ConvUpdateParameters(	__global float * w,				// arg 0
 						__global float * wSpeed, 		// arg 2
 						__global float * bSpeed, 		// arg 3
 						const int nFilters,				// arg 4
-						const int receptiveFieldSize	// arg 5
+						const int receptiveFieldSize,	// arg 5
+						const float weightDecayCoeff	// arg 6
 					)
 					
 {
@@ -21,7 +22,7 @@ ConvUpdateParameters(	__global float * w,				// arg 0
 		const int iWeight = iFilter * receptiveFieldSize + iElement;
 		const int iBias = iFilter;
 		
-		w[iWeight] += wSpeed[iWeight];
+		w[iWeight] += wSpeed[iWeight] - weightDecayCoeff * w[iWeight];
 		
 		if (iElement == 0) // this must be done only once per filter
 		{

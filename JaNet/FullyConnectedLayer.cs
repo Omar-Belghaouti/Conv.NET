@@ -138,7 +138,7 @@ namespace JaNet
 #endif
                 }
 #if OPENCL_ENABLED
-                initBiases[iRow] = 0.01f;
+                initBiases[iRow] = 0.0001f;
 #else
                 biases[iRow] = 0.01;
 #endif
@@ -620,9 +620,9 @@ namespace JaNet
             /*------------------------- END DEBUGGING ---------------------------------------- */
 #endif
 
-        } 
+        }
 
-        public override void UpdateParameters()
+        public override void UpdateParameters(double weightDecayCoeff)
         {
 #if OPENCL_ENABLED
                 // Set kernel arguments
@@ -632,6 +632,7 @@ namespace JaNet
                 OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.FCUpdateParameters, 3, biasesSpeedGPU);
                 OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.FCUpdateParameters, 4, (IntPtr)sizeof(int), nInputUnits);
                 OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.FCUpdateParameters, 5, (IntPtr)sizeof(int), nOutputUnits);
+                OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.FCUpdateParameters, 6, (IntPtr)sizeof(float), (float)weightDecayCoeff);
                 OpenCLSpace.CheckErr(OpenCLSpace.ClError, "FullyConnected.UpdateParameters(): Cl.SetKernelArg");
 
                 // Run kernel

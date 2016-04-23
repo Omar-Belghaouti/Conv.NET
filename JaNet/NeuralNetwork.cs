@@ -171,6 +171,34 @@ namespace JaNet
             // Output layer only
             outputLayer.SetupOutputScores(miniBatchSize);
         }
+
+
+        public void SetDropout(double DropoutFullyConnected, double DropoutConvolutional)
+        {
+            for (int l = 1; l < nLayers - 2; l++) // excluding input layer, final FC layer and softmax
+            {
+                switch (layers[l].Type)
+                {
+                    case "FullyConnected":
+                        {
+                            layers[l].DropoutParameter = DropoutFullyConnected;
+                            break;
+                        }
+                    case "Convolutional":
+                        {
+                            layers[l].DropoutParameter = DropoutConvolutional;
+                            break;
+                        }
+                    default:
+                        break;
+                }
+            }
+            // No dropout in last FC layer
+            layers[nLayers - 2].DropoutParameter = 1;
+        }
+
+
+
         #endregion
 
 

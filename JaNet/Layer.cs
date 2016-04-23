@@ -87,6 +87,11 @@ namespace JaNet
             get { return outputWidth; }
         }
 
+        public virtual double DropoutParameter
+        {
+            set { }
+        }
+
 #if GRADIENT_CHECK
         // accessors for gradient check 
 
@@ -154,6 +159,8 @@ namespace JaNet
         {
             // Implementation is layer type-specific.
         }
+
+        
 
         #endregion
 

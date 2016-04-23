@@ -12,8 +12,8 @@ namespace JaNet
 
         #region Fields
 
-        // only "layer type-specific" field is the number of output units, 
-        // which is also a field of base class Layer
+        private double dropoutParameter;
+        
 
 #if OPENCL_ENABLED
 
@@ -38,6 +38,8 @@ namespace JaNet
         private double[,] weightsUpdateSpeed;
         private double[] biasesUpdateSpeed;
 
+        private bool[] dropoutMask;
+
 #if GRADIENT_CHECK
         private double[,] weightsGradients;
         private double[] biasesGradients;
@@ -48,6 +50,10 @@ namespace JaNet
 
 
         #region Properties
+        public override double DropoutParameter
+        {
+            set { this.dropoutParameter = value; }
+        }
 
 #if GRADIENT_CHECK
         // Accessors for gradient check
@@ -188,7 +194,12 @@ namespace JaNet
 
             this.weightsUpdateSpeed = new double[this.OutputNeurons.NumberOfUnits, this.InputNeurons.NumberOfUnits];
             this.biasesUpdateSpeed = new double[this.OutputNeurons.NumberOfUnits];
+
+            // Also initialize dropout mask
+            this.dropoutMask = new bool[nOutputUnits*inputNeurons.MiniBatchSize];
 #endif
+
+            
         }
 
 
@@ -249,6 +260,10 @@ namespace JaNet
 
         public override void FeedForward()
         {
+
+            
+
+
 #if OPENCL_ENABLED
             // Set kernel arguments
             OpenCLSpace.ClError  = Cl.SetKernelArg(OpenCLSpace.FCForwardParallel, 0, outputNeurons.ActivationsGPU);
@@ -258,10 +273,12 @@ namespace JaNet
             OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.FCForwardParallel, 4, (IntPtr)sizeof(int), nInputUnits);
             OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.FCForwardParallel, 5, (IntPtr)sizeof(int), nOutputUnits);
             OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.FCForwardParallel, 6, (IntPtr)sizeof(int), inputNeurons.MiniBatchSize);
+            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.FCForwardParallel, 7, (IntPtr)sizeof(float), (float)dropoutParameter);
+            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.FCForwardParallel, 8, (IntPtr)sizeof(ulong), (ulong)Guid.NewGuid().GetHashCode()); // this should be quite a good random seed
             OpenCLSpace.CheckErr(OpenCLSpace.ClError, "FullyConnected.FeedForward(): Cl.SetKernelArg");
 
             // Run kernel
-            OpenCLSpace.ClError = Cl.EnqueueNDRangeKernel(OpenCLSpace.Queue,
+            OpenCLSpace.ClError = Cl.EnqueueNDRangeKernel(  OpenCLSpace.Queue,
                                                             OpenCLSpace.FCForwardParallel,
                                                             2,
                                                             null,
@@ -278,12 +295,25 @@ namespace JaNet
             OpenCLSpace.ClError = Cl.Finish(OpenCLSpace.Queue);
             OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.Finish");
 #else
+            // TODO: add dropout CPU
+            // Generate dropout mask
+            if (dropoutParameter < 1)
+            {
+                for (int iUnit = 0; iUnit < nOutputUnits * inputNeurons.MiniBatchSize; ++iUnit)
+                    dropoutMask[iUnit] = Global.RandomDouble() < dropoutParameter;
+            }
+
             for (int m = 0; m < inputNeurons.MiniBatchSize; m++)
             {
                 double[] unbiasedOutput = Utils.MultiplyMatrixByVector(weights, inputNeurons.GetHost()[m]);
                 this.outputNeurons.SetHost(m, unbiasedOutput.Zip(biases, (x, y) => x + y).ToArray());
             }
 #endif
+
+
+
+
+
         }
 
         public override void BackPropagate()

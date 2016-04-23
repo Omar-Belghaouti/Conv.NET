@@ -13,6 +13,16 @@ namespace JaNet
         //public const int SEED = 2016;
 
         public static Random rng = new Random(); //(SEED);
+
+        public static double RandomDouble()
+        {
+            return rng.NextDouble();
+        }
+
+        public static float RandomFloat()
+        {
+            return (float)rng.NextDouble();
+        }
     }
 
 

@@ -30,6 +30,9 @@ namespace JaNet
         private int consoleOutputLag;
         private bool evaluateBeforeTraining;
         private bool earlyStopping;
+        private double dropoutFC;
+        private double dropoutConv;
+        private int epochsBeforeDropout;
 
         // Losses/Errors
         private double lossTraining;
@@ -144,6 +147,24 @@ namespace JaNet
             set { earlyStopping = value; }
         }
 
+        public double DropoutFullyConnected
+        {
+            get { return dropoutFC; }
+            set { dropoutFC = value; }
+        }
+
+        public double DropoutConvolutional
+        {
+            get { return dropoutConv; }
+            set { dropoutConv = value; }
+        }
+
+        public int EpochsBeforeDropout
+        {
+            get { return epochsBeforeDropout; }
+            set { epochsBeforeDropout = value; }
+        }
+        
         #endregion
 
 
@@ -183,6 +204,7 @@ namespace JaNet
         {
             // Setup network before training
             network.Setup(miniBatchSize);
+            network.SetDropout(dropoutFC, dropoutConv);
 
             int epoch = 0;
             bool isOutputEpoch = true;
@@ -212,8 +234,10 @@ namespace JaNet
                     isOutputEpoch = epochsRemainingToOutput == 0;
                     if (isOutputEpoch)
                     {
-
                         Console.WriteLine("\nTime to evaluate the network!");
+
+                        //remove dropout
+                        network.SetDropout(1.0, 1.0);
 
                         // Evaluate all training set
                         Console.WriteLine("Evaluating on TRAINING set...");
@@ -253,6 +277,10 @@ namespace JaNet
 
                         epochsRemainingToOutput = consoleOutputLag;
                         isOutputEpoch = false;
+
+                        // restore dropout
+                        network.SetDropout(dropoutFC, dropoutConv);
+
                     }
                     epochsRemainingToOutput--;
 
@@ -269,6 +297,11 @@ namespace JaNet
                     stopwatchBwd.Reset();
 
                     Console.Write("\nEpoch {0}...", epoch);
+
+                    if (epoch < epochsBeforeDropout)
+                        network.SetDropout(1, 1);
+                    else if (epoch == epochsBeforeDropout)
+                        network.SetDropout(dropoutFC, dropoutConv);
 
                     int iMiniBatch = 0;
                     // Run over mini-batches 
@@ -315,6 +348,12 @@ namespace JaNet
                         if (Console.ReadKey(true).Key == ConsoleKey.S)
                         {
                             Console.WriteLine("Key 'S' pressed! Stopping training...");
+                            stopFlag = true;
+                        }
+                        else if (Console.ReadKey(true).Key == ConsoleKey.L)
+                        {
+                            learningRate /= 10;
+                            Console.WriteLine("Key 'L' pressed! \n\tReducing learning rate by a factor of 10.\n\tWas{0}, now is {1}", 10*learningRate, learningRate);
                             stopFlag = true;
                         }
                         else

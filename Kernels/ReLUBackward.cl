@@ -13,7 +13,7 @@ ReLUBackward(	__global write_only float * deltaXbatch,	// arg 0
 	
 	if(i < nTotActivations) 
 	{
-		if (inputBatch[i] < 0)
+		if (inputBatch[i] <= 0)
 			deltaXbatch[i] = 0.0;
 		else
 			deltaXbatch[i] = deltaYbatch[i];

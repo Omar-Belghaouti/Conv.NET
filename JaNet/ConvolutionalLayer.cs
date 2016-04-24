@@ -21,9 +21,13 @@ namespace JaNet
         private int receptiveFieldSize; // i.e. [outputDepth * filterSize^2]
         private int nReceptiveFields; // i.e. output depth
 
+        private double dropoutParameter;
+
         // aux
         private int unpaddedVolume;
         private int paddedVolume;
+
+        
 
 #if OPENCL_ENABLED
         
@@ -71,6 +75,10 @@ namespace JaNet
 
         #region Properties (public)
 
+        public override double DropoutParameter
+        {
+            set { this.dropoutParameter = value; }
+        }
         
 #if GRADIENT_CHECK
         // accessors for gradient check
@@ -473,6 +481,8 @@ namespace JaNet
             OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.ConvForwardBatch, 7, (IntPtr)sizeof(int), nReceptiveFields);
             OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.ConvForwardBatch, 8, (IntPtr)sizeof(int), paddedVolume);
             OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.ConvForwardBatch, 9, (IntPtr)sizeof(int), inputNeurons.MiniBatchSize);
+            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.ConvForwardBatch, 10, (IntPtr)sizeof(float), (float)dropoutParameter);
+            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.ConvForwardBatch, 11, (IntPtr)sizeof(ulong), (ulong)Guid.NewGuid().GetHashCode()); // this should be quite a good random seed
             OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.SetKernelArg ConvForwardBatch");
 
             // Run kernel

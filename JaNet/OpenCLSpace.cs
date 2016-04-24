@@ -18,7 +18,7 @@ namespace JaNet
         #region Fields
 
         public static readonly int BASE_GROUP_SIZE = 32; // constant, depends on platform, e.g. use 32 for Nvidia (WARP) and 64 for AMD (WAVEFRONT)
-        public static readonly int OPTIMAL_GROUP_SIZE = 640;// BASE_GROUP_SIZE * 4; // depends on device, e.g. 128 seems to be good for my GTX850M
+        public static readonly int OPTIMAL_GROUP_SIZE = 128;// BASE_GROUP_SIZE * 4; // depends on device, e.g. 128 seems to be good for my GTX850M
 
         private static Context context;
         private static Device device;
@@ -114,6 +114,10 @@ namespace JaNet
         // ReLU layer
         public static Kernel ReLUForward;
         public static Kernel ReLUBackward;
+
+        // ELU layer
+        public static Kernel ELUForward;
+        public static Kernel ELUBackward;
 
         // Tanh layer
         public static Kernel TanhForward;
@@ -284,6 +288,10 @@ namespace JaNet
             // ReLU layer
             ReLUForward = LoadAndBuildKernel(kernelsPath + "/ReLUForward.cl", "ReLUForward");
             ReLUBackward = LoadAndBuildKernel(kernelsPath + "/ReLUBackward.cl", "ReLUBackward");
+
+            // EU layer
+            ELUForward = LoadAndBuildKernel(kernelsPath + "/ELUForward.cl", "ELUForward");
+            ELUBackward = LoadAndBuildKernel(kernelsPath + "/ELUBackward.cl", "ELUBackward");
 
             // Tanh layer
             TanhForward = LoadAndBuildKernel(kernelsPath + "/TanhForward.cl", "TanhForward");

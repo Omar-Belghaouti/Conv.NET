@@ -19,6 +19,9 @@ namespace JaNet
         private InputLayer inputLayer;
         private SoftMax outputLayer;
 
+        private double dropoutFC;
+        private double dropoutConv;
+
         #endregion
 
 
@@ -46,6 +49,17 @@ namespace JaNet
             set { this.outputLayer = value; }
         }
 
+        public double DropoutFC
+        {
+            get { return dropoutFC; }
+            set { throw new InvalidOperationException("Use method SetDropout() to set field 'dropoutFC'"); }
+        }
+
+        public double DropoutConv
+        {
+            get { return dropoutConv; }
+            set { throw new InvalidOperationException("Use method SetDropout() to set field 'dropoutConv'"); }
+        }
         #endregion
 
 
@@ -93,9 +107,9 @@ namespace JaNet
                         }
                     case "Pooling":
                         {
-                            if (layers.Last().Type != "ReLU")
+                            if (layers.Last().Type != "ReLU" && layers.Last().Type != "ELU")
                             {
-                                throw new ArgumentException("You should only connect a PoolingLayer to a non-linearity layer.");
+                                throw new ArgumentException("Perhaps you forgot to add a non-linearity?");
                             }
                             else
                             {
@@ -126,13 +140,6 @@ namespace JaNet
                 Console.Write("\tAdding layer [" + newLayer.ID + "]: " + newLayer.Type + "...");
                 layers.Add(newLayer);
                 nLayers++;
-                /*
-                if (nLayers > 1)
-                {
-                    layers[newLayer.ID].ConnectTo(layers[newLayer.ID-1]); // connect last layer to second last
-                    layers[newLayer.ID].InitializeParameters();
-                }
-                */
                 Console.Write(" OK\n");
             }
             catch (Exception exception)
@@ -175,6 +182,9 @@ namespace JaNet
 
         public void SetDropout(double DropoutFullyConnected, double DropoutConvolutional)
         {
+            this.dropoutFC = DropoutFullyConnected;
+            this.dropoutConv = DropoutConvolutional;
+
             for (int l = 1; l < nLayers - 2; l++) // excluding input layer, final FC layer and softmax
             {
                 switch (layers[l].Type)

@@ -236,9 +236,6 @@ namespace JaNet
                     {
                         Console.WriteLine("\nTime to evaluate the network!");
 
-                        //remove dropout
-                        network.SetDropout(1.0, 1.0);
-
                         // Evaluate all training set
                         Console.WriteLine("Evaluating on TRAINING set...");
                         stopwatch.Restart();
@@ -277,9 +274,6 @@ namespace JaNet
 
                         epochsRemainingToOutput = consoleOutputLag;
                         isOutputEpoch = false;
-
-                        // restore dropout
-                        network.SetDropout(dropoutFC, dropoutConv);
 
                     }
                     epochsRemainingToOutput--;
@@ -354,7 +348,6 @@ namespace JaNet
                         {
                             learningRate /= 10;
                             Console.WriteLine("Key 'L' pressed! \n\tReducing learning rate by a factor of 10.\n\tWas{0}, now is {1}", 10*learningRate, learningRate);
-                            stopFlag = true;
                         }
                         else
                             Console.WriteLine("That key has no effect... Press 'S' to stop training.");

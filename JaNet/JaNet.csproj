@@ -34,7 +34,7 @@
     <DebugType>full</DebugType>
     <Optimize>true</Optimize>
     <OutputPath>bin\Debug\</OutputPath>
-    <DefineConstants>TRACE;DEBUG;OPENCL_ENABLED </DefineConstants>
+    <DefineConstants>TRACE;DEBUG;OPENCL_ENABLED</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
@@ -61,6 +61,7 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="ELU.cs" />
     <Compile Include="GradientChecker.cs" />
     <Compile Include="OpenCLSpace.cs" />
     <Compile Include="InputLayer.cs" />

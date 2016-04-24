@@ -29,6 +29,11 @@ namespace JaNet
             loss = 0.0;
             error = 0.0;
 
+            // Save dropout parameters and turn off dropout
+            double dropoutFC = network.DropoutFC;
+            double dropoutConv = network.DropoutConv;
+            network.SetDropout(1.0, 1.0);
+
             int miniBatchSize = network.Layers[0].OutputNeurons.MiniBatchSize;
             
             Sequence indicesSequence = new Sequence(dataSet.Size);
@@ -44,32 +49,10 @@ namespace JaNet
                 // Run network forward
                 network.ForwardPass();
 
-                // Find maximum output score (i.e. assigned class) of each mini batch item
-                for (int m = 0; m < miniBatchSize; m++)
+
+                for (int m = 0; m < Math.Min(miniBatchSize,dataSet.Size-iStartMiniBatch) ; m++) // In case dataSet.Size doesn't divide miniBatchSize, the last miniBatch contains copies! Don't want to re-evaluate them
                 {
                     double[] outputScores = network.OutputLayer.OutputClassScores[m];
-
-                    /////////////// DEBUGGING (visualize true label vs network output)
-                    /*
-                    Console.WriteLine("\n\n----------- Mini batch {0} ---------", iMiniBatch);
-                    Console.WriteLine("\n\tData point {0}:", miniBatchItems[iMiniBatchItem]);
-                    float[] trueLabelArray = dataSet.GetLabelArray(miniBatchItems[iMiniBatchItem]);
-                    Console.WriteLine("\nTrue label:");
-                    for (int iClass = 0; iClass < dataSet.NumberOfClasses; iClass++)
-                    {
-                        Console.Write(trueLabelArray[iClass].ToString("0.##") + " ");
-                    }
-                    Console.WriteLine();
-
-                    Console.WriteLine("Network output:");
-                    for (int iClass = 0; iClass < dataSet.NumberOfClasses; iClass++)
-                    {
-                        Console.Write(outputScores[iClass].ToString("0.##") + " ");
-                    }
-                    Console.WriteLine();
-                    Console.ReadKey();
-                    */
-                    ///////////////////
 
                     int assignedLabel = Utils.IndexOfMax(outputScores);
                     int trueLabel = dataSet.Labels[miniBatch[m]];
@@ -79,11 +62,14 @@ namespace JaNet
                     error += (assignedLabel == trueLabel) ? 0 : 1;
 
                 } // end loop within a mini-batch
-
+                
             } // end loop over mini-batches
              
             error /= dataSet.Size;
             loss /= dataSet.Size;
+
+            // restore dropout
+            network.SetDropout(dropoutFC, dropoutConv);
         }
 
 

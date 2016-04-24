@@ -13,7 +13,7 @@ ReLUForward(__global write_only float * activationsBatch,	// arg 0
 	
 	if(i < nTotActivations) // nTotActivations equals nInputUnits * miniBatchSize
 	{
-		if (preActivationsBatch[i] < 0)
+		if (preActivationsBatch[i] <= 0)
 			activationsBatch[i] = 0.0;
 		else
 			activationsBatch[i] = preActivationsBatch[i];

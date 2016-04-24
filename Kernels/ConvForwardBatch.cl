@@ -15,7 +15,9 @@ ConvForwardBatch(	__global float * outputBatch,
 					const int receptiveFieldSize,
 					const int nReceptiveFields,
 					const int inputVolume,
-					const int miniBatchSize
+					const int miniBatchSize,
+					const float dropoutParameter,
+					const ulong randomSeed
 				)
 {
 
@@ -32,31 +34,62 @@ ConvForwardBatch(	__global float * outputBatch,
 		const int iMiniBatchItem = iRow / nFilters;
 		const int iFilter = iRow % nFilters;
 		
-		const int iInputMiniBatchItemBeginning = iMiniBatchItem * inputVolume;
-		const int iFilterRowBeginning = iFilter * receptiveFieldSize;
-		
-		float sum = 0.0;
-		
-		for(int iElement = 0; iElement < receptiveFieldSize; iElement++)
-		{
-			// Get filter element needed 
-			float filterElement = weights[iFilterRowBeginning + iElement];
-			
-			// Get receptive field element needed, reading it from inputBatch using the lookup table
-			int iInput = iInputMiniBatchItemBeginning + lookupTable[iElement * nReceptiveFields + iReceptiveField];
-			float inputElement = inputBatch[iInput];
-			
-			// Multiply & cumulate in sum
-			sum += filterElement * inputElement;
-		}
-		
-		// Add bias
-		sum += biases[iFilter];
-		
-		// Finally, write resulting sum into outputBatch buffer
 		const int iOutputMiniBatchItemBeginning = iMiniBatchItem * nFilters * nReceptiveFields;
 		const int iOutput = iOutputMiniBatchItemBeginning + iFilter * nReceptiveFields + iReceptiveField;
-		outputBatch[iOutput] = sum;
+		
+		// Dropout here (more efficient: no matrix multiplication if unit is deactivated)
+		bool isUnitOn;
+		if (dropoutParameter < 1)
+		{
+			// generate a pseudo-random number here
+			ulong thisSeed = randomSeed + iOutput;
+			thisSeed = (thisSeed * 0x5DEECE66DL + 0xBL) & ((1L << 48) - 1);
+			uint pseudoRandomInt = thisSeed >> 16;
+			for (int j = 0; j < 5; ++j)
+			{
+				thisSeed = pseudoRandomInt;
+				thisSeed = (thisSeed * 0x5DEECE66DL + 0xBL) & ((1L << 48) - 1);
+				pseudoRandomInt = thisSeed >> 16;
+			}
+			float pseudoRandFloat = (float)pseudoRandomInt/(float)4294967295;
+			// this is not a very good pseudo random number, but hopefully it's good enough
+			isUnitOn = pseudoRandFloat < dropoutParameter;
+		}
+		else
+		{
+			isUnitOn = true;
+		}
+		
+		if (isUnitOn)
+		{
+			const int iInputMiniBatchItemBeginning = iMiniBatchItem * inputVolume;
+			const int iFilterRowBeginning = iFilter * receptiveFieldSize;
+			
+			float sum = 0.0;
+			
+			for(int iElement = 0; iElement < receptiveFieldSize; iElement++)
+			{
+				// Get filter element needed 
+				float filterElement = weights[iFilterRowBeginning + iElement];
+				
+				// Get receptive field element needed, reading it from inputBatch using the lookup table
+				int iInput = iInputMiniBatchItemBeginning + lookupTable[iElement * nReceptiveFields + iReceptiveField];
+				float inputElement = inputBatch[iInput];
+				
+				// Multiply & cumulate in sum
+				sum += filterElement * inputElement;
+			}
+			
+			// Add bias
+			sum += biases[iFilter];
+			
+			// Finally, write resulting sum into outputBatch buffer
+			outputBatch[iOutput] = sum;
+		}
+		else
+		{
+			outputBatch[iOutput] = 0.0f;
+		}
 	}
 	
 }

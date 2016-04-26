@@ -71,6 +71,9 @@
     <Report>
       <Path>JaNet160406.vsp</Path>
     </Report>
+    <Report>
+      <Path>JaNet160425.vsp</Path>
+    </Report>
   </Reports>
   <Launches>
     <ProjBinary>

@@ -223,7 +223,7 @@ namespace JaNet
             {
 
 #if DEBUGGING_STEPBYSTEP
-                /* ------------------------- DEBUGGING --------------------------------------------- */
+                /* ------------------------- DEBUGGING --------------------------------------------- 
                 int miniBatchSize = layers[0].OutputNeurons.MiniBatchSize;
                 if (l < nLayers - 1)
                 {
@@ -268,9 +268,8 @@ namespace JaNet
                 /* ------------------------- DEBUGGING --------------------------------------------- */
 
                 // Display output layer-by-layer
+                int miniBatchSize = layers[0].OutputNeurons.MiniBatchSize;
 
-
-                /* ------------------------- DEBUGGING --------------------------------------------- */
                 if (l < nLayers - 1)
                 {
 #if OPENCL_ENABLED

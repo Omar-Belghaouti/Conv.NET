@@ -236,14 +236,16 @@ namespace JaNet
                     {
                         Console.WriteLine("\nTime to evaluate the network!");
 
-                        // Evaluate all training set
+                        // Evaluate on training set
+                        /*
                         Console.WriteLine("Evaluating on TRAINING set...");
                         stopwatch.Restart();
                         networkEvaluator.EvaluateNetwork(network, trainingSet, out lossTraining, out errorTraining);
                         Console.WriteLine("\tLoss = {0}\n\tError = {1}\n\tEval runtime = {2}ms\n",
                                             lossTraining, errorTraining, stopwatch.ElapsedMilliseconds);
+                        */
 
-                        // Evaluate all validation set
+                        // Evaluate on validation set
                         if (validationSet != null)
                         {
                             double tmpErrorValidation;

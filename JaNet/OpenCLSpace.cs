@@ -132,6 +132,11 @@ namespace JaNet
         // Classification
         public static Kernel CheckClassification;
 
+        // Other
+        public static Kernel WipeBufferFloatKernel;
+        public static Kernel WipeBufferIntKernel;
+        public static Kernel WipeBufferBoolKernel;
+
         #endregion
 
 
@@ -307,6 +312,11 @@ namespace JaNet
             // Classification
             // TODO: implement a better kernel
             CheckClassification = LoadAndBuildKernel(kernelsPath + "/CheckClassification.cl", "CheckClassification");
+
+            // Other
+            WipeBufferFloatKernel = LoadAndBuildKernel(kernelsPath + "/WipeBufferFloatKernel.cl", "WipeBufferFloatKernel");
+            WipeBufferIntKernel = LoadAndBuildKernel(kernelsPath + "/WipeBufferIntKernel.cl", "WipeBufferIntKernel");
+            WipeBufferBoolKernel = LoadAndBuildKernel(kernelsPath + "/WipeBufferBoolKernel.cl", "WipeBufferBoolKernel");
         }
 
 
@@ -317,6 +327,7 @@ namespace JaNet
 
         public static void WipeBuffer(Mem buffer, int nElementsInBuffer, Type type)
         {
+            /*
             float[] zeros = new float[nElementsInBuffer];
             int sizeOfElement;
 
@@ -340,11 +351,49 @@ namespace JaNet
                                             out ClEvent);
             CheckErr(ClError, "OpenCLSpace.WipeBuffer: Cl.EnqueueWriteBuffer");
 
+            */
+
+            // WIPEBUFFER() v 2.0
+
+            Kernel WipeKernel;
+
+            if (type == typeof(float))
+                WipeKernel = WipeBufferFloatKernel; 
+            else if (type == typeof(int))
+                WipeKernel = WipeBufferIntKernel;
+            else if (type == typeof(bool))
+                WipeKernel = WipeBufferBoolKernel;
+            else
+                throw new ArgumentException("Type not supported. Use either float, int, or bool.");
+
+            // Set kernel arguments
+            OpenCLSpace.ClError = Cl.SetKernelArg(WipeKernel, 0, buffer);
+            OpenCLSpace.ClError |= Cl.SetKernelArg(WipeKernel, 1, (IntPtr)sizeof(int), nElementsInBuffer);
+            OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.SetKernelArg WipeBufferKernel");
+
+            // Work sizes
+            IntPtr[] localWorkSizePtr = { (IntPtr)OPTIMAL_GROUP_SIZE };
+            IntPtr[] globalWorkSizePtr = { (IntPtr)(OPTIMAL_GROUP_SIZE * Math.Ceiling((double)(nElementsInBuffer) / (double)OPTIMAL_GROUP_SIZE)) };
+
+            // Run kernel
+            ClError = Cl.EnqueueNDRangeKernel(  queue,
+                                                WipeKernel,
+                                                1,
+                                                null,
+                                                globalWorkSizePtr,
+                                                localWorkSizePtr,
+                                                0,
+                                                null,
+                                                out ClEvent);
+            CheckErr(ClError, "Cl.EnqueueNDRangeKernel ZeroUnpadBatch");
+
             ClError = Cl.ReleaseEvent(ClEvent);
             CheckErr(ClError, "Cl.ReleaseEvent");
 
             ClError = Cl.Finish(queue);
             CheckErr(ClError, "Cl.Finish");
+
+            //Cl.ReleaseKernel(WipeKernel);
         }
         
         public static void CheckErr(ErrorCode err, string name)

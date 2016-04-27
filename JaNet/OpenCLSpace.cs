@@ -126,13 +126,19 @@ namespace JaNet
         // Softmax layer
         public static Kernel SoftmaxForward;
 
+        // BatchNorm layer
+        public static Kernel ComputeMeansVariancesConv;
+        public static Kernel BatchNormConvForward;
+        public static Kernel BatchNormConvUpdateSpeeds;
+        public static Kernel BatchNormUpdateParameters;
+
         // Cross-entropy gradient
-        public static Kernel CrossEntropyGradient;
+        //public static Kernel CrossEntropyGradient;
 
         // Classification
-        public static Kernel CheckClassification;
+        //public static Kernel CheckClassification;
 
-        // Other
+        // Wipe kernels
         public static Kernel WipeBufferFloatKernel;
         public static Kernel WipeBufferIntKernel;
         public static Kernel WipeBufferBoolKernel;
@@ -305,15 +311,20 @@ namespace JaNet
             // Softmax layer
             SoftmaxForward = LoadAndBuildKernel(kernelsPath + "/SoftmaxForward.cl", "SoftmaxForward");
 
+            // BatchNorm layer
+            ComputeMeansVariancesConv = LoadAndBuildKernel(kernelsPath + "/BatchNorm.cl", "ComputeMeansVariancesConv");
+            BatchNormConvForward = LoadAndBuildKernel(kernelsPath + "/BatchNorm.cl", "BatchNormConvForward");
+            BatchNormConvUpdateSpeeds = LoadAndBuildKernel(kernelsPath + "/BatchNorm.cl", "BatchNormConvUpdateSpeeds");
+            BatchNormUpdateParameters = LoadAndBuildKernel(kernelsPath + "/BatchNorm.cl", "BatchNormUpdateParameters");
             // Cross-entropy gradient
-            CrossEntropyGradient = LoadAndBuildKernel(kernelsPath + "/CrossEntropyGradient.cl", "CrossEntropyGradient");
+            //CrossEntropyGradient = LoadAndBuildKernel(kernelsPath + "/CrossEntropyGradient.cl", "CrossEntropyGradient");
 
 
             // Classification
             // TODO: implement a better kernel
-            CheckClassification = LoadAndBuildKernel(kernelsPath + "/CheckClassification.cl", "CheckClassification");
+            //CheckClassification = LoadAndBuildKernel(kernelsPath + "/CheckClassification.cl", "CheckClassification");
 
-            // Other
+            // Wipe kernel
             WipeBufferFloatKernel = LoadAndBuildKernel(kernelsPath + "/WipeBufferFloatKernel.cl", "WipeBufferFloatKernel");
             WipeBufferIntKernel = LoadAndBuildKernel(kernelsPath + "/WipeBufferIntKernel.cl", "WipeBufferIntKernel");
             WipeBufferBoolKernel = LoadAndBuildKernel(kernelsPath + "/WipeBufferBoolKernel.cl", "WipeBufferBoolKernel");

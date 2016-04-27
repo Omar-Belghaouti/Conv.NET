@@ -87,7 +87,18 @@ namespace JaNet
             get { return outputWidth; }
         }
 
+        // Some virtual properties
+
         public virtual double DropoutParameter
+        {
+            set { }
+        }
+
+        public virtual bool IsEpochBeginning
+        {
+            set { }
+        }
+        public virtual bool IsTraining
         {
             set { }
         }

@@ -54,16 +54,18 @@ namespace JaNet
             //network.AddLayer(new ConvolutionalLayer(3, 8, 1, 1));
             //network.AddLayer(new ReLU());
             //network.AddLayer(new ELU(1.0f));
-            network.AddLayer(new PoolingLayer("max", 2, 2));
+            //network.AddLayer(new PoolingLayer("max", 2, 2));
 
-            network.AddLayer(new ConvolutionalLayer(3, 32, 1, 1));
+            network.AddLayer(new ConvolutionalLayer(3, 16, 1, 1));
             network.AddLayer(new ELU(1.0f));
             //network.AddLayer(new ReLU());
             //network.AddLayer(new ConvolutionalLayer(3, 32, 1, 1));
             //network.AddLayer(new ELU(1.0f));
             network.AddLayer(new PoolingLayer("max", 2, 2));
 
-            network.AddLayer(new ConvolutionalLayer(3, 64, 1, 1));
+            network.AddLayer(new ConvolutionalLayer(3, 32, 1, 1));
+            network.AddLayer(new ELU(1.0f));
+            network.AddLayer(new ConvolutionalLayer(3, 32, 1, 1));
             network.AddLayer(new ELU(1.0f));
             //network.AddLayer(new ConvolutionalLayer(3, 64, 1, 1));
             //network.AddLayer(new ELU(1.0f));
@@ -102,8 +104,8 @@ namespace JaNet
             //string MNISTtestLabels = "C:/Users/jacopo/Dropbox/Chalmers/MSc thesis/MNIST/mnistTestLabels.dat";
 
             // Reduced MNIST dataset (1000 data points, 100 per digit)
-            string MNISTreducedData = "C:/Users/jacopo/Dropbox/Chalmers/MSc thesis/MNIST/mnistImagesSubset.dat";
-            string MNISTreducedLabels = "C:/Users/jacopo/Dropbox/Chalmers/MSc thesis/MNIST/mnistLabelsSubset.dat";
+            //string MNISTreducedData = "C:/Users/jacopo/Dropbox/Chalmers/MSc thesis/MNIST/mnistImagesSubset.dat";
+            //string MNISTreducedLabels = "C:/Users/jacopo/Dropbox/Chalmers/MSc thesis/MNIST/mnistLabelsSubset.dat";
 
             // GTSRB training set (grayscale)
             string GTSRBtrainingDataGS = "C:/Users/jacopo/Dropbox/Chalmers/MSc thesis/GTSRB/Preprocessed/08_training_images.dat";
@@ -166,7 +168,7 @@ namespace JaNet
 
             NetworkTrainer networkTrainer = new NetworkTrainer();
 
-            networkTrainer.LearningRate = 0.005;
+            networkTrainer.LearningRate = 0.05;
             networkTrainer.MomentumMultiplier = 0.9;
             networkTrainer.WeightDecayCoeff = 0.0001;
             networkTrainer.MaxTrainingEpochs = 100;
@@ -175,8 +177,8 @@ namespace JaNet
             networkTrainer.ConsoleOutputLag = 1; // 1 = print every epoch, N = print every N epochs
             networkTrainer.EvaluateBeforeTraining = false;
             networkTrainer.EarlyStopping = false;
-            networkTrainer.DropoutFullyConnected = 1;
-            networkTrainer.DropoutConvolutional = 1;
+            networkTrainer.DropoutFullyConnected = 0.6;
+            networkTrainer.DropoutConvolutional = 0.6;
             networkTrainer.EpochsBeforeDropout = -1;
 
 

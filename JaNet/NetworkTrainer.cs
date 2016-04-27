@@ -225,11 +225,6 @@ namespace JaNet
 
             while (epoch < maxTrainingEpochs && !stopFlag) // loop over training epochs
             {
-                //while (!Console.KeyAvailable)
-                //{
-                    /********************
-                     * Console output
-                     *******************/
 
                     isOutputEpoch = epochsRemainingToOutput == 0;
                     if (isOutputEpoch)
@@ -237,13 +232,13 @@ namespace JaNet
                         Console.WriteLine("\nTime to evaluate the network!");
 
                         // Evaluate on training set
-                        /*
+                        
                         Console.WriteLine("Evaluating on TRAINING set...");
                         stopwatch.Restart();
                         networkEvaluator.EvaluateNetwork(network, trainingSet, out lossTraining, out errorTraining);
                         Console.WriteLine("\tLoss = {0}\n\tError = {1}\n\tEval runtime = {2}ms\n",
                                             lossTraining, errorTraining, stopwatch.ElapsedMilliseconds);
-                        */
+                        
 
                         // Evaluate on validation set
                         if (validationSet != null)
@@ -337,6 +332,27 @@ namespace JaNet
                     Console.WriteLine("Forward: {0}ms - Gradient: {1}ms - Backward: {2}ms\n",
                         stopwatchFwd.ElapsedMilliseconds, stopwatchGrad.ElapsedMilliseconds, stopwatchBwd.ElapsedMilliseconds);
 
+#if TIMING_LAYERS
+                    Console.WriteLine("\n DETAILED RUNTIMES:");
+
+                    Console.WriteLine("\n\tConvForward: {0}ms \n\tConvBackprop: {1}ms \n\tConvUpdateSpeeds: {2}ms \n\tConvUpdateParameters: {3}ms",
+                        Utils.ConvForwardTimer.ElapsedMilliseconds, Utils.ConvBackpropTimer.ElapsedMilliseconds, 
+                        Utils.ConvUpdateSpeedsTimer.ElapsedMilliseconds, Utils.ConvUpdateParametersTimer.ElapsedMilliseconds);
+
+                    Console.WriteLine("\n\tPoolingForward: {0}ms \n\tPoolingBackprop: {1}ms",
+                        Utils.PoolingForwardTimer.ElapsedMilliseconds, Utils.PoolingBackpropTimer.ElapsedMilliseconds);
+
+                    Console.WriteLine("\n\tNonlinearityForward: {0}ms \n\tNonlinearityBackprop: {1}ms",
+                        Utils.NonlinearityForwardTimer.ElapsedMilliseconds, Utils.NonlinearityBackpropTimer.ElapsedMilliseconds);
+
+                    Console.WriteLine("\n\tFCForward: {0}ms \n\tFCBackprop: {1}ms \n\tFCUpdateSpeeds: {2}ms \n\tFCUpdateParameters: {3}ms",
+                            Utils.FCForwardTimer.ElapsedMilliseconds, Utils.FCBackpropTimer.ElapsedMilliseconds,
+                            Utils.FCUpdateSpeedsTimer.ElapsedMilliseconds, Utils.FCUpdateParametersTimer.ElapsedMilliseconds);
+
+                    Console.WriteLine("\n\tSoftmax: {0}ms", Utils.SoftmaxTimer.ElapsedMilliseconds);
+
+                    Utils.ResetTimers();
+#endif
                     epoch++;
 
                     if (Console.KeyAvailable)

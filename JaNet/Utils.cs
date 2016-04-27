@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using System.Diagnostics;
 
 namespace JaNet
 {
@@ -28,6 +29,53 @@ namespace JaNet
 
     static class Utils
     {
+
+#if TIMING_LAYERS
+
+        public static Stopwatch InputFeedTimer = new Stopwatch();
+
+        public static Stopwatch ConvForwardTimer = new Stopwatch();
+        public static Stopwatch ConvBackpropTimer = new Stopwatch();
+        public static Stopwatch ConvUpdateSpeedsTimer = new Stopwatch();
+        public static Stopwatch ConvUpdateParametersTimer = new Stopwatch();
+        
+        public static Stopwatch NonlinearityForwardTimer = new Stopwatch();
+        public static Stopwatch NonlinearityBackpropTimer = new Stopwatch();
+
+        public static Stopwatch PoolingForwardTimer = new Stopwatch();
+        public static Stopwatch PoolingBackpropTimer = new Stopwatch();
+
+        public static Stopwatch FCForwardTimer = new Stopwatch();
+        public static Stopwatch FCBackpropTimer = new Stopwatch();
+        public static Stopwatch FCUpdateSpeedsTimer = new Stopwatch();
+        public static Stopwatch FCUpdateParametersTimer = new Stopwatch();
+
+        public static Stopwatch SoftmaxTimer = new Stopwatch();
+
+        public static void ResetTimers()
+        {
+            InputFeedTimer.Reset();
+
+            ConvForwardTimer.Reset();
+            ConvBackpropTimer.Reset();
+            ConvUpdateSpeedsTimer.Reset();
+            ConvUpdateParametersTimer.Reset();
+
+            NonlinearityForwardTimer.Reset();
+            NonlinearityBackpropTimer.Reset();
+
+            PoolingForwardTimer.Reset();
+            PoolingBackpropTimer.Reset();
+
+            FCForwardTimer.Reset();
+            FCBackpropTimer.Reset();
+            FCUpdateSpeedsTimer.Reset();
+            FCUpdateParametersTimer.Reset();
+
+            SoftmaxTimer.Reset();
+        }
+#endif
+
         /// <summary>
         /// Returns index of maximum element in the given input array.
         /// </summary>

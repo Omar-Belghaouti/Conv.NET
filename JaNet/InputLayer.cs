@@ -54,6 +54,10 @@ namespace JaNet
 
         public void FeedData(DataSet dataSet, int[] iExamples)
         {
+
+#if TIMING_LAYERS
+            Utils.InputFeedTimer.Start();
+#endif
             int dataPointSize = dataSet.DataDimension;
 
             for (int m = 0; m < outputNeurons.MiniBatchSize; m++)
@@ -82,6 +86,10 @@ namespace JaNet
 #if OPENCL_ENABLED
             OpenCLSpace.ClError = Cl.Finish(OpenCLSpace.Queue);
             OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.Finish");
+#endif
+
+#if TIMING_LAYERS
+            Utils.InputFeedTimer.Stop();
 #endif
         }
 

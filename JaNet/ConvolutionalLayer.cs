@@ -11,7 +11,7 @@ namespace JaNet
     class ConvolutionalLayer : Layer
     {
         
-        #region Fields (private)
+        #region Fields
 
         private int filterSize; // F
         private int nFilters; // K
@@ -73,7 +73,7 @@ namespace JaNet
         #endregion
 
 
-        #region Properties (public)
+        #region Properties
 
         public override double DropoutParameter
         {
@@ -108,7 +108,7 @@ namespace JaNet
         #endregion
 
 
-        #region Setup methods (to be called once)
+        #region Setup methods
 
         /// <summary>
         /// Constructor: specify filter size, number of filters (output depth), stride (only 1 supported at this stage!), zero padding.
@@ -434,6 +434,11 @@ namespace JaNet
 
         public override void FeedForward()
         {
+
+#if TIMING_LAYERS
+            Utils.ConvForwardTimer.Start();
+#endif
+
 #if OPENCL_ENABLED
 
             // 1. Zero-pad input tensor (if necessary) _________________________________________________________
@@ -514,11 +519,17 @@ namespace JaNet
             }
 #endif
 
+#if TIMING_LAYERS
+            Utils.ConvForwardTimer.Stop();
+#endif
         }
 
         public override void BackPropagate()
         {
-            //Console.WriteLine("Checkpoint C");
+
+#if TIMING_LAYERS
+            Utils.ConvBackpropTimer.Start();
+#endif
 
 #if OPENCL_ENABLED
             // 1. Wipe out input buffers where we are going to write gradients 
@@ -622,12 +633,20 @@ namespace JaNet
                     inputNeurons.DeltaHost[m] = paddedInput[m];
             } // end of loop over mini-batch
 #endif
+
+#if TIMING_LAYERS
+            Utils.ConvBackpropTimer.Stop();
+#endif
         }
 
 
         public override void UpdateSpeeds(double learningRate, double momentumCoefficient)
         {
-            //Console.WriteLine("Checkpoint A");
+
+#if TIMING_LAYERS
+            Utils.ConvUpdateSpeedsTimer.Start();
+#endif
+
 #if OPENCL_ENABLED
             // Set kernel arguments
             OpenCLSpace.ClError  = Cl.SetKernelArg(OpenCLSpace.ConvUpdateSpeedsBatch, 0, weightsSpeedGPU);
@@ -702,11 +721,17 @@ namespace JaNet
             }
 #endif
 
+#if TIMING_LAYERS
+            Utils.ConvUpdateSpeedsTimer.Stop();
+#endif
         }
 
         public override void UpdateParameters(double weightDecayCoeff)
         {
-            //Console.WriteLine("Checkpoint E");
+
+#if TIMING_LAYERS
+            Utils.ConvUpdateParametersTimer.Start();
+#endif
 
 #if OPENCL_ENABLED
             // Set kernel arguments
@@ -765,6 +790,10 @@ namespace JaNet
             //Console.WriteLine("\tWeight norm: {0}\n\tSpeed norm: {1}\n\tRatio: {2}", weightNorm, updateNorm, updateNorm / weightNorm );
             //Console.WriteLine("Speed/weight ratio: {0}", updateNorm / weightNorm);
             //Console.ReadKey();
+#endif
+
+#if TIMING_LAYERS
+            Utils.ConvUpdateParametersTimer.Stop();
 #endif
         }
 

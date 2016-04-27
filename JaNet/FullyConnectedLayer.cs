@@ -260,9 +260,9 @@ namespace JaNet
 
         public override void FeedForward()
         {
-
-            
-
+#if TIMING_LAYERS
+            Utils.FCForwardTimer.Start();
+#endif
 
 #if OPENCL_ENABLED
             // Set kernel arguments
@@ -311,13 +311,17 @@ namespace JaNet
 #endif
 
 
-
-
-
+#if TIMING_LAYERS
+            Utils.FCForwardTimer.Stop();
+#endif
         }
 
         public override void BackPropagate()
         {
+#if TIMING_LAYERS
+            Utils.FCBackpropTimer.Start();
+#endif
+
 #if OPENCL_ENABLED
 
             // Set kernel arguments
@@ -353,12 +357,18 @@ namespace JaNet
                 inputNeurons.DeltaHost[m] = Utils.MultiplyMatrixTranspByVector(weights, outputNeurons.DeltaHost[m]);
             }
 #endif
+
+#if TIMING_LAYERS
+            Utils.FCBackpropTimer.Stop();
+#endif
         }
 
 
         public override void UpdateSpeeds(double learningRate, double momentumCoefficient)
         {
-            
+#if TIMING_LAYERS
+            Utils.FCUpdateSpeedsTimer.Start();
+#endif
 
 #if DEBUGGING_STEPBYSTEP_FC
             float[,] weightsBeforeUpdate = new float[output.NumberOfUnits, input.NumberOfUnits];
@@ -650,10 +660,19 @@ namespace JaNet
             /*------------------------- END DEBUGGING ---------------------------------------- */
 #endif
 
+#if TIMING_LAYERS
+            Utils.FCUpdateSpeedsTimer.Stop();
+#endif
+
         }
 
         public override void UpdateParameters(double weightDecayCoeff)
         {
+
+#if TIMING_LAYERS
+            Utils.FCUpdateParametersTimer.Start();
+#endif
+
 #if OPENCL_ENABLED
                 // Set kernel arguments
                 OpenCLSpace.ClError = Cl.SetKernelArg(OpenCLSpace.FCUpdateParameters, 0, weightsGPU);
@@ -697,6 +716,10 @@ namespace JaNet
                     // update biases
                     biases[i] += biasesUpdateSpeed[i];
                 }
+#endif
+
+#if TIMING_LAYERS
+                Utils.FCUpdateParametersTimer.Stop();
 #endif
         }
         

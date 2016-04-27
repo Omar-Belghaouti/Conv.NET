@@ -59,6 +59,10 @@ namespace JaNet
 
         public override void FeedForward()
         {
+#if TIMING_LAYERS
+            Utils.SoftmaxTimer.Start();
+#endif
+
             int nActivations = nInputUnits*inputNeurons.MiniBatchSize;
 
             // get preactivations
@@ -118,12 +122,16 @@ namespace JaNet
                 }
                 outputClassScores[m] = tmpActivations;
             }
+
+#if TIMING_LAYERS
+            Utils.SoftmaxTimer.Stop();
+#endif
         }
 
 
         public override void BackPropagate()
         {
-            throw new System.InvalidOperationException("Called BackPropagate() method of SoftMax layer. Don't do it! Just feed the gradient back to the previous layer!");
+            throw new System.NotImplementedException("Called BackPropagate() method of SoftMax layer. Don't do it! Just feed the gradient back to the previous layer!");
             // NO backprop here!!
             // Compute directly input.Delta from cross-entropy cost: faster and numerically more stable
         }

@@ -192,6 +192,10 @@ namespace JaNet
 
         public override void FeedForward()
         {
+#if TIMING_LAYERS
+            Utils.PoolingForwardTimer.Start();
+#endif
+
 #if OPENCL_ENABLED
             OpenCLSpace.ClError  = Cl.SetKernelArg(OpenCLSpace.PoolingForward, 0, outputNeurons.ActivationsGPU);
             OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.PoolingForward, 1, inputNeurons.ActivationsGPU);
@@ -224,10 +228,17 @@ namespace JaNet
             //TODO: CPU code
 #endif
 
+#if TIMING_LAYERS
+            Utils.PoolingForwardTimer.Stop();
+#endif
         }
 
         public override void BackPropagate()
         {
+#if TIMING_LAYERS
+            Utils.PoolingBackpropTimer.Start();
+#endif
+
 #if OPENCL_ENABLED
             OpenCLSpace.ClError  = Cl.SetKernelArg(OpenCLSpace.PoolingBackward, 0, inputNeurons.DeltaGPU);
             OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.PoolingBackward, 1, outputNeurons.DeltaGPU);
@@ -258,6 +269,10 @@ namespace JaNet
             OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.Finish");
 #else
             //TODO: CPU code
+#endif
+
+#if TIMING_LAYERS
+            Utils.PoolingBackpropTimer.Stop();
 #endif
         }
 

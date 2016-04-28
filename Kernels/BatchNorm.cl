@@ -9,7 +9,7 @@
  
  // This is going to be VERY slow
 __kernel void 
-ComputeMeansVariancesConv(	__global float * means,
+BNConvComputeMeansVariances(__global float * means,
 							__global float * variances,
 							__global float * cumulativeMeans,
 							__global float * cumulativeVariances,
@@ -90,16 +90,16 @@ ComputeMeansVariancesConv(	__global float * means,
  #define EPSILON 1.0E-6
  
 __kernel void 
-BatchNormConvForward(	__global float * output,
-						__global float * normalizedInput,
-						__global float * input,
-						__constant float * means,		// will be over mini-batch if training, running if inference
-						__constant float * variances, // same
-						__constant float * gammas, 
-						__constant float * betas,	
-						const int inputArea,
-						const int inputVolume,
-						const int miniBatchSize
+BNConvForward(	__global float * output,
+				__global float * normalizedInput,
+				__global float * input,
+				__constant float * means,		// will be over mini-batch if training, running if inference
+				__constant float * variances, // same
+				__constant float * gammas, 
+				__constant float * betas,	
+				const int inputArea,
+				const int inputVolume,
+				const int miniBatchSize
 				)
 {
 	// Global work size = number of activations = tensor volume * mini-batch size
@@ -122,16 +122,16 @@ BatchNormConvForward(	__global float * output,
 
 
 __kernel void 
-BatchNormConvUpdateSpeeds(	__global float * gammaSpeed,
-							__global float * betaSpeed,
-							__global float * deltaOutput,
-							__global float * normalizedInput,
-							const int nParameters,
-							const int inputArea,
-							const int inputVolume,
-							const int miniBatchSize,
-							const float momCoeff,
-							const float learningRate
+BNConvUpdateSpeeds(	__global float * gammaSpeed,
+					__global float * betaSpeed,
+					__global float * deltaOutput,
+					__global float * normalizedInput,
+					const int nParameters,
+					const int inputArea,
+					const int inputVolume,
+					const int miniBatchSize,
+					const float momCoeff,
+					const float learningRate
 				)
 {
 	// Global work size = number of parameters = inputDepth
@@ -167,11 +167,11 @@ BatchNormConvUpdateSpeeds(	__global float * gammaSpeed,
 
 // Good for both convolutional and fully connected layers
 __kernel void 
-BatchNormUpdateParameters(	__global float * gamma,
-							__global float * beta,
-							__constant float * gammaSpeed,
-							__constant float * betaSpeed,
-							const int nParameters
+BNUpdateParameters(	__global float * gamma,
+					__global float * beta,
+					__constant float * gammaSpeed,
+					__constant float * betaSpeed,
+					const int nParameters
 						)
 {
 	// Global work size = number of parameters = inputDepth
@@ -185,4 +185,111 @@ BatchNormUpdateParameters(	__global float * gamma,
 	
 }
 
+
+// Compute gradients of loss with respect to mu and sigma^2, needed for backpropagation
+// This is probably going to be very slow :(
+__kernel void
+BNConvGradientMeanVariance( __global float * meanGradient,
+							__global float * varianceGradient,
+							__global float * deltaOutput,
+							__global float * normalizedInput,
+							__constant float * gamma,
+							__constant float * variance,
+							const int inputDepth,
+							const int inputArea,
+							const int miniBatchSize,
+							
+							)
+{
+	// Global work size = 2 * number of parameters = 2 * inputDepth (should be a bit more efficient)
+	
+	int iFeatureMap = get_global_id(0);							
+								
+	if (iFeatureMap < 2 * inputDepth)
+	{
+		const int inputVolume = inputDepth * inputArea;
+		
+		if (iFeatureMap % 2 == 0) // even indices => compute derivative wrt variance
+		{
+			iFeatureMap /= 2; // retrieve correct index of feature map
+			int iUnit = 0;
+			float tmpSumXY = 0.0F;
+			
+			for (int iExample = 0; iExample < miniBatchSize; iExample++)
+			{
+				iUnit = iExample * inputVolume + iFeatureMap * inputArea;
+			
+				for (int iWithinMap = 0; iWithinMap < inputArea; iWithinMap++)
+				{
+					iUnit += iWithinMap;
+					tmpSumXY += deltaOutput[iUnit] * normalizedInput[iUnit];
+				}
+			}
+			
+			varianceGradient[iFeatureMap] = (-gamma[iFeatureMap] * tmpSumXY) / ( 2*(variance[iFeatureMap] + EPSILON) );
+		}
+		else // odd indices => compute derivative wrt mean
+		{
+			iFeatureMap /= 2; // retrieve correct index of feature map
+			int iUnit = 0;
+			float tmpSumX = 0.0F;
+			float tmpSumY = 0.0F;
+			float tmpSumXY = 0.0F;
+			
+			for (int iExample = 0; iExample < miniBatchSize; iExample++)
+			{
+				iUnit = iExample * inputVolume + iFeatureMap * inputArea;
+			
+				for (int iWithinMap = 0; iWithinMap < inputArea; iWithinMap++)
+				{
+					iUnit += iWithinMap;
+					
+					tmpSumX += normalizedInput[iUnit];
+					tmpSumY += deltaOutput[iUnit];
+					tmpSumXY += deltaOutput[iUnit] * normalizedInput[iUnit];
+				}
+			}
+			
+			meanGradient[iFeatureMap] =  (tmpSumX * tmpSumXY / (miniBatchSize * inputArea) - tmpSumY);
+			meanGradient[iFeatureMap] *= gamma[iFeatureMap]  / sqrt(variance[iFeatureMap] + EPSILON);
+		}
+	}		
+}
+							
+							
+							
+
+__kernel void
+BNConvBackPropagate(__global float * deltaInput,
+					__global float * deltaOutput,
+					__global float * input,
+					__constant float * gamma,
+					__constant float * mean,
+					__constant float * variance,
+					__constant float * meanGradient,
+					__constant float * varianceGradient,
+					const int inputArea,
+					const int inputVolume,
+					const int miniBatchSize,
+					)
+{
+	// Global work size = number of activations = tensor volume * mini-batch size
+	const int iUnit = get_global_id(0);
+	
+	if(iUnit < inputVolume * miniBatchSize)
+	{
+		// Retrieve index of feature map that this input values belongs to
+		int iFeatureMap = (iUnit % inputVolume) / inputArea;
+		
+		float tmp = 0.0F;
+		
+		// See backprop expression...
+		tmp += 2 * varianceGradient[iFeatureMap]* (input[iUnit] - mean[iFeatureMap]) + meanGradient[iFeatureMap];
+		tmp /= (miniBatchSize * inputArea); 
+		tmp += ( (gamma[iFeatureMap] * deltaOutput[iUnit]) / sqrt(variance[iFeatureMap] + EPSILON) );
+		
+		// Write gradient
+		deltaInput[iUnit] = tmp;
+	}
+}
 

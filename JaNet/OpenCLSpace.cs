@@ -127,10 +127,11 @@ namespace JaNet
         public static Kernel SoftmaxForward;
 
         // BatchNorm layer
-        public static Kernel ComputeMeansVariancesConv;
-        public static Kernel BatchNormConvForward;
-        public static Kernel BatchNormConvUpdateSpeeds;
-        public static Kernel BatchNormUpdateParameters;
+        public static Kernel BNConvComputeMeansVariances;
+        public static Kernel BNConvForward;
+        public static Kernel BNConvUpdateSpeeds;
+        public static Kernel BNUpdateParameters;
+        public static Kernel BNConvGradientMeanVariance;
 
         // Cross-entropy gradient
         //public static Kernel CrossEntropyGradient;
@@ -312,10 +313,10 @@ namespace JaNet
             SoftmaxForward = LoadAndBuildKernel(kernelsPath + "/SoftmaxForward.cl", "SoftmaxForward");
 
             // BatchNorm layer
-            ComputeMeansVariancesConv = LoadAndBuildKernel(kernelsPath + "/BatchNorm.cl", "ComputeMeansVariancesConv");
-            BatchNormConvForward = LoadAndBuildKernel(kernelsPath + "/BatchNorm.cl", "BatchNormConvForward");
-            BatchNormConvUpdateSpeeds = LoadAndBuildKernel(kernelsPath + "/BatchNorm.cl", "BatchNormConvUpdateSpeeds");
-            BatchNormUpdateParameters = LoadAndBuildKernel(kernelsPath + "/BatchNorm.cl", "BatchNormUpdateParameters");
+            BNConvComputeMeansVariances = LoadAndBuildKernel(kernelsPath + "/BatchNorm.cl", "ComputeMeansVariancesConv");
+            BNConvForward = LoadAndBuildKernel(kernelsPath + "/BatchNorm.cl", "BatchNormConvForward");
+            BNConvUpdateSpeeds = LoadAndBuildKernel(kernelsPath + "/BatchNorm.cl", "BatchNormConvUpdateSpeeds");
+            BNUpdateParameters = LoadAndBuildKernel(kernelsPath + "/BatchNorm.cl", "BatchNormUpdateParameters");
             // Cross-entropy gradient
             //CrossEntropyGradient = LoadAndBuildKernel(kernelsPath + "/CrossEntropyGradient.cl", "CrossEntropyGradient");
 

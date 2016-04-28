@@ -483,7 +483,41 @@ namespace JaNet
 #endif
 
         }
+
+
+        public void SetEpochBeginning()
+        {
+            for (int l = 1; l < nLayers - 1; ++l)
+            {
+                if (layers[l].Type == "BatchNorm")
+                    layers[l].IsEpochBeginning = true;
+            }
+        }
+
+        public void SetTraining()
+        {
+            for (int l = 1; l < nLayers - 1; ++l)
+            {
+                if (layers[l].Type == "BatchNorm")
+                    layers[l].IsTraining = true;
+            }
+        }
+
+        public void SetInference()
+        {
+            for (int l = 1; l < nLayers - 1; ++l)
+            {
+                if (layers[l].Type == "BatchNorm")
+                    layers[l].IsTraining = false;
+            }
+        }
+
         #endregion
 
+        #region Set() function
+
+
+
+        #endregion
     } 
 }

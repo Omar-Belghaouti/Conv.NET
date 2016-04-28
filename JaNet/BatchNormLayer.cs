@@ -38,9 +38,9 @@ namespace JaNet
         private Mem gammaSpeedGPU;
 
         // Work group sizes
+        private IntPtr[] nStatisticsGlobalWorkSizePtr;
+        private IntPtr[] nStatisticsLocalWorkSizePtr;
         private IntPtr[] nParametersGlobalWorkSizePtr;
-        private IntPtr[] nParametersLocalWorkSizePtr;
-        private IntPtr[] twiceNParametersGlobalWorkSizePtr;
 
         private IntPtr[] nActivationsGlobalWorkSizePtr;
         private IntPtr[] nActivationsLocalWorkSizePtr;
@@ -151,10 +151,10 @@ namespace JaNet
             // Initialize OpenCL buffers for normalized input values (needed for backprop)
             this.normalizedInputGPU = (Mem)Cl.CreateBuffer( OpenCLSpace.Context,
                                                             MemFlags.ReadWrite,
-                                                            (IntPtr)(sizeof(float) * nInputUnits),
+                                                            (IntPtr)(sizeof(float) * nInputUnits * inputNeurons.MiniBatchSize),
                                                             out OpenCLSpace.ClError);
             OpenCLSpace.CheckErr(OpenCLSpace.ClError, "InitializeParameters(): Cl.CreateBuffer");
-            OpenCLSpace.WipeBuffer(normalizedInputGPU, nInputUnits, typeof(float));
+            OpenCLSpace.WipeBuffer(normalizedInputGPU, nInputUnits * inputNeurons.MiniBatchSize, typeof(float));
 
 
             // Initialize OpenCL buffers for learnable parameters and their update speed.
@@ -195,7 +195,7 @@ namespace JaNet
             OpenCLSpace.CheckErr(OpenCLSpace.ClError, "InitializeParameters(): Cl.CreateBuffer");
 
 #else
-            // TODO...
+            // TODO... (cpu code)
 #endif
             
         }
@@ -214,20 +214,17 @@ namespace JaNet
             //                    constant multiple of 2, platform-dependent, e.g. 32 (Nvidia 
             //                    WARP) or 64 (AMD WAVEFRONT).
 
-            int miniBatchSize = inputNeurons.MiniBatchSize;
-
-
             // 1D worksize equal to the size of means, variances, gamma, beta,... i.e. inputDepth if following a Conv layer, nInputUnits if following a FC layer
             // Use for ComputeMeansVariances(), UpdateSpeeds() and UpdateParameters() _____________________________________________________________________
             
             // Local
-            this.nParametersLocalWorkSizePtr = new IntPtr[] { (IntPtr)OpenCLSpace.BASE_GROUP_SIZE };
+            this.nStatisticsLocalWorkSizePtr = new IntPtr[] { (IntPtr)OpenCLSpace.BASE_GROUP_SIZE };
 
             // Global
             int workItemsNeeded = (previousLayerType == "Convolutional") ? inputDepth : nInputUnits;
             int smallestMultiple = (int)(OpenCLSpace.BASE_GROUP_SIZE * Math.Ceiling((double)(workItemsNeeded) / (double)OpenCLSpace.BASE_GROUP_SIZE));
-            this.nParametersGlobalWorkSizePtr = new IntPtr[] { (IntPtr)smallestMultiple };
-            this.twiceNParametersGlobalWorkSizePtr = new IntPtr[] { (IntPtr)(2*smallestMultiple) }; // use for gradients kernel
+            this.nStatisticsGlobalWorkSizePtr = new IntPtr[] { (IntPtr)smallestMultiple };
+            this.nParametersGlobalWorkSizePtr = new IntPtr[] { (IntPtr)(2*smallestMultiple) }; // use for gradients kernel
 
             // 1D worksize equal to the total number of activations. Use for FeedForward() and BackPropagate() kernels ___________________
 
@@ -235,7 +232,7 @@ namespace JaNet
             this.nActivationsLocalWorkSizePtr = new IntPtr[] { (IntPtr)OpenCLSpace.OPTIMAL_GROUP_SIZE };
             
             // Global
-            smallestMultiple = (int)(OpenCLSpace.OPTIMAL_GROUP_SIZE * Math.Ceiling((double)(nInputUnits * miniBatchSize) / (double)OpenCLSpace.OPTIMAL_GROUP_SIZE));
+            smallestMultiple = (int)(OpenCLSpace.OPTIMAL_GROUP_SIZE * Math.Ceiling((double)(nInputUnits * inputNeurons.MiniBatchSize) / (double)OpenCLSpace.OPTIMAL_GROUP_SIZE));
             this.nActivationsGlobalWorkSizePtr = new IntPtr[] { (IntPtr)smallestMultiple};
 
             
@@ -249,17 +246,21 @@ namespace JaNet
         public override void FeedForward()
         {
             if (isEpochBeginning)
+            {
                 iCumulativeAverage = 0;
+                isEpochBeginning = false;
+            }
 
-            // case 1 : this layer follows a Convolutional layer
             if (previousLayerType == "Convolutional")
             {
+                // Case 1 : this layer follows a Convolutional layer
+
 #if OPENCL_ENABLED
 
                 // 1.1) If training, compute means and variances, and update cumulative averages
                 if (isTraining)
                 {
-                    OpenCLSpace.ClError = Cl.SetKernelArg(OpenCLSpace.BNConvComputeMeansVariances, 0, meanGPU);
+                    OpenCLSpace.ClError  = Cl.SetKernelArg(OpenCLSpace.BNConvComputeMeansVariances, 0, meanGPU);
                     OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.BNConvComputeMeansVariances, 1, varianceGPU);
                     OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.BNConvComputeMeansVariances, 2, cumulativeMeanGPU);
                     OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.BNConvComputeMeansVariances, 3, cumulativeVarianceGPU);
@@ -271,12 +272,12 @@ namespace JaNet
                     OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.BNConvComputeMeansVariances, 9, (IntPtr)sizeof(int), iCumulativeAverage);
                     OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.SetKernelArg");
 
-                    OpenCLSpace.ClError = Cl.EnqueueNDRangeKernel(OpenCLSpace.Queue,
+                    OpenCLSpace.ClError = Cl.EnqueueNDRangeKernel(  OpenCLSpace.Queue,
                                                                     OpenCLSpace.BNConvComputeMeansVariances,
                                                                     1,
                                                                     null,
-                                                                    nParametersGlobalWorkSizePtr,
-                                                                    nParametersLocalWorkSizePtr,
+                                                                    nStatisticsGlobalWorkSizePtr,
+                                                                    nStatisticsLocalWorkSizePtr,
                                                                     0,
                                                                     null,
                                                                     out OpenCLSpace.ClEvent);
@@ -333,8 +334,127 @@ namespace JaNet
             }
             else // case 2 : previousLayerType == "FullyConnected"
             {
-                // TODO...
+#if OPENCL_ENABLED
 
+                // 2.1) If training, compute means and variances, and update cumulative averages
+                if (isTraining)
+                {
+                    OpenCLSpace.ClError  = Cl.SetKernelArg(OpenCLSpace.BNFCComputeMeansVariances, 0, meanGPU);
+                    OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.BNFCComputeMeansVariances, 1, varianceGPU);
+                    OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.BNFCComputeMeansVariances, 2, cumulativeMeanGPU);
+                    OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.BNFCComputeMeansVariances, 3, cumulativeVarianceGPU);
+                    OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.BNFCComputeMeansVariances, 4, inputNeurons.ActivationsGPU);
+                    OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.BNFCComputeMeansVariances, 5, (IntPtr)sizeof(int), nInputUnits);
+                    OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.BNFCComputeMeansVariances, 6, (IntPtr)sizeof(int), inputNeurons.MiniBatchSize);
+                    OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.BNFCComputeMeansVariances, 7, (IntPtr)sizeof(int), iCumulativeAverage);
+                    OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.SetKernelArg");
+
+                    OpenCLSpace.ClError = Cl.EnqueueNDRangeKernel(  OpenCLSpace.Queue,
+                                                                    OpenCLSpace.BNFCComputeMeansVariances,
+                                                                    1,
+                                                                    null,
+                                                                    nStatisticsGlobalWorkSizePtr,
+                                                                    nStatisticsLocalWorkSizePtr,
+                                                                    0,
+                                                                    null,
+                                                                    out OpenCLSpace.ClEvent);
+                    OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.EnqueueNDRangeKernel");
+
+                    OpenCLSpace.ClError = Cl.ReleaseEvent(OpenCLSpace.ClEvent);
+                    OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.ReleaseEvent");
+
+                    // increase average counter
+                    iCumulativeAverage++;
+                }
+
+#if DEBUGGING_STEPBYSTEP
+
+                /* ------------------------- DEBUGGING --------------------------------------------- */
+
+                // Display means
+                float[] means = new float[nInputUnits];
+
+                OpenCLSpace.ClError = Cl.EnqueueReadBuffer( OpenCLSpace.Queue,
+                                                            meanGPU, // source
+                                                            Bool.True,
+                                                            (IntPtr)0,
+                                                            (IntPtr)(nInputUnits * sizeof(float)),
+                                                            means,  // destination
+                                                            0,
+                                                            null,
+                                                            out OpenCLSpace.ClEvent);
+                OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.clEnqueueReadBuffer");
+                    
+                Console.WriteLine("\nMeans:\n");
+                for (int i = 0; i < nInputUnits; i++)
+                    Console.Write("{0}  ", means[i]);
+                Console.ReadKey();
+
+                // Display variances
+                float[] var = new float[nInputUnits];
+
+                OpenCLSpace.ClError = Cl.EnqueueReadBuffer(OpenCLSpace.Queue,
+                                                            varianceGPU, // source
+                                                            Bool.True,
+                                                            (IntPtr)0,
+                                                            (IntPtr)(nInputUnits * sizeof(float)),
+                                                            var,  // destination
+                                                            0,
+                                                            null,
+                                                            out OpenCLSpace.ClEvent);
+                OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.clEnqueueReadBuffer");
+
+                Console.WriteLine("\n\nVariances:\n");
+                for (int i = 0; i < nInputUnits; i++)
+                    Console.Write("{0}  ", var[i]);
+                Console.ReadKey();
+
+                 
+                /* ------------------------- END DEBUGGING --------------------------------------------- */
+
+#endif
+
+
+                // 1.2) Normalize input, scale and shift
+
+                OpenCLSpace.ClError  = Cl.SetKernelArg(OpenCLSpace.BNFCForward, 0, outputNeurons.ActivationsGPU);
+                OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.BNFCForward, 1, normalizedInputGPU);
+                OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.BNFCForward, 2, inputNeurons.ActivationsGPU);
+                if (isTraining)
+                {
+                    OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.BNFCForward, 3, meanGPU);
+                    OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.BNFCForward, 4, varianceGPU);
+                }
+                else
+                {
+                    OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.BNFCForward, 3, cumulativeMeanGPU);
+                    OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.BNFCForward, 4, cumulativeVarianceGPU);
+                }
+                OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.BNFCForward, 5, gammaGPU);
+                OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.BNFCForward, 6, betaGPU);
+                OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.BNFCForward, 7, (IntPtr)sizeof(int), nInputUnits);
+                OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.BNFCForward, 8, (IntPtr)sizeof(int), inputNeurons.MiniBatchSize);
+                OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.SetKernelArg");
+
+                OpenCLSpace.ClError = Cl.EnqueueNDRangeKernel(  OpenCLSpace.Queue,
+                                                                OpenCLSpace.BNFCForward,
+                                                                1,
+                                                                null,
+                                                                nActivationsGlobalWorkSizePtr,
+                                                                nActivationsLocalWorkSizePtr,
+                                                                0,
+                                                                null,
+                                                                out OpenCLSpace.ClEvent);
+                OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.EnqueueNDRangeKernel");
+
+                OpenCLSpace.ClError = Cl.ReleaseEvent(OpenCLSpace.ClEvent);
+                OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.ReleaseEvent");
+
+                OpenCLSpace.ClError = Cl.Finish(OpenCLSpace.Queue);
+                OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.Finish");
+#else
+            // TODO (cpu)
+#endif
             }
             
             
@@ -344,32 +464,60 @@ namespace JaNet
 
         public override void BackPropagate()
         {
-            // case 1 : this layer follows a Convolutional layer
+            
             if (previousLayerType == "Convolutional")
             {
-
+                // Case 1 : this layer follows a Convolutional layer
 #if OPENCL_ENABLED
 
                 // 1.1) Compute gradients of loss function wrt mean and variance in each feature map
 
-                OpenCLSpace.ClError = Cl.SetKernelArg(OpenCLSpace.BNConvUpdateSpeeds, 0, gammaSpeedGPU);
-                OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.BNConvUpdateSpeeds, 1, betaSpeedGPU);
-                OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.BNConvUpdateSpeeds, 2, outputNeurons.DeltaGPU);
-                OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.BNConvUpdateSpeeds, 3, normalizedInputGPU);
-                OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.BNConvUpdateSpeeds, 4, (IntPtr)sizeof(int), inputDepth);
-                OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.BNConvUpdateSpeeds, 5, (IntPtr)sizeof(int), inputHeight * inputWidth);
-                OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.BNConvUpdateSpeeds, 6, (IntPtr)sizeof(int), nInputUnits);
-                OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.BNConvUpdateSpeeds, 7, (IntPtr)sizeof(int), inputNeurons.MiniBatchSize);
-                OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.BNConvUpdateSpeeds, 8, (IntPtr)sizeof(float), (float)momentumMultiplier);
-                OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.BNConvUpdateSpeeds, 9, (IntPtr)sizeof(float), (float)learningRate);
+                OpenCLSpace.ClError  = Cl.SetKernelArg(OpenCLSpace.BNConvGradientMeanVariance, 0, meanGradientGPU);
+                OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.BNConvGradientMeanVariance, 1, varianceGradientGPU);
+                OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.BNConvGradientMeanVariance, 2, outputNeurons.DeltaGPU);
+                OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.BNConvGradientMeanVariance, 3, normalizedInputGPU);
+                OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.BNConvGradientMeanVariance, 4, gammaGPU);
+                OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.BNConvGradientMeanVariance, 5, varianceGPU);
+                OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.BNConvGradientMeanVariance, 6, (IntPtr)sizeof(int), inputDepth);
+                OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.BNConvGradientMeanVariance, 7, (IntPtr)sizeof(int), inputHeight*inputWidth);
+                OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.BNConvGradientMeanVariance, 8, (IntPtr)sizeof(int), inputNeurons.MiniBatchSize);
                 OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.SetKernelArg");
 
-                OpenCLSpace.ClError = Cl.EnqueueNDRangeKernel(OpenCLSpace.Queue,
-                                                                OpenCLSpace.BNConvUpdateSpeeds,
+                OpenCLSpace.ClError = Cl.EnqueueNDRangeKernel(  OpenCLSpace.Queue,
+                                                                OpenCLSpace.BNConvGradientMeanVariance,
                                                                 1,
                                                                 null,
                                                                 nParametersGlobalWorkSizePtr,
-                                                                nParametersLocalWorkSizePtr,
+                                                                nStatisticsLocalWorkSizePtr,
+                                                                0,
+                                                                null,
+                                                                out OpenCLSpace.ClEvent);
+                OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.EnqueueNDRangeKernel");
+
+                OpenCLSpace.ClError = Cl.ReleaseEvent(OpenCLSpace.ClEvent);
+                OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.ReleaseEvent");
+
+                // 1.2) Backpropagate to input deltas using above gradients as auxiliary variables
+
+                OpenCLSpace.ClError  = Cl.SetKernelArg(OpenCLSpace.BNConvBackPropagate, 0, inputNeurons.DeltaGPU);
+                OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.BNConvBackPropagate, 1, outputNeurons.DeltaGPU);
+                OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.BNConvBackPropagate, 2, inputNeurons.ActivationsGPU);
+                OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.BNConvBackPropagate, 3, gammaGPU);
+                OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.BNConvBackPropagate, 4, meanGPU);
+                OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.BNConvBackPropagate, 5, varianceGPU);
+                OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.BNConvBackPropagate, 6, meanGradientGPU);
+                OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.BNConvBackPropagate, 7, varianceGradientGPU);
+                OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.BNConvBackPropagate, 8, (IntPtr)sizeof(int), inputHeight * inputWidth);
+                OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.BNConvBackPropagate, 9, (IntPtr)sizeof(int), nInputUnits);
+                OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.BNConvBackPropagate, 10, (IntPtr)sizeof(int), inputNeurons.MiniBatchSize);
+                OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.SetKernelArg");
+
+                OpenCLSpace.ClError = Cl.EnqueueNDRangeKernel(  OpenCLSpace.Queue,
+                                                                OpenCLSpace.BNConvBackPropagate,
+                                                                1,
+                                                                null,
+                                                                nActivationsGlobalWorkSizePtr,
+                                                                nActivationsLocalWorkSizePtr,
                                                                 0,
                                                                 null,
                                                                 out OpenCLSpace.ClEvent);
@@ -380,25 +528,86 @@ namespace JaNet
 
                 OpenCLSpace.ClError = Cl.Finish(OpenCLSpace.Queue);
                 OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.Finish");
-
 #else
             // TODO: cpu code
 #endif
             }
-            else // case 2 : previousLayerType == "FullyConnected"
+            else 
             {
-                // TODO...
+                // Case 2 : previousLayerType == "FullyConnected"
 
+#if OPENCL_ENABLED
+
+                // 2.1) Compute gradients of loss function wrt mean and variance in each feature map
+
+                OpenCLSpace.ClError  = Cl.SetKernelArg(OpenCLSpace.BNFCGradientMeanVariance, 0, meanGradientGPU);
+                OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.BNFCGradientMeanVariance, 1, varianceGradientGPU);
+                OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.BNFCGradientMeanVariance, 2, outputNeurons.DeltaGPU);
+                OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.BNFCGradientMeanVariance, 3, normalizedInputGPU);
+                OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.BNFCGradientMeanVariance, 4, gammaGPU);
+                OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.BNFCGradientMeanVariance, 5, varianceGPU);
+                OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.BNFCGradientMeanVariance, 6, (IntPtr)sizeof(int), nInputUnits);
+                OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.BNFCGradientMeanVariance, 7, (IntPtr)sizeof(int), inputNeurons.MiniBatchSize);
+                OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.SetKernelArg");
+
+                OpenCLSpace.ClError = Cl.EnqueueNDRangeKernel(  OpenCLSpace.Queue,
+                                                                OpenCLSpace.BNFCGradientMeanVariance,
+                                                                1,
+                                                                null,
+                                                                nParametersGlobalWorkSizePtr,
+                                                                nStatisticsLocalWorkSizePtr,
+                                                                0,
+                                                                null,
+                                                                out OpenCLSpace.ClEvent);
+                OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.EnqueueNDRangeKernel");
+
+                OpenCLSpace.ClError = Cl.ReleaseEvent(OpenCLSpace.ClEvent);
+                OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.ReleaseEvent");
+
+                // 2.2) Backpropagate to input deltas using above gradients as auxiliary variables
+
+                OpenCLSpace.ClError  = Cl.SetKernelArg(OpenCLSpace.BNFCBackPropagate, 0, inputNeurons.DeltaGPU);
+                OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.BNFCBackPropagate, 1, outputNeurons.DeltaGPU);
+                OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.BNFCBackPropagate, 2, inputNeurons.ActivationsGPU);
+                OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.BNFCBackPropagate, 3, gammaGPU);
+                OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.BNFCBackPropagate, 4, meanGPU);
+                OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.BNFCBackPropagate, 5, varianceGPU);
+                OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.BNFCBackPropagate, 6, meanGradientGPU);
+                OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.BNFCBackPropagate, 7, varianceGradientGPU);
+                OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.BNFCBackPropagate, 8, (IntPtr)sizeof(int), nInputUnits);
+                OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.BNFCBackPropagate, 9, (IntPtr)sizeof(int), inputNeurons.MiniBatchSize);
+                OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.SetKernelArg");
+
+                OpenCLSpace.ClError = Cl.EnqueueNDRangeKernel(  OpenCLSpace.Queue,
+                                                                OpenCLSpace.BNFCBackPropagate,
+                                                                1,
+                                                                null,
+                                                                nActivationsGlobalWorkSizePtr,
+                                                                nActivationsLocalWorkSizePtr,
+                                                                0,
+                                                                null,
+                                                                out OpenCLSpace.ClEvent);
+                OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.EnqueueNDRangeKernel");
+
+                OpenCLSpace.ClError = Cl.ReleaseEvent(OpenCLSpace.ClEvent);
+                OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.ReleaseEvent");
+
+                OpenCLSpace.ClError = Cl.Finish(OpenCLSpace.Queue);
+                OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.Finish");
+#else
+            // TODO: cpu code
+#endif
             }
         }
 
         public override void UpdateSpeeds(double learningRate, double momentumMultiplier)
         {
-            // case 1 : this layer follows a Convolutional layer
+            
             if (previousLayerType == "Convolutional")
             {
+                // Case 1 : this layer follows a Convolutional layer
 #if OPENCL_ENABLED
-                OpenCLSpace.ClError = Cl.SetKernelArg(OpenCLSpace.BNConvUpdateSpeeds, 0, gammaSpeedGPU);
+                OpenCLSpace.ClError  = Cl.SetKernelArg(OpenCLSpace.BNConvUpdateSpeeds, 0, gammaSpeedGPU);
                 OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.BNConvUpdateSpeeds, 1, betaSpeedGPU);
                 OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.BNConvUpdateSpeeds, 2, outputNeurons.DeltaGPU);
                 OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.BNConvUpdateSpeeds, 3, normalizedInputGPU);
@@ -415,7 +624,7 @@ namespace JaNet
                                                                 1,
                                                                 null,
                                                                 nParametersGlobalWorkSizePtr,
-                                                                nParametersLocalWorkSizePtr,
+                                                                nStatisticsLocalWorkSizePtr,
                                                                 0,
                                                                 null,
                                                                 out OpenCLSpace.ClEvent);
@@ -431,15 +640,43 @@ namespace JaNet
             // TODO: cpu code
 #endif
             }
-            else // case 2 : previousLayerType == "FullyConnected"
+            else 
             {
-                // TODO...
+                // Case 2 : previousLayerType == "FullyConnected"
+#if OPENCL_ENABLED
+                OpenCLSpace.ClError  = Cl.SetKernelArg(OpenCLSpace.BNFCUpdateSpeeds, 0, gammaSpeedGPU);
+                OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.BNFCUpdateSpeeds, 1, betaSpeedGPU);
+                OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.BNFCUpdateSpeeds, 2, outputNeurons.DeltaGPU);
+                OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.BNFCUpdateSpeeds, 3, normalizedInputGPU);
+                OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.BNFCUpdateSpeeds, 4, (IntPtr)sizeof(int), nInputUnits);
+                OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.BNFCUpdateSpeeds, 5, (IntPtr)sizeof(int), inputNeurons.MiniBatchSize);
+                OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.BNFCUpdateSpeeds, 6, (IntPtr)sizeof(float), (float)momentumMultiplier);
+                OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.BNFCUpdateSpeeds, 7, (IntPtr)sizeof(float), (float)learningRate);
+                OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.SetKernelArg");
+
+                OpenCLSpace.ClError = Cl.EnqueueNDRangeKernel(  OpenCLSpace.Queue,
+                                                                OpenCLSpace.BNFCUpdateSpeeds,
+                                                                1,
+                                                                null,
+                                                                nParametersGlobalWorkSizePtr,
+                                                                nStatisticsLocalWorkSizePtr,
+                                                                0,
+                                                                null,
+                                                                out OpenCLSpace.ClEvent);
+                OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.EnqueueNDRangeKernel");
+
+                OpenCLSpace.ClError = Cl.ReleaseEvent(OpenCLSpace.ClEvent);
+                OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.ReleaseEvent");
+
+                OpenCLSpace.ClError = Cl.Finish(OpenCLSpace.Queue);
+                OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.Finish");
+
+#else
+            // TODO: cpu code
+#endif
 
             }
         }
-
-
-
 
 
         public override void UpdateParameters(double weightDecayCoeff)
@@ -462,8 +699,8 @@ namespace JaNet
                                                             OpenCLSpace.BNUpdateParameters,
                                                             1,
                                                             null,
-                                                            nParametersGlobalWorkSizePtr,
-                                                            nParametersLocalWorkSizePtr,
+                                                            nStatisticsGlobalWorkSizePtr,
+                                                            nStatisticsLocalWorkSizePtr,
                                                             0,
                                                             null,
                                                             out OpenCLSpace.ClEvent);
@@ -474,6 +711,54 @@ namespace JaNet
 
             OpenCLSpace.ClError = Cl.Finish(OpenCLSpace.Queue);
             OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.Finish");
+
+
+#if DEBUGGING_STEPBYSTEP
+
+            /* ------------------------- DEBUGGING --------------------------------------------- */
+
+            // Display gamma
+            float[] gamma = new float[nInputUnits];
+
+            OpenCLSpace.ClError = Cl.EnqueueReadBuffer(OpenCLSpace.Queue,
+                                                        gammaGPU, // source
+                                                        Bool.True,
+                                                        (IntPtr)0,
+                                                        (IntPtr)(nInputUnits * sizeof(float)),
+                                                        gamma,  // destination
+                                                        0,
+                                                        null,
+                                                        out OpenCLSpace.ClEvent);
+            OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.clEnqueueReadBuffer");
+
+            Console.WriteLine("\nUpdated gammas are:\n");
+            for (int i = 0; i < nInputUnits; i++)
+                Console.Write("{0}  ", gamma[i]);
+            Console.ReadKey();
+
+            // Display beta
+            float[] beta = new float[nInputUnits];
+
+            OpenCLSpace.ClError = Cl.EnqueueReadBuffer(OpenCLSpace.Queue,
+                                                        betaGPU, // source
+                                                        Bool.True,
+                                                        (IntPtr)0,
+                                                        (IntPtr)(nInputUnits * sizeof(float)),
+                                                        beta,  // destination
+                                                        0,
+                                                        null,
+                                                        out OpenCLSpace.ClEvent);
+            OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.clEnqueueReadBuffer");
+
+            Console.WriteLine("\n\nUpdated betas are:\n");
+            for (int i = 0; i < nInputUnits; i++)
+                Console.Write("{0}  ", beta[i]);
+            Console.ReadKey();
+
+
+            /* ------------------------- END DEBUGGING --------------------------------------------- */
+
+#endif
 
 #else
             // TODO: cpu code

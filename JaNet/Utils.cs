@@ -50,6 +50,11 @@ namespace JaNet
         public static Stopwatch FCUpdateSpeedsTimer = new Stopwatch();
         public static Stopwatch FCUpdateParametersTimer = new Stopwatch();
 
+        public static Stopwatch BNForwardTimer = new Stopwatch();
+        public static Stopwatch BNBackpropTimer = new Stopwatch();
+        public static Stopwatch BNUpdateSpeedsTimer = new Stopwatch();
+        public static Stopwatch BNUpdateParametersTimer = new Stopwatch();
+
         public static Stopwatch SoftmaxTimer = new Stopwatch();
 
         public static void ResetTimers()

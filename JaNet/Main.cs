@@ -48,35 +48,42 @@ namespace JaNet
 
             network.AddLayer(new InputLayer(1, 32, 32));
         
-            network.AddLayer(new ConvolutionalLayer(3, 16, 1, 1));
-            //network.AddLayer(new ReLU());
-            network.AddLayer(new ELU(1.0f));
+            network.AddLayer(new ConvolutionalLayer(3, 2, 1, 1));
+            //network.AddLayer(new BatchNormLayer("Convolutional"));
+            network.AddLayer(new ReLU());
             //network.AddLayer(new ConvolutionalLayer(3, 8, 1, 1));
             //network.AddLayer(new ReLU());
-            //network.AddLayer(new ELU(1.0f));
+            network.AddLayer(new PoolingLayer("max", 2, 2));
+
+            //network.AddLayer(new ConvolutionalLayer(3, 4, 1, 1));
+            //network.AddLayer(new ReLU());
+            //network.AddLayer(new ConvolutionalLayer(3, 16, 1, 1));
+            //network.AddLayer(new ReLU());
             //network.AddLayer(new PoolingLayer("max", 2, 2));
 
-            network.AddLayer(new ConvolutionalLayer(3, 16, 1, 1));
-            network.AddLayer(new ELU(1.0f));
+            //network.AddLayer(new ELU(1.0f));
             //network.AddLayer(new ReLU());
             //network.AddLayer(new ConvolutionalLayer(3, 32, 1, 1));
             //network.AddLayer(new ELU(1.0f));
-            network.AddLayer(new PoolingLayer("max", 2, 2));
+            
 
-            network.AddLayer(new ConvolutionalLayer(3, 32, 1, 1));
-            network.AddLayer(new ELU(1.0f));
-            network.AddLayer(new ConvolutionalLayer(3, 32, 1, 1));
-            network.AddLayer(new ELU(1.0f));
+            //network.AddLayer(new ConvolutionalLayer(3, 32, 1, 1));
+            //network.AddLayer(new ELU(1.0f));
+            //network.AddLayer(new ConvolutionalLayer(3, 32, 1, 1));
+            //network.AddLayer(new ELU(1.0f));
             //network.AddLayer(new ConvolutionalLayer(3, 64, 1, 1));
             //network.AddLayer(new ELU(1.0f));
             //network.AddLayer(new ReLU());
-            network.AddLayer(new PoolingLayer("max", 2, 2));
+            //network.AddLayer(new PoolingLayer("max", 2, 2));
 
             //network.AddLayer(new FullyConnectedLayer(100));
             //network.AddLayer(new ReLU());
 
-            network.AddLayer(new FullyConnectedLayer(128));
-            network.AddLayer(new ELU(1.0f));
+            network.AddLayer(new FullyConnectedLayer(32));
+            network.AddLayer(new BatchNormLayer("FullyConnected"));
+            network.AddLayer(new ReLU()); 
+
+            //network.AddLayer(new ELU(1.0f));
 
             //network.AddLayer(new FullyConnectedLayer(128));
             //network.AddLayer(new ELU(1.0f));
@@ -135,12 +142,12 @@ namespace JaNet
             toySet.ReadLabels(MNISTreducedLabels);
             */
 
-            
+            /*
             Console.WriteLine("Importing training set...");
             DataSet trainingSet = new DataSet(43);
             trainingSet.ReadData(GTSRBtrainingDataGS);
             trainingSet.ReadLabels(GTSRBtrainingLabelsGS);
-            
+            */
 
             
             Console.WriteLine("Importing validation set...");
@@ -149,12 +156,12 @@ namespace JaNet
             validationSet.ReadLabels(GTSRBvalidationLabelsGS);
             
 
-            
+            /*
             Console.WriteLine("Importing test set...");
             DataSet testSet = new DataSet(43);
             testSet.ReadData(GTSRBtestDataGS);
             testSet.ReadLabels(GTSRBtestLabelsGS);
-            
+            */
 
 
             /*****************************************************
@@ -172,7 +179,7 @@ namespace JaNet
             networkTrainer.MomentumMultiplier = 0.9;
             networkTrainer.WeightDecayCoeff = 0.0001;
             networkTrainer.MaxTrainingEpochs = 100;
-            networkTrainer.MiniBatchSize = 128;
+            networkTrainer.MiniBatchSize = 4;
             networkTrainer.ErrorTolerance = 0.0;
             networkTrainer.ConsoleOutputLag = 1; // 1 = print every epoch, N = print every N epochs
             networkTrainer.EvaluateBeforeTraining = false;
@@ -181,8 +188,7 @@ namespace JaNet
             networkTrainer.DropoutConvolutional = 0.6;
             networkTrainer.EpochsBeforeDropout = -1;
 
-
-            networkTrainer.Train(ref network, trainingSet, validationSet);
+            networkTrainer.Train(ref network, validationSet, null);
             
 
             
@@ -199,8 +205,8 @@ namespace JaNet
             networkEvaluator.EvaluateNetwork(network, validationSet, out loss, out error);
             Console.WriteLine("\nValidation set:\n\tLoss = {0}\n\tError = {1}", loss, error);
 
-            networkEvaluator.EvaluateNetwork(network, testSet, out loss, out error);
-            Console.WriteLine("\nTest set:\n\tLoss = {0}\n\tError = {1}", loss, error);
+            //networkEvaluator.EvaluateNetwork(network, testSet, out loss, out error);
+            //Console.WriteLine("\nTest set:\n\tLoss = {0}\n\tError = {1}", loss, error);
             
 #if GRADIENT_CHECK
             GradientChecker.Check(network, reducedMNIST);

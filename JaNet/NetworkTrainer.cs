@@ -225,11 +225,14 @@ namespace JaNet
 
             while (epoch < maxTrainingEpochs && !stopFlag) // loop over training epochs
             {
+                    // Epoch beginning
 
                     isOutputEpoch = epochsRemainingToOutput == 0;
                     if (isOutputEpoch)
                     {
                         Console.WriteLine("\nTime to evaluate the network!");
+
+                        network.SetInference();
 
                         // Evaluate on training set
                         
@@ -280,6 +283,8 @@ namespace JaNet
                      *******************/
 
                     stopwatch.Restart();
+
+                    network.SetTraining();
 
                     indicesSequence.Shuffle(); // shuffle examples order at every epoch
 

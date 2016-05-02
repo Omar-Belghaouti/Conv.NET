@@ -270,7 +270,7 @@ namespace JaNet
                 // Display output layer-by-layer
                 int miniBatchSize = layers[0].OutputNeurons.MiniBatchSize;
 
-                if (l < nLayers - 1)
+                if (l < nLayers-1)
                 {
 #if OPENCL_ENABLED
                     float[] layerOutputAll = new float[layers[l].OutputNeurons.NumberOfUnits * miniBatchSize];
@@ -322,49 +322,6 @@ namespace JaNet
 
             for (int l = nLayers - 2; l > 0; l--) // propagate error signal backwards (layers L-2 to 1, i.e. second last to second)
             {
-
-#if DEBUGGING_STEPBYSTEP
-                /* ------------------------- DEBUGGING ---------------------------------------------
-
-                // Display output delta  layer-by-layer
-                int miniBatchSize = layers[0].OutputNeurons.MiniBatchSize;
-
-#if OPENCL_ENABLED
-               
-                float[] deltaOutputAll = new float[layers[l].OutputNeurons.NumberOfUnits * miniBatchSize];
-                OpenCLSpace.ClError = Cl.EnqueueReadBuffer(OpenCLSpace.Queue,
-                                                            layers[l].OutputNeurons.DeltaGPU, // source
-                                                            Bool.True,
-                                                            (IntPtr)0,
-                                                            (IntPtr)(layers[l].OutputNeurons.NumberOfUnits * miniBatchSize * sizeof(float)),
-                                                            deltaOutputAll,  // destination
-                                                            0,
-                                                            null,
-                                                            out OpenCLSpace.ClEvent);
-                OpenCLSpace.CheckErr(OpenCLSpace.ClError, "NeuralNetwork.ForwardPass Cl.clEnqueueReadBuffer deltaOutputAll");
-#endif
-                for (int m = 0; m < miniBatchSize; m++)
-                {
-
-                    Console.WriteLine("\n --- Mini-batch item {0} -----", m);
-#if OPENCL_ENABLED
-                    float[] deltaOutput = new float[layers[l].OutputNeurons.NumberOfUnits];
-                    Array.Copy(deltaOutputAll, m * layers[l].OutputNeurons.NumberOfUnits, deltaOutput, 0, layers[l].OutputNeurons.NumberOfUnits);
-#else
-                    double[] deltaOutput = new double[layers[l].OutputNeurons.NumberOfUnits];
-                    deltaOutput = layers[l].OutputNeurons.DeltaHost[m];
-#endif
-                    Console.WriteLine("\nLayer {0} ({1}) output delta:", l, layers[l].Type);
-                    for (int j = 0; j < deltaOutput.Length; j++)
-                        Console.Write("{0}  ", deltaOutput[j]);
-                    Console.WriteLine();
-                    Console.ReadKey();
-                }
-
-                /* ------------------------- END DEBUGGING --------------------------------------------- */
-#endif
-
-
                 // 1. Update layer's parameters' change speed using gradient 
                 layers[l].UpdateSpeeds(learningRate, momentumMultiplier);
 
@@ -424,6 +381,9 @@ namespace JaNet
         }
 
 
+
+
+
         public void CrossEntropyGradient(DataSet DataSet, int[] iMiniBatch)
         {
             double[] crossEntropyGradientBatch = new double[layers.Last().NInputUnits * iMiniBatch.Length];
@@ -441,7 +401,7 @@ namespace JaNet
 #if DEBUGGING_STEPBYSTEP
                 Console.WriteLine("\n --- Mini-batch item {0} -----", m);
                 for (int j = 0; j < outputLayer.OutputClassScores[m].Length; j++)
-                    Console.Write("{0}  ", outputLayer.OutputClassScores[m][j]);
+                    Console.Write("{0}  ", (float)outputLayer.OutputClassScores[m][j]);
                 Console.WriteLine();
                 Console.ReadKey();
 #endif
@@ -515,7 +475,6 @@ namespace JaNet
         #endregion
 
         #region Set() function
-
 
 
         #endregion

@@ -26,20 +26,23 @@ namespace JaNet
 
         public void EvaluateNetwork(NeuralNetwork network, DataSet dataSet, out double loss, out double error)
         {
+            // Set network for inference (needed for BatchNorm layers)
+            network.Set("Inference", true);
+
             loss = 0.0;
             error = 0.0;
 
             // Save dropout parameters and turn off dropout
-            double dropoutFC = network.DropoutFC;
-            double dropoutConv = network.DropoutConv;
-            network.SetDropout(1.0, 1.0);
+            double cachedDropoutFC = network.DropoutFC;
+            double cachedDropoutConv = network.DropoutConv;
+            network.Set("DropoutConv", 1.0);
+            network.Set("DropoutFC", 1.0);
 
             int miniBatchSize = network.Layers[0].OutputNeurons.MiniBatchSize;
             
             Sequence indicesSequence = new Sequence(dataSet.Size);
 
-            
-            // Run over mini-batches
+            // Run over mini-batches (in order, no shuffling here)
             for (int iStartMiniBatch = 0; iStartMiniBatch < dataSet.Size; iStartMiniBatch += miniBatchSize)  
             {
                 // Feed a mini-batch to the network
@@ -48,7 +51,6 @@ namespace JaNet
 
                 // Run network forward
                 network.ForwardPass();
-
 
                 for (int m = 0; m < Math.Min(miniBatchSize,dataSet.Size-iStartMiniBatch) ; m++) // In case dataSet.Size doesn't divide miniBatchSize, the last miniBatch contains copies! Don't want to re-evaluate them
                 {
@@ -69,7 +71,10 @@ namespace JaNet
             loss /= dataSet.Size;
 
             // restore dropout
-            network.SetDropout(dropoutFC, dropoutConv);
+            network.Set("DropoutConv", cachedDropoutConv);
+            network.Set("DropoutFC", cachedDropoutFC);
+
+            network.Set("Inference", false);
         }
 
 
@@ -91,9 +96,9 @@ namespace JaNet
                 error += (assignedLabel == trueLabel) ? 0 : 1;
 
             } // end loop within a mini-batch
-             
-            error /= dataSet.Size;
-            loss /= dataSet.Size;
+
+            error /= miniBatch.Length;
+            loss /= miniBatch.Length;
         }
 
 

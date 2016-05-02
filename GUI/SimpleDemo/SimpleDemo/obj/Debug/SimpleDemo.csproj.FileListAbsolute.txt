@@ -1,0 +1,8 @@
+C:\Users\jacopo\Dropbox\Chalmers\MSc thesis\JaNet\GUI\SimpleDemo\SimpleDemo\obj\Debug\App.baml
+C:\Users\jacopo\Dropbox\Chalmers\MSc thesis\JaNet\GUI\SimpleDemo\SimpleDemo\obj\Debug\App.g.cs
+C:\Users\jacopo\Dropbox\Chalmers\MSc thesis\JaNet\GUI\SimpleDemo\SimpleDemo\obj\Debug\MainWindow.g.cs
+C:\Users\jacopo\Dropbox\Chalmers\MSc thesis\JaNet\GUI\SimpleDemo\SimpleDemo\obj\Debug\GeneratedInternalTypeHelper.g.cs
+C:\Users\jacopo\Dropbox\Chalmers\MSc thesis\JaNet\GUI\SimpleDemo\SimpleDemo\obj\Debug\SimpleDemo_MarkupCompile.cache
+C:\Users\jacopo\Dropbox\Chalmers\MSc thesis\JaNet\GUI\SimpleDemo\SimpleDemo\obj\Debug\SimpleDemo_MarkupCompile.lref
+C:\Users\jacopo\Dropbox\Chalmers\MSc thesis\JaNet\GUI\SimpleDemo\SimpleDemo\bin\Debug\SimpleDemo.exe.config
+C:\Users\jacopo\Dropbox\Chalmers\MSc thesis\JaNet\GUI\SimpleDemo\SimpleDemo\obj\Debug\SimpleDemo.csprojResolveAssemblyReference.cache

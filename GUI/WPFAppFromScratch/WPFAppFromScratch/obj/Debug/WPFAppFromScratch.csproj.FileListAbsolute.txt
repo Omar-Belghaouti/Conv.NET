@@ -1,0 +1,6 @@
+C:\Users\jacopo\Dropbox\Chalmers\MSc thesis\JaNet\GUI\WPFAppFromScratch\WPFAppFromScratch\bin\Debug\WPFAppFromScratch.exe.config
+C:\Users\jacopo\Dropbox\Chalmers\MSc thesis\JaNet\GUI\WPFAppFromScratch\WPFAppFromScratch\bin\Debug\WPFAppFromScratch.exe
+C:\Users\jacopo\Dropbox\Chalmers\MSc thesis\JaNet\GUI\WPFAppFromScratch\WPFAppFromScratch\bin\Debug\WPFAppFromScratch.pdb
+C:\Users\jacopo\Dropbox\Chalmers\MSc thesis\JaNet\GUI\WPFAppFromScratch\WPFAppFromScratch\obj\Debug\WPFAppFromScratch.csprojResolveAssemblyReference.cache
+C:\Users\jacopo\Dropbox\Chalmers\MSc thesis\JaNet\GUI\WPFAppFromScratch\WPFAppFromScratch\obj\Debug\WPFAppFromScratch.exe
+C:\Users\jacopo\Dropbox\Chalmers\MSc thesis\JaNet\GUI\WPFAppFromScratch\WPFAppFromScratch\obj\Debug\WPFAppFromScratch.pdb

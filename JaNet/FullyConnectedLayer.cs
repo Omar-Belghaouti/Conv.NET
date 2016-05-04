@@ -13,9 +13,9 @@ namespace JaNet
         #region Fields
 
         private double dropoutParameter;
-        
 
 #if OPENCL_ENABLED
+        private Mem dropoutMaskGPU;
 
         private Mem weightsGPU;
         private Mem biasesGPU;
@@ -98,6 +98,16 @@ namespace JaNet
         public override void SetupOutput()
         {
             this.outputNeurons = new Neurons(this.nOutputUnits);
+
+#if OPENCL_ENABLED
+            this.dropoutMaskGPU = (Mem)Cl.CreateBuffer( OpenCLSpace.Context,
+                                                        MemFlags.ReadWrite,
+                                                        (IntPtr)(sizeof(bool) * nOutputUnits * inputNeurons.MiniBatchSize),
+                                                        out OpenCLSpace.ClError);
+            OpenCLSpace.CheckErr(OpenCLSpace.ClError, "InitializeParameters(): Cl.CreateBuffer");
+            OpenCLSpace.WipeBuffer(dropoutMaskGPU, nOutputUnits * inputNeurons.MiniBatchSize, typeof(bool));
+#endif
+
         }
 
         public override void InitializeParameters()
@@ -266,20 +276,21 @@ namespace JaNet
 
 #if OPENCL_ENABLED
             // Set kernel arguments
-            OpenCLSpace.ClError  = Cl.SetKernelArg(OpenCLSpace.FCForwardParallel, 0, outputNeurons.ActivationsGPU);
-            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.FCForwardParallel, 1, inputNeurons.ActivationsGPU);
-            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.FCForwardParallel, 2, weightsGPU);
-            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.FCForwardParallel, 3, biasesGPU);
-            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.FCForwardParallel, 4, (IntPtr)sizeof(int), nInputUnits);
-            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.FCForwardParallel, 5, (IntPtr)sizeof(int), nOutputUnits);
-            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.FCForwardParallel, 6, (IntPtr)sizeof(int), inputNeurons.MiniBatchSize);
-            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.FCForwardParallel, 7, (IntPtr)sizeof(float), (float)dropoutParameter);
-            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.FCForwardParallel, 8, (IntPtr)sizeof(ulong), (ulong)Guid.NewGuid().GetHashCode()); // this should be quite a good random seed
+            OpenCLSpace.ClError  = Cl.SetKernelArg(OpenCLSpace.FCForward, 0, outputNeurons.ActivationsGPU);
+            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.FCForward, 1, inputNeurons.ActivationsGPU);
+            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.FCForward, 2, weightsGPU);
+            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.FCForward, 3, biasesGPU);
+            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.FCForward, 4, (IntPtr)sizeof(int), nInputUnits);
+            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.FCForward, 5, (IntPtr)sizeof(int), nOutputUnits);
+            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.FCForward, 6, (IntPtr)sizeof(int), inputNeurons.MiniBatchSize);
+            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.FCForward, 7, (IntPtr)sizeof(float), (float)dropoutParameter);
+            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.FCForward, 8, (IntPtr)sizeof(ulong), (ulong)Guid.NewGuid().GetHashCode()); // this should be quite a good random seed
+            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.FCForward, 9, dropoutMaskGPU);
             OpenCLSpace.CheckErr(OpenCLSpace.ClError, "FullyConnected.FeedForward(): Cl.SetKernelArg");
 
             // Run kernel
             OpenCLSpace.ClError = Cl.EnqueueNDRangeKernel(  OpenCLSpace.Queue,
-                                                            OpenCLSpace.FCForwardParallel,
+                                                            OpenCLSpace.FCForward,
                                                             2,
                                                             null,
                                                             forwardGlobalWorkSizePtr,
@@ -325,17 +336,18 @@ namespace JaNet
 #if OPENCL_ENABLED
 
             // Set kernel arguments
-            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.FCBackwardParallel, 0, inputNeurons.DeltaGPU);
-            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.FCBackwardParallel, 1, outputNeurons.DeltaGPU);
-            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.FCBackwardParallel, 2, weightsGPU);
-            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.FCBackwardParallel, 3, (IntPtr)sizeof(int), nInputUnits);
-            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.FCBackwardParallel, 4, (IntPtr)sizeof(int), nOutputUnits);
-            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.FCBackwardParallel, 5, (IntPtr)sizeof(int), inputNeurons.MiniBatchSize);
+            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.FCBackward, 0, inputNeurons.DeltaGPU);
+            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.FCBackward, 1, outputNeurons.DeltaGPU);
+            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.FCBackward, 2, weightsGPU);
+            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.FCBackward, 3, dropoutMaskGPU);
+            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.FCBackward, 4, (IntPtr)sizeof(int), nInputUnits);
+            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.FCBackward, 5, (IntPtr)sizeof(int), nOutputUnits);
+            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.FCBackward, 6, (IntPtr)sizeof(int), inputNeurons.MiniBatchSize);
             OpenCLSpace.CheckErr(OpenCLSpace.ClError, "FullyConnected.BackPropagate(): Cl.SetKernelArg");
 
             // Run kernel
             OpenCLSpace.ClError = Cl.EnqueueNDRangeKernel(  OpenCLSpace.Queue,
-                                                            OpenCLSpace.FCBackwardParallel,
+                                                            OpenCLSpace.FCBackward,
                                                             2,
                                                             null,
                                                             backwardGlobalWorkSizePtr,
@@ -510,20 +522,21 @@ namespace JaNet
 
 #if OPENCL_ENABLED
             // Set kernel arguments
-            OpenCLSpace.ClError = Cl.SetKernelArg(OpenCLSpace.FCUpdateSpeedsParallel, 0, weightsSpeedGPU);
-            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.FCUpdateSpeedsParallel, 1, biasesSpeedGPU);
-            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.FCUpdateSpeedsParallel, 2, inputNeurons.ActivationsGPU);
-            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.FCUpdateSpeedsParallel, 3, outputNeurons.DeltaGPU);
-            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.FCUpdateSpeedsParallel, 4, (IntPtr)sizeof(int), nInputUnits);
-            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.FCUpdateSpeedsParallel, 5, (IntPtr)sizeof(int), nOutputUnits);
-            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.FCUpdateSpeedsParallel, 6, (IntPtr)sizeof(float), (float)momentumCoefficient);
-            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.FCUpdateSpeedsParallel, 7, (IntPtr)sizeof(float), (float)learningRate);
-            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.FCUpdateSpeedsParallel, 8, (IntPtr)sizeof(int), inputNeurons.MiniBatchSize);
+            OpenCLSpace.ClError = Cl.SetKernelArg(OpenCLSpace.FCUpdateSpeeds, 0, weightsSpeedGPU);
+            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.FCUpdateSpeeds, 1, biasesSpeedGPU);
+            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.FCUpdateSpeeds, 2, inputNeurons.ActivationsGPU);
+            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.FCUpdateSpeeds, 3, outputNeurons.DeltaGPU);
+            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.FCUpdateSpeeds, 4, dropoutMaskGPU);
+            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.FCUpdateSpeeds, 5, (IntPtr)sizeof(int), nInputUnits);
+            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.FCUpdateSpeeds, 6, (IntPtr)sizeof(int), nOutputUnits);
+            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.FCUpdateSpeeds, 7, (IntPtr)sizeof(float), (float)momentumCoefficient);
+            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.FCUpdateSpeeds, 8, (IntPtr)sizeof(float), (float)learningRate);
+            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.FCUpdateSpeeds, 9, (IntPtr)sizeof(int), inputNeurons.MiniBatchSize);
             OpenCLSpace.CheckErr(OpenCLSpace.ClError, "FullyConnected.UpdateSpeeds(): Cl.SetKernelArg");
 
             // Run kernel
             OpenCLSpace.ClError = Cl.EnqueueNDRangeKernel(  OpenCLSpace.Queue,
-                                                            OpenCLSpace.FCUpdateSpeedsParallel,
+                                                            OpenCLSpace.FCUpdateSpeeds,
                                                             2,
                                                             null,
                                                             updateGlobalWorkSizePtr,

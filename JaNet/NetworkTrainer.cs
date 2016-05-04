@@ -12,14 +12,6 @@ namespace JaNet
     {
         #region Fields
 
-        // Neural network to train
-        //private NeuralNetwork network;
-
-        // Data
-        //private DataSet trainingSet;
-        //private DataSet validationSet;
-        //private int nClasses;
-
         // Hyperparameters
         private double learningRate;
         private double momentumMultiplier;
@@ -31,43 +23,25 @@ namespace JaNet
         private bool evaluateBeforeTraining;
         private bool earlyStopping;
         private double dropoutFC;
-        private double dropoutConv;
-        private int epochsBeforeDropout;
+        private int epochsBeforeRegularization;
 
         // Losses/Errors
         private double lossTraining;
         private double lossValidation;
-        private double errorTraining = 1.0;
-        private double errorValidation = 1.0;
+        private double errorTraining;
+        private double errorValidation;
 
-#if OPENCL_ENABLED
-        // Gradient kernel work sizes 
-        //private IntPtr[] gradientGlobalWorkSizePtr; 
-        //private IntPtr[] gradientLocalWorkSizePtr;
-#endif
+        // Paths for saving data
+        //private bool saveIters;
+        //private string trainingIterSavePath;
+        private string trainingEpochSavePath;
+        private string validationEpochSavePath;
 
         #endregion
 
 
         #region Properties
-        /*
-        public NeuralNetwork Network
-        {
-            get { return network; }
-        }
 
-        public DataSet TrainingSet
-        {
-            get { return trainingSet; }
-            set { this.trainingSet = value; }
-        }
-
-        public DataSet ValidationSet
-        {
-            get { return validationSet; }
-            set { this.validationSet = value; }
-        }
-        */
         public double LearningRate
         {
             get { return learningRate; }
@@ -90,6 +64,12 @@ namespace JaNet
         {
             get { return maxTrainingEpochs; }
             set { maxTrainingEpochs = value; }
+        }
+
+        public int EpochsBeforeRegularization
+        {
+            get { return epochsBeforeRegularization; }
+            set { epochsBeforeRegularization = value; }
         }
 
         public int MiniBatchSize
@@ -153,67 +133,37 @@ namespace JaNet
             set { dropoutFC = value; }
         }
 
-        public double DropoutConvolutional
+        //public bool SaveIters
+        //{
+        //    set { saveIters = value; }
+        //}
+
+        //public string TrainingIterSavePath
+        //{
+        //    set { trainingIterSavePath = value; }
+        //}
+
+        public string TrainingEpochSavePath
         {
-            get { return dropoutConv; }
-            set { dropoutConv = value; }
+            set { trainingEpochSavePath = value; }
         }
 
-        public int EpochsBeforeDropout
+        public string ValidationEpochSavePath
         {
-            get { return epochsBeforeDropout; }
-            set { epochsBeforeDropout = value; }
+            set { validationEpochSavePath = value; }
         }
-        
-        #endregion
-
-
-        #region Constructor
-        /*
-        public NetworkTrainer(NeuralNetwork Network, DataSet TrainingSet, DataSet ValidationSet)
-        {
-            if (Network == null)
-                throw new ArgumentException("Cannot train an empty network!");
-
-            if (ValidationSet != null)
-            {
-                if (TrainingSet.NumberOfClasses != ValidationSet.NumberOfClasses)
-                    throw new ArgumentException("Number of classes in training and validation set are different!");
-
-                this.validationSet = ValidationSet;
-            }
-
-            this.nClasses = TrainingSet.NumberOfClasses;
-            this.network = Network;
-            this.trainingSet = TrainingSet;
-
-
-
-#if OPENCL_ENABLED
-            // Set global and local work sizes
-            gradientGlobalWorkSizePtr = new IntPtr[] { (IntPtr)(nClasses) };
-            gradientLocalWorkSizePtr = new IntPtr[] { (IntPtr)(nClasses) };
-#endif
-        }
-         * */
 
         #endregion
 
 
-        public void Train(ref NeuralNetwork network, DataSet trainingSet, DataSet validationSet)
+        public void Train(NeuralNetwork network, DataSet trainingSet, DataSet validationSet)
         {
             // Setup network before training
-            network.Setup(miniBatchSize);
-            network.SetDropout(dropoutFC, dropoutConv);
-
-            int epoch = 0;
-            bool isOutputEpoch = true;
-            int epochsRemainingToOutput = (evaluateBeforeTraining == true) ? 0 : consoleOutputLag;
+            network.Set("MiniBatchSize", this.miniBatchSize);
+            network.Set("DropoutFC", this.dropoutFC);
 
             Sequence indicesSequence = new Sequence(trainingSet.Size);
             int[] miniBatch = new int[miniBatchSize];
-
-            bool stopFlag = false;
 
             NetworkEvaluator networkEvaluator = new NetworkEvaluator();
 
@@ -223,166 +173,180 @@ namespace JaNet
             Stopwatch stopwatchGrad = Stopwatch.StartNew();
             Stopwatch stopwatchBwd = Stopwatch.StartNew();
 
+            int epoch = 0;
+            int epochsRemainingToOutput = (evaluateBeforeTraining == true) ? 0 : consoleOutputLag;
+            bool stopFlag = false;
+
+            //using (System.IO.StreamWriter iterOutputFile = new System.IO.StreamWriter(trainingIterSavePath, true))
+            //{
             while (epoch < maxTrainingEpochs && !stopFlag) // loop over training epochs
             {
-                    // Epoch beginning
+                // Epoch beginning
 
-                    isOutputEpoch = epochsRemainingToOutput == 0;
-                    if (isOutputEpoch)
-                    {
-                        Console.WriteLine("\nTime to evaluate the network!");
+                if (epochsRemainingToOutput == 0)
+                {
+                    /**************
+                     * Evaluation *
+                     **************/
 
-                        network.SetInference();
-
-                        // Evaluate on training set
-                        
-                        Console.WriteLine("Evaluating on TRAINING set...");
-                        stopwatch.Restart();
-                        networkEvaluator.EvaluateNetwork(network, trainingSet, out lossTraining, out errorTraining);
-                        Console.WriteLine("\tLoss = {0}\n\tError = {1}\n\tEval runtime = {2}ms\n",
-                                            lossTraining, errorTraining, stopwatch.ElapsedMilliseconds);
-                        
-
-                        // Evaluate on validation set
-                        if (validationSet != null)
-                        {
-                            double tmpErrorValidation;
-                            Console.WriteLine("Evaluating on VALIDATION set...");
-                            stopwatch.Restart();
-                            networkEvaluator.EvaluateNetwork(network, validationSet, out lossValidation, out tmpErrorValidation);
-                            Console.WriteLine("\tLoss = {0}\n\tError = {1}\n\tEval runtime = {2}ms\n",
-                                                lossValidation, tmpErrorValidation, stopwatch.ElapsedMilliseconds);
-                            if (tmpErrorValidation < errorValidation || !earlyStopping)
-                            {
-                                errorValidation = tmpErrorValidation;
-                                // TODO: save a (deep) copy of current network, with all parameters
-                            }
-                            else
-                            {
-                                Console.WriteLine("Classification error on the validation set started increasing. Stopping training.");
-                                stopFlag = true;
-                                break;
-                            }
-
-                            if (errorValidation < errorTolerance)
-                            {
-                                Console.WriteLine("Classification error is below tolerance. Stopping training.");
-                                stopFlag = true;
-                                break;
-                            }
-                        }
-
-                        epochsRemainingToOutput = consoleOutputLag;
-                        isOutputEpoch = false;
-
-                    }
-                    epochsRemainingToOutput--;
-
-                    /********************
-                     * Training epoch
-                     *******************/
-
+                    // Evaluate on training set...
+                    Console.WriteLine("Evaluating on TRAINING set...");
                     stopwatch.Restart();
-
-                    network.SetTraining();
-
-                    indicesSequence.Shuffle(); // shuffle examples order at every epoch
-
-                    stopwatchFwd.Reset();
-                    stopwatchGrad.Reset();
-                    stopwatchBwd.Reset();
-
-                    Console.Write("\nEpoch {0}...", epoch);
-
-                    if (epoch < epochsBeforeDropout)
-                        network.SetDropout(1, 1);
-                    else if (epoch == epochsBeforeDropout)
-                        network.SetDropout(dropoutFC, dropoutConv);
-
-                    int iMiniBatch = 0;
-                    // Run over mini-batches 
-                    for (int iStartMiniBatch = 0; iStartMiniBatch < trainingSet.Size; iStartMiniBatch += miniBatchSize)
+                    networkEvaluator.EvaluateNetwork(network, trainingSet, out lossTraining, out errorTraining);
+                    Console.WriteLine("\tLoss = {0}\n\tError = {1}\n\tEval runtime = {2}ms\n",
+                                        lossTraining, errorTraining, stopwatch.ElapsedMilliseconds);
+                    // ...and save to file
+                    using (System.IO.StreamWriter trainingEpochOutputFile = new System.IO.StreamWriter(trainingEpochSavePath, true))
                     {
-                        // Feed a mini-batch to the network
-                        miniBatch = indicesSequence.GetMiniBatchIndices(iStartMiniBatch, miniBatchSize);
-                        network.InputLayer.FeedData(trainingSet, miniBatch);
+                        trainingEpochOutputFile.WriteLine(lossTraining.ToString() + "\t" + errorTraining.ToString());
+                    }
 
-                        // Forward pass
-                        stopwatchFwd.Start();
-                        network.ForwardPass();
-                        stopwatchFwd.Stop();
-
-                        // Compute loss and error on this mini-batch
-                        //double lossBatch;
-                        //double errorBatch;
-                        //networkEvaluator.ComputeBatchLossError(network, trainingSet, miniBatch, out lossBatch, out errorBatch);
-                        //Console.WriteLine("Mini-batch {0} - loss = {1} - error = {2} ", iMiniBatch, lossBatch, errorBatch);
-                        // TODO: plot this (maybe not ALL of them, just every now and then).
-
-                        // Compute gradient
-                        stopwatchGrad.Start();
-                        network.CrossEntropyGradient(trainingSet, miniBatch);
-                        stopwatchGrad.Stop();
-
-                        // Backpropagate gradient and update parameters
-                        stopwatchBwd.Start();
-                        network.BackwardPass(learningRate, momentumMultiplier, weightDecayCoeff);
-                        stopwatchBwd.Stop();
-
-                        iMiniBatch++;
-                    } // end of training epoch
-
-                    Console.Write(" Training runtime = {0}ms\n", stopwatch.ElapsedMilliseconds);
-
-                    Console.WriteLine("Forward: {0}ms - Gradient: {1}ms - Backward: {2}ms\n",
-                        stopwatchFwd.ElapsedMilliseconds, stopwatchGrad.ElapsedMilliseconds, stopwatchBwd.ElapsedMilliseconds);
-
-#if TIMING_LAYERS
-                    Console.WriteLine("\n DETAILED RUNTIMES:");
-
-                    Console.WriteLine("\n\tConvForward: {0}ms \n\tConvBackprop: {1}ms \n\tConvUpdateSpeeds: {2}ms \n\tConvUpdateParameters: {3}ms",
-                        Utils.ConvForwardTimer.ElapsedMilliseconds, Utils.ConvBackpropTimer.ElapsedMilliseconds, 
-                        Utils.ConvUpdateSpeedsTimer.ElapsedMilliseconds, Utils.ConvUpdateParametersTimer.ElapsedMilliseconds);
-
-                    Console.WriteLine("\n\tPoolingForward: {0}ms \n\tPoolingBackprop: {1}ms",
-                        Utils.PoolingForwardTimer.ElapsedMilliseconds, Utils.PoolingBackpropTimer.ElapsedMilliseconds);
-
-                    Console.WriteLine("\n\tNonlinearityForward: {0}ms \n\tNonlinearityBackprop: {1}ms",
-                        Utils.NonlinearityForwardTimer.ElapsedMilliseconds, Utils.NonlinearityBackpropTimer.ElapsedMilliseconds);
-
-                    Console.WriteLine("\n\tFCForward: {0}ms \n\tFCBackprop: {1}ms \n\tFCUpdateSpeeds: {2}ms \n\tFCUpdateParameters: {3}ms",
-                            Utils.FCForwardTimer.ElapsedMilliseconds, Utils.FCBackpropTimer.ElapsedMilliseconds,
-                            Utils.FCUpdateSpeedsTimer.ElapsedMilliseconds, Utils.FCUpdateParametersTimer.ElapsedMilliseconds);
-
-                    Console.WriteLine("\n\tSoftmax: {0}ms", Utils.SoftmaxTimer.ElapsedMilliseconds);
-
-                    Utils.ResetTimers();
-#endif
-                    epoch++;
-
-                    if (Console.KeyAvailable)
+                    // Evaluate on validation set...
+                    if (validationSet != null)
                     {
-                        if (Console.ReadKey(true).Key == ConsoleKey.S)
+                        double tmpErrorValidation;
+                        Console.WriteLine("Evaluating on VALIDATION set...");
+                        stopwatch.Restart();
+                        networkEvaluator.EvaluateNetwork(network, validationSet, out lossValidation, out tmpErrorValidation);
+                        Console.WriteLine("\tLoss = {0}\n\tError = {1}\n\tEval runtime = {2}ms\n",
+                                            lossValidation, tmpErrorValidation, stopwatch.ElapsedMilliseconds);
+                        // ...and save to file
+                        using (System.IO.StreamWriter validationEpochOutputFile = new System.IO.StreamWriter(validationEpochSavePath, true))
                         {
-                            Console.WriteLine("Key 'S' pressed! Stopping training...");
-                            stopFlag = true;
+                            validationEpochOutputFile.WriteLine(lossValidation.ToString() + "\t" + tmpErrorValidation.ToString());
                         }
-                        else if (Console.ReadKey(true).Key == ConsoleKey.L)
+
+                        if (tmpErrorValidation < errorValidation || !earlyStopping)
                         {
-                            learningRate /= 10;
-                            Console.WriteLine("Key 'L' pressed! \n\tReducing learning rate by a factor of 10.\n\tWas{0}, now is {1}", 10*learningRate, learningRate);
+                            errorValidation = tmpErrorValidation;
+                            // TODO: save a (deep) copy of current network, with all parameters
                         }
                         else
-                            Console.WriteLine("That key has no effect... Press 'S' to stop training.");
-                    }
+                        {
+                            Console.WriteLine("Classification error on the validation set started increasing. Stopping training.");
+                            stopFlag = true;
+                            break;
+                        }
 
+                        if (errorValidation < errorTolerance)
+                        {
+                            Console.WriteLine("Classification error is below tolerance. Stopping training.");
+                            stopFlag = true;
+                            break;
+                        }
+                    }
+                    
+                    // Restore dropout
+                    network.Set("DropoutFC", dropoutFC);
+
+                    epochsRemainingToOutput = consoleOutputLag;
+                }
+                epochsRemainingToOutput--;
+
+                /************
+                    * Training *
+                    ************/
+
+                network.Set("Training", true);
+                network.Set("EpochBeginning", true);
+
+                Console.Write("\nEpoch {0}...", epoch);
+
+
+                stopwatch.Restart();
+                stopwatchFwd.Reset();
+                stopwatchGrad.Reset();
+                stopwatchBwd.Reset();
+
+                indicesSequence.Shuffle(); // shuffle examples order at every epoch
+
+                int iMiniBatch = 0;
+                // Run over mini-batches 
+                for (int iStartMiniBatch = 0; iStartMiniBatch < trainingSet.Size; iStartMiniBatch += miniBatchSize)
+                {
+                    // Feed a mini-batch to the network
+                    miniBatch = indicesSequence.GetMiniBatchIndices(iStartMiniBatch, miniBatchSize);
+                    network.InputLayer.FeedData(trainingSet, miniBatch);
+
+                    // Forward pass
+                    stopwatchFwd.Start();
+                    network.ForwardPass();
+                    stopwatchFwd.Stop();
+
+                    /*
+                    if (saveIters)
+                    {
+                        // Compute loss and error on this mini-batch and save to text file
+                        double lossBatch;
+                        double errorBatch;
+                        networkEvaluator.ComputeBatchLossError(network, trainingSet, miniBatch, out lossBatch, out errorBatch);
+                        iterOutputFile.WriteLine(lossBatch.ToString() + "\t" + errorBatch.ToString());
+                    }
+                    */
+
+                    // Compute gradient and backpropagate 
+                    stopwatchGrad.Start();
+                    network.CrossEntropyGradient(trainingSet, miniBatch);
+                    stopwatchGrad.Stop();
+
+                    // Backpropagate gradient and update parameters
+                    stopwatchBwd.Start();
+                    network.BackwardPass(learningRate, momentumMultiplier, weightDecayCoeff);
+                    stopwatchBwd.Stop();
+
+                    iMiniBatch++;
+                } // end of training epoch
+
+                Console.Write(" Training runtime = {0}ms\n", stopwatch.ElapsedMilliseconds);
+
+                Console.WriteLine("Forward: {0}ms - Gradient: {1}ms - Backward: {2}ms\n",
+                    stopwatchFwd.ElapsedMilliseconds, stopwatchGrad.ElapsedMilliseconds, stopwatchBwd.ElapsedMilliseconds);
+
+#if TIMING_LAYERS
+                Console.WriteLine("\n DETAILED RUNTIMES:");
+
+                Console.WriteLine("\n\tConvForward: {0}ms \n\tConvBackprop: {1}ms \n\tConvUpdateSpeeds: {2}ms \n\tConvUpdateParameters: {3}ms \n\tConvPadUnpad: {4}ms",
+                    Utils.ConvForwardTimer.ElapsedMilliseconds, Utils.ConvBackpropTimer.ElapsedMilliseconds, 
+                    Utils.ConvUpdateSpeedsTimer.ElapsedMilliseconds, Utils.ConvUpdateParametersTimer.ElapsedMilliseconds, Utils.ConvPadUnpadTimer.ElapsedMilliseconds);
+
+                Console.WriteLine("\n\tPoolingForward: {0}ms \n\tPoolingBackprop: {1}ms",
+                    Utils.PoolingForwardTimer.ElapsedMilliseconds, Utils.PoolingBackpropTimer.ElapsedMilliseconds);
+
+                Console.WriteLine("\n\tNonlinearityForward: {0}ms \n\tNonlinearityBackprop: {1}ms",
+                    Utils.NonlinearityForwardTimer.ElapsedMilliseconds, Utils.NonlinearityBackpropTimer.ElapsedMilliseconds);
+
+                Console.WriteLine("\n\tFCForward: {0}ms \n\tFCBackprop: {1}ms \n\tFCUpdateSpeeds: {2}ms \n\tFCUpdateParameters: {3}ms",
+                        Utils.FCForwardTimer.ElapsedMilliseconds, Utils.FCBackpropTimer.ElapsedMilliseconds,
+                        Utils.FCUpdateSpeedsTimer.ElapsedMilliseconds, Utils.FCUpdateParametersTimer.ElapsedMilliseconds);
+
+                Console.WriteLine("\n\tSoftmax: {0}ms", Utils.SoftmaxTimer.ElapsedMilliseconds);
+
+                Utils.ResetTimers();
+#endif
+                epoch++;
+
+                if (Console.KeyAvailable)
+                {
+                    if (Console.ReadKey(true).Key == ConsoleKey.S)
+                    {
+                        Console.WriteLine("Key 'S' pressed! Stopping training...");
+                        stopFlag = true;
+                    }
+                    else if (Console.ReadKey(true).Key == ConsoleKey.L)
+                    {
+                        learningRate /= 10;
+                        Console.WriteLine("Key 'L' pressed! \n\tReducing learning rate by a factor of 10.\n\tWas{0}, now is {1}", 10 * learningRate, learningRate);
+                    }
+                    else
+                        Console.WriteLine("That key has no effect... Press 'S' to stop training.");
                 }
 
-                stopwatch.Stop();
+            }
 
-            //}
+            stopwatch.Stop();
+
+        //}
         }
-
 
         #region Deprecated methods
 

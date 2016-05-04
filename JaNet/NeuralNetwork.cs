@@ -20,7 +20,6 @@ namespace JaNet
         private SoftMax outputLayer;
 
         private double dropoutFC;
-        private double dropoutConv;
 
         #endregion
 
@@ -52,14 +51,9 @@ namespace JaNet
         public double DropoutFC
         {
             get { return dropoutFC; }
-            set { throw new InvalidOperationException("Use method SetDropout() to set field 'dropoutFC'"); }
+            set { throw new InvalidOperationException("Use method Set(''DropoutFC'', <value>) to set field 'dropoutFC'"); }
         }
 
-        public double DropoutConv
-        {
-            get { return dropoutConv; }
-            set { throw new InvalidOperationException("Use method SetDropout() to set field 'dropoutConv'"); }
-        }
         #endregion
 
 
@@ -149,63 +143,7 @@ namespace JaNet
         }
 
 
-        public void Setup(int miniBatchSize)
-        {
-            // Input layer (only setup output and buffers)
-            layers[0].SetupOutput();
-            layers[0].OutputNeurons.SetupBuffers(miniBatchSize);
-
-            // Hidden layers and output layer
-            for (int l = 1; l < nLayers; l++)
-            {
-                // 1. Setup input using output of previous layer.
-                layers[l].ConnectTo(layers[l - 1]);
-
-                // 2. Setup output neurons architecture using input and layer-specific properties
-                // (e.g. filterSize and strideLenght in case of a ConvLayer)
-                layers[l].SetupOutput();
-
-                // 3. Allocate memory (if CPU) / buffers (if OpenCL) according to mini-batch size
-                layers[l].OutputNeurons.SetupBuffers(miniBatchSize);
-
-                // 4. Initialize layer's parameters
-                layers[l].InitializeParameters();
-
-                // 5. (extra) If using OpenCL, set global / local work group sizes for kernels
-                layers[l].SetWorkGroups();
-            }
-
-            // Output layer only
-            outputLayer.SetupOutputScores(miniBatchSize);
-        }
-
-
-        public void SetDropout(double DropoutFullyConnected, double DropoutConvolutional)
-        {
-            this.dropoutFC = DropoutFullyConnected;
-            this.dropoutConv = DropoutConvolutional;
-
-            for (int l = 1; l < nLayers - 2; l++) // excluding input layer, final FC layer and softmax
-            {
-                switch (layers[l].Type)
-                {
-                    case "FullyConnected":
-                        {
-                            layers[l].DropoutParameter = DropoutFullyConnected;
-                            break;
-                        }
-                    case "Convolutional":
-                        {
-                            layers[l].DropoutParameter = DropoutConvolutional;
-                            break;
-                        }
-                    default:
-                        break;
-                }
-            }
-            // No dropout in last FC layer
-            layers[nLayers - 2].DropoutParameter = 1;
-        }
+        
 
 
 
@@ -444,39 +382,98 @@ namespace JaNet
 
         }
 
-
-        public void SetEpochBeginning()
-        {
-            for (int l = 1; l < nLayers - 1; ++l)
-            {
-                if (layers[l].Type == "BatchNorm")
-                    layers[l].IsEpochBeginning = true;
-            }
-        }
-
-        public void SetTraining()
-        {
-            for (int l = 1; l < nLayers - 1; ++l)
-            {
-                if (layers[l].Type == "BatchNorm")
-                    layers[l].IsTraining = true;
-            }
-        }
-
-        public void SetInference()
-        {
-            for (int l = 1; l < nLayers - 1; ++l)
-            {
-                if (layers[l].Type == "BatchNorm")
-                    layers[l].IsTraining = false;
-            }
-        }
-
         #endregion
 
         #region Set() function
 
+        public void Set(string ArgumentString, object value)
+        {
+            switch (ArgumentString)
+            {
+                case "MiniBatchSize":
+                    {
+                        int miniBatchSize = (int)value;
 
+                        // Input layer (only setup output and buffers)
+                        layers[0].SetupOutput();
+                        layers[0].OutputNeurons.SetupBuffers(miniBatchSize);
+
+                        // Hidden layers and output layer
+                        for (int l = 1; l < nLayers; l++)
+                        {
+                            // 1. Setup input using output of previous layer.
+                            layers[l].ConnectTo(layers[l - 1]);
+
+                            // 2. Setup output neurons architecture using input and layer-specific properties
+                            // (e.g. filterSize and strideLenght in case of a ConvLayer)
+                            layers[l].SetupOutput();
+
+                            // 3. Allocate memory (if CPU) / buffers (if OpenCL) according to mini-batch size
+                            layers[l].OutputNeurons.SetupBuffers(miniBatchSize);
+
+                            // 4. Initialize layer's parameters
+                            layers[l].InitializeParameters();
+
+                            // 5. (extra) If using OpenCL, set global / local work group sizes for kernels
+                            layers[l].SetWorkGroups();
+                        }
+
+                        // Output layer only
+                        outputLayer.SetupOutputScores(miniBatchSize);
+
+                        break;
+                    }
+                case "DropoutFC":
+                    {
+                        dropoutFC = (double)value;
+                        for (int l = 1; l < nLayers - 2; l++) // excluding input layer, final FC layer and softmax
+                        {
+                            if (layers[l].Type == "FullyConnected")
+                                layers[l].DropoutParameter = dropoutFC;
+                        }
+
+                        // No dropout in last FC layer (just make sure)
+                        layers[nLayers - 2].DropoutParameter = 1;
+
+                        break;
+                    }
+                case "EpochBeginning":
+                    {
+                        if ((bool)value == true)
+                        {
+                            for (int l = 1; l < nLayers - 1; ++l)
+                            {
+                                if (layers[l].Type == "BatchNorm")
+                                    layers[l].IsEpochBeginning = true;
+                            }
+                        }
+                        else
+                            throw new ArgumentException("Wrong argument passed to NeuralNetwork.Set()");
+
+                        break;
+                    }
+                case "Training":
+                    {
+                        for (int l = 1; l < nLayers - 1; ++l)
+                        {
+                            if (layers[l].Type == "BatchNorm")
+                                layers[l].IsTraining = (bool)value;
+                        }
+
+                        break;
+                    }
+                case "Inference":
+                    {
+                        this.Set("Training", !((bool)value));
+
+                        break;
+                    }
+                default:
+                    throw new ArgumentException("Wrong argument passed to NeuralNetwork.Set()");
+
+            }
+        }
+		
         #endregion
     } 
 }

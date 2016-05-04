@@ -47,19 +47,18 @@ namespace JaNet
             NeuralNetwork network = new NeuralNetwork();
 
             network.AddLayer(new InputLayer(1, 32, 32));
-        
-            //network.AddLayer(new ConvolutionalLayer(3, 2, 1, 1));
-            //network.AddLayer(new ReLU());
-            network.AddLayer(new ConvolutionalLayer(3, 2, 1, 1));
-            network.AddLayer(new ReLU());
-            network.AddLayer(new PoolingLayer("max", 2, 2));
+  
+            network.AddLayer(new ConvolutionalLayer(3, 8, 1, 1));
+            network.AddLayer(new ELU(1.0f));
+            network.AddLayer(new ConvolutionalLayer(3, 8, 1, 1));
+            network.AddLayer(new ELU(1.0f));
+            network.AddLayer(new MaxPooling(2, 2));
 
-            //network.AddLayer(new ConvolutionalLayer(3, 4, 1, 1));
-            //network.AddLayer(new ReLU());
-            network.AddLayer(new ConvolutionalLayer(3, 4, 1, 1));
-            network.AddLayer(new ReLU());
-            network.AddLayer(new PoolingLayer("max", 2, 2));
-
+            network.AddLayer(new ConvolutionalLayer(3, 16, 1, 1));
+            network.AddLayer(new ELU(1.0f));
+            network.AddLayer(new ConvolutionalLayer(3, 16, 1, 1));
+            network.AddLayer(new ELU(1.0f));
+            network.AddLayer(new MaxPooling(2, 2));
             /*
             network.AddLayer(new ConvolutionalLayer(3, 32, 1, 1));
             network.AddLayer(new ELU(1.0f));
@@ -68,8 +67,8 @@ namespace JaNet
             network.AddLayer(new PoolingLayer("max", 2, 2));
             */
 
-            network.AddLayer(new FullyConnectedLayer(512));
-            //network.AddLayer(new ReLU());
+            network.AddLayer(new FullyConnectedLayer(128));
+            network.AddLayer(new ELU(1.0f));
 
             network.AddLayer(new FullyConnectedLayer(43));
             network.AddLayer(new SoftMax());
@@ -130,15 +129,12 @@ namespace JaNet
             DataSet trainingSet = new DataSet(43);
             trainingSet.ReadData(GTSRBtrainingDataGS);
             trainingSet.ReadLabels(GTSRBtrainingLabelsGS);
-            
 
-            
+
             Console.WriteLine("Importing validation set...");
             DataSet validationSet = new DataSet(43);
             validationSet.ReadData(GTSRBvalidationDataGS);
             validationSet.ReadLabels(GTSRBvalidationLabelsGS);
-            
-
             
             Console.WriteLine("Importing test set...");
             DataSet testSet = new DataSet(43);
@@ -158,23 +154,25 @@ namespace JaNet
 
             NetworkTrainer networkTrainer = new NetworkTrainer();
 
-            networkTrainer.LearningRate = 0.005;
+            networkTrainer.LearningRate = 0.01;
             networkTrainer.MomentumMultiplier = 0.9;
-            networkTrainer.WeightDecayCoeff = 0.0000;
-            networkTrainer.MaxTrainingEpochs = 15;
-            networkTrainer.MiniBatchSize = 4;
+            networkTrainer.WeightDecayCoeff = 0.0001;
+            networkTrainer.MaxTrainingEpochs = 20;
+            networkTrainer.EpochsBeforeRegularization = 0;
+            networkTrainer.MiniBatchSize = 128;
             networkTrainer.ErrorTolerance = 0.0;
             networkTrainer.ConsoleOutputLag = 1; // 1 = print every epoch, N = print every N epochs
             networkTrainer.EvaluateBeforeTraining = true;
             networkTrainer.EarlyStopping = false;
-            networkTrainer.DropoutFullyConnected = 1.0;
-            networkTrainer.DropoutConvolutional = 1.0;
-            networkTrainer.EpochsBeforeDropout = -1;
+            networkTrainer.DropoutFullyConnected = 0.5;
 
-            networkTrainer.Train(ref network, trainingSet, validationSet);
-            
+            // Set output files save paths
+            string savePath = @"C:\Users\jacopo\Dropbox\Chalmers\MSc thesis\Results\LossError\";
+            networkTrainer.TrainingEpochSavePath = savePath + "trainingEpochs.txt";
+            networkTrainer.ValidationEpochSavePath = savePath + "validationEpochs.txt";
 
-            
+			
+            networkTrainer.Train(network, trainingSet, validationSet);
 
             /*****************************************************
              * (4) Test network

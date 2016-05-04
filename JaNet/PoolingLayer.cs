@@ -7,11 +7,10 @@ using OpenCL.Net;
 
 namespace JaNet
 {
-    class PoolingLayer : Layer
+    class MaxPooling : Layer
     {
         #region Fields
 
-        private string poolingType; // options: "max", "average" (not supported yet), "l2norm" (not supported yet)
         private int poolWidth;
         private int stride;
 
@@ -32,32 +31,22 @@ namespace JaNet
         #region Setup methods
 
         /// <summary>
-        /// Constructor of Pooling layer
+        /// Constructor of MaxPooling layer
         /// </summary>
-        /// <param name="PoolingType"></param>
         /// <param name="poolWidth"></param>
         /// <param name="stride"></param>
-        public PoolingLayer(string PoolingType, int PoolWidth, int Stride)
+        public MaxPooling(int PoolWidth, int Stride)
         {
-            this.type = "Pooling";
+            this.type = "MaxPooling";
 
-            if (PoolWidth != 2 || Stride != 2)
-                throw new ArgumentException("Pooling layer: only 2x2 pooling with stride 2 is currently supported.");
-            switch (PoolingType)
+            if ((int)PoolWidth != 2 || (int)Stride != 2)
+                throw new ArgumentException("Max pooling layer: only 2x2 pooling with stride 2 is currently supported.");
+            else
             {
-                case "max":
-                {
-                    this.poolingType = PoolingType;
-                    break;
-                }
-                default:
-                {
-                    throw new ArgumentException("Pooling layer: only ''max'' pooling is currently supported.");
-                }
+                this.poolWidth = PoolWidth;
+                this.stride = Stride;
             }
-
-            this.poolWidth = PoolWidth;
-            this.stride = Stride;
+            
         }
 
         public override void SetupOutput()
@@ -65,10 +54,11 @@ namespace JaNet
             // Check arguments _______________________________________________________________________________________
 
             if (inputHeight != inputWidth)
-                throw new ArgumentException("PoolingLayer currently only supports spatially square input.");
+                throw new ArgumentException("MaxPooling currently only supports spatially square input.");
 
-            if (poolWidth == stride && inputWidth % poolWidth != 0)
-                throw new ArgumentException("Cannot apply pooling to input: pooling width and stride do not fit!");
+            if (inputWidth % poolWidth != 0)
+                throw new ArgumentException("Cannot apply max pooling to input: pooling width and stride do not fit input width!");
+
 
             // Setup output __________________________________________________________________________________________
 
@@ -91,14 +81,14 @@ namespace JaNet
             OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.CreateBuffer poolingTableGPU");
             OpenCLSpace.WipeBuffer(poolingTableGPU, 4 * outputHeight * outputWidth, typeof(int));
 
-            OpenCLSpace.ClError = Cl.SetKernelArg(OpenCLSpace.CreatePoolingTable, 0, poolingTableGPU);
-            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.CreatePoolingTable, 1, (IntPtr)sizeof(int), stride);
-            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.CreatePoolingTable, 2, (IntPtr)sizeof(int), inputWidth);
-            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.CreatePoolingTable, 3, (IntPtr)sizeof(int), outputWidth);
+            OpenCLSpace.ClError = Cl.SetKernelArg(OpenCLSpace.CreateMaxPoolingTable, 0, poolingTableGPU);
+            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.CreateMaxPoolingTable, 1, (IntPtr)sizeof(int), stride);
+            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.CreateMaxPoolingTable, 2, (IntPtr)sizeof(int), inputWidth);
+            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.CreateMaxPoolingTable, 3, (IntPtr)sizeof(int), outputWidth);
             OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.SetKernelArg CreatePoolingTable");
 
             OpenCLSpace.ClError = Cl.EnqueueNDRangeKernel(  OpenCLSpace.Queue,
-                                                            OpenCLSpace.CreatePoolingTable,
+                                                            OpenCLSpace.CreateMaxPoolingTable,
                                                             1,
                                                             null,
                                                             new IntPtr[] { (IntPtr)(32 * Math.Ceiling((double)(nOutputUnits * inputNeurons.MiniBatchSize) / (double)32)) },
@@ -110,35 +100,6 @@ namespace JaNet
 
             OpenCLSpace.ClError = Cl.ReleaseEvent(OpenCLSpace.ClEvent);
             OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.ReleaseEvent");
-
-
-            /* -----------------------------------------------------------------
-            int[] table = new int[4 * outputHeight * outputWidth];
-
-            OpenCLSpace.ClError = Cl.EnqueueReadBuffer( OpenCLSpace.Queue,
-                                                        poolingTableGPU,
-                                                        Bool.True,
-                                                        (IntPtr)0,
-                                                        (IntPtr)(sizeof(int) * 4 * outputHeight * outputWidth),
-                                                        table,
-                                                        0,
-                                                        null,
-                                                        out OpenCLSpace.ClEvent);
-            OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.clEnqueueReadBuffer");
-
-            Console.WriteLine("\nTABLE:");
-
-            for (int i = 0; i < outputHeight * outputWidth; i++)
-            {
-                for (int j = 0; j < 4; j++)
-                {
-                    Console.Write("{0} ", table[i * 4 + j]);
-                }
-                Console.WriteLine();
-            }
-            Console.ReadKey();
-
-            /* ------------------------------------------------------------------ */ 
 
 
             // Switches
@@ -197,19 +158,19 @@ namespace JaNet
 #endif
 
 #if OPENCL_ENABLED
-            OpenCLSpace.ClError  = Cl.SetKernelArg(OpenCLSpace.PoolingForward, 0, outputNeurons.ActivationsGPU);
-            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.PoolingForward, 1, inputNeurons.ActivationsGPU);
-            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.PoolingForward, 2, switchesGPU);
-            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.PoolingForward, 3, poolingTableGPU);
-            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.PoolingForward, 4, (IntPtr)sizeof(int), nInputUnits);
-            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.PoolingForward, 5, (IntPtr)sizeof(int), inputWidth * inputWidth);
-            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.PoolingForward, 6, (IntPtr)sizeof(int), nOutputUnits);
-            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.PoolingForward, 7, (IntPtr)sizeof(int), outputWidth * outputWidth);
-            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.PoolingForward, 8, (IntPtr)sizeof(int), inputNeurons.MiniBatchSize);
+            OpenCLSpace.ClError  = Cl.SetKernelArg(OpenCLSpace.MaxPoolingForward, 0, outputNeurons.ActivationsGPU);
+            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.MaxPoolingForward, 1, inputNeurons.ActivationsGPU);
+            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.MaxPoolingForward, 2, switchesGPU);
+            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.MaxPoolingForward, 3, poolingTableGPU);
+            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.MaxPoolingForward, 4, (IntPtr)sizeof(int), nInputUnits);
+            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.MaxPoolingForward, 5, (IntPtr)sizeof(int), inputWidth * inputWidth);
+            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.MaxPoolingForward, 6, (IntPtr)sizeof(int), nOutputUnits);
+            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.MaxPoolingForward, 7, (IntPtr)sizeof(int), outputWidth * outputWidth);
+            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.MaxPoolingForward, 8, (IntPtr)sizeof(int), inputNeurons.MiniBatchSize);
             OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.SetKernelArg PoolingForward");
 
             OpenCLSpace.ClError = Cl.EnqueueNDRangeKernel(  OpenCLSpace.Queue,
-                                                            OpenCLSpace.PoolingForward,
+                                                            OpenCLSpace.MaxPoolingForward,
                                                             1,
                                                             null,
                                                             globalWorkSizePtr,
@@ -240,19 +201,19 @@ namespace JaNet
 #endif
 
 #if OPENCL_ENABLED
-            OpenCLSpace.ClError  = Cl.SetKernelArg(OpenCLSpace.PoolingBackward, 0, inputNeurons.DeltaGPU);
-            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.PoolingBackward, 1, outputNeurons.DeltaGPU);
-            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.PoolingBackward, 2, switchesGPU);
-            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.PoolingBackward, 3, poolingTableGPU);
-            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.PoolingBackward, 4, (IntPtr)sizeof(int), nInputUnits);
-            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.PoolingBackward, 5, (IntPtr)sizeof(int), inputWidth * inputWidth);
-            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.PoolingBackward, 6, (IntPtr)sizeof(int), nOutputUnits);
-            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.PoolingBackward, 7, (IntPtr)sizeof(int), outputWidth * outputWidth);
-            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.PoolingBackward, 8, (IntPtr)sizeof(int), inputNeurons.MiniBatchSize);
+            OpenCLSpace.ClError  = Cl.SetKernelArg(OpenCLSpace.MaxPoolingBackward, 0, inputNeurons.DeltaGPU);
+            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.MaxPoolingBackward, 1, outputNeurons.DeltaGPU);
+            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.MaxPoolingBackward, 2, switchesGPU);
+            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.MaxPoolingBackward, 3, poolingTableGPU);
+            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.MaxPoolingBackward, 4, (IntPtr)sizeof(int), nInputUnits);
+            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.MaxPoolingBackward, 5, (IntPtr)sizeof(int), inputWidth * inputWidth);
+            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.MaxPoolingBackward, 6, (IntPtr)sizeof(int), nOutputUnits);
+            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.MaxPoolingBackward, 7, (IntPtr)sizeof(int), outputWidth * outputWidth);
+            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.MaxPoolingBackward, 8, (IntPtr)sizeof(int), inputNeurons.MiniBatchSize);
             OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.SetKernelArg PoolingBackward");
 
             OpenCLSpace.ClError = Cl.EnqueueNDRangeKernel(  OpenCLSpace.Queue,
-                                                            OpenCLSpace.PoolingBackward,
+                                                            OpenCLSpace.MaxPoolingBackward,
                                                             1,
                                                             null,
                                                             globalWorkSizePtr,

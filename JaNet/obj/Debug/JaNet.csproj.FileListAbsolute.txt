@@ -8,7 +8,7 @@ C:\Users\jacopo\Desktop\New folder\trafficNetCL\obj\Debug\JaNet.pdb
 C:\Users\jacopo\Dropbox\Chalmers\MSc thesis\JaNet\JaNet\bin\Debug\JaNet.exe
 C:\Users\jacopo\Dropbox\Chalmers\MSc thesis\JaNet\JaNet\bin\Debug\JaNet.exe.config
 C:\Users\jacopo\Dropbox\Chalmers\MSc thesis\JaNet\JaNet\bin\Debug\OpenCL.Net.dll
-C:\Users\jacopo\Dropbox\Chalmers\MSc thesis\JaNet\JaNet\obj\Debug\JaNet.csprojResolveAssemblyReference.cache
 C:\Users\jacopo\Dropbox\Chalmers\MSc thesis\JaNet\JaNet\obj\Debug\JaNet.exe
 C:\Users\jacopo\Dropbox\Chalmers\MSc thesis\JaNet\JaNet\obj\Debug\JaNet.pdb
 C:\Users\jacopo\Dropbox\Chalmers\MSc thesis\JaNet\JaNet\bin\Debug\JaNet.pdb
+C:\Users\jacopo\Dropbox\Chalmers\MSc thesis\JaNet\JaNet\obj\Debug\JaNet.csprojResolveAssemblyReference.cache

@@ -88,28 +88,20 @@ namespace JaNet
         public static Kernel ZeroPad;
         public static Kernel ZeroUnpad;
         public static Kernel ConvForward;
+        public static Kernel ConvBackPropagate;
         public static Kernel ConvUpdateSpeeds;
         public static Kernel ConvUpdateParameters;
-        public static Kernel ConvBackPropagate;
-        public static Kernel ZeroPadBatch;
-        public static Kernel ZeroUnpadBatch;
-        public static Kernel ConvForwardBatch;
-        public static Kernel ConvBackPropagateBatch;
-        public static Kernel ConvUpdateSpeedsBatch;
 
-        // Pooling layer
-        public static Kernel CreatePoolingTable;
-        public static Kernel PoolingForward;
-        public static Kernel PoolingBackward;
+        // MaxPooling layer
+        public static Kernel CreateMaxPoolingTable;
+        public static Kernel MaxPoolingForward;
+        public static Kernel MaxPoolingBackward;
 
         // Fully connected layer
+        public static Kernel FCUpdateParameters;
         public static Kernel FCForward;
         public static Kernel FCBackward;
         public static Kernel FCUpdateSpeeds;
-        public static Kernel FCUpdateParameters;
-        public static Kernel FCForwardParallel;
-        public static Kernel FCBackwardParallel;
-        public static Kernel FCUpdateSpeedsParallel;
 
         // ReLU layer
         public static Kernel ReLUForward;
@@ -122,9 +114,6 @@ namespace JaNet
         // Tanh layer
         public static Kernel TanhForward;
         public static Kernel TanhBackward;
-
-        // Softmax layer
-        public static Kernel SoftmaxForward;
 
         // BatchNorm layer (following either a Conv or a FC layer)
         public static Kernel BNConvComputeMeansVariances;
@@ -274,49 +263,38 @@ namespace JaNet
                 throw new MissingFieldException("Path to kernels' source must be specified before calling LoadKernels()");
 
             // Convolutional layer
-            CreateRecFieldsLookupTable = LoadAndBuildKernel(kernelsPath + "/CreateRecFieldsLookupTable.cl", "CreateRecFieldsLookupTable");
-            CreatePaddingLookupTable = LoadAndBuildKernel(kernelsPath + "/CreatePaddingLookupTable.cl", "CreatePaddingLookupTable");
-            ZeroPad = LoadAndBuildKernel(kernelsPath + "/ZeroPad.cl", "ZeroPad");
-            ZeroUnpad = LoadAndBuildKernel(kernelsPath + "/ZeroUnpad.cl", "ZeroUnpad");
-            ConvForward = LoadAndBuildKernel(kernelsPath + "/ConvForward.cl", "ConvForward");
-            ConvUpdateSpeeds = LoadAndBuildKernel(kernelsPath + "/ConvUpdateSpeeds.cl", "ConvUpdateSpeeds");
-            ConvUpdateParameters = LoadAndBuildKernel(kernelsPath + "/ConvUpdateParameters.cl", "ConvUpdateParameters");
-            ConvBackPropagate = LoadAndBuildKernel(kernelsPath + "/ConvBackPropagate.cl", "ConvBackPropagate");
-            ZeroPadBatch = LoadAndBuildKernel(kernelsPath + "/ZeroPadBatch.cl", "ZeroPadBatch");
-            ZeroUnpadBatch = LoadAndBuildKernel(kernelsPath + "/ZeroUnpadBatch.cl", "ZeroUnpadBatch");
-            ConvForwardBatch = LoadAndBuildKernel(kernelsPath + "/ConvForwardBatch.cl", "ConvForwardBatch");
-            ConvBackPropagateBatch = LoadAndBuildKernel(kernelsPath + "/ConvBackPropagateBatch.cl", "ConvBackPropagateBatch");
-            ConvUpdateSpeedsBatch = LoadAndBuildKernel(kernelsPath + "/ConvUpdateSpeedsBatch.cl", "ConvUpdateSpeedsBatch");
+            CreateRecFieldsLookupTable = LoadAndBuildKernel(kernelsPath + "/Convolutional.cl", "CreateRecFieldsLookupTable");
+            CreatePaddingLookupTable = LoadAndBuildKernel(kernelsPath + "/Convolutional.cl", "CreatePaddingLookupTable");
+            ZeroPad = LoadAndBuildKernel(kernelsPath + "/Convolutional.cl", "ZeroPad");
+            ZeroUnpad = LoadAndBuildKernel(kernelsPath + "/Convolutional.cl", "ZeroUnpad");
+            ConvForward = LoadAndBuildKernel(kernelsPath + "/Convolutional.cl", "ConvForward");
+            ConvBackPropagate = LoadAndBuildKernel(kernelsPath + "/Convolutional.cl", "ConvBackPropagate");
+            ConvUpdateSpeeds = LoadAndBuildKernel(kernelsPath + "/Convolutional.cl", "ConvUpdateSpeeds");
+            ConvUpdateParameters = LoadAndBuildKernel(kernelsPath + "/Convolutional.cl", "ConvUpdateParameters");
 
             // Pooling layer
-            CreatePoolingTable = LoadAndBuildKernel(kernelsPath + "/CreatePoolingTable.cl", "CreatePoolingTable");
-            PoolingForward = LoadAndBuildKernel(kernelsPath + "/PoolingForward.cl", "PoolingForward");
-            PoolingBackward = LoadAndBuildKernel(kernelsPath + "/PoolingBackward.cl", "PoolingBackward");
+            CreateMaxPoolingTable = LoadAndBuildKernel(kernelsPath + "/MaxPooling.cl", "CreateMaxPoolingTable");
+            MaxPoolingForward = LoadAndBuildKernel(kernelsPath + "/MaxPooling.cl", "MaxPoolingForward");
+            MaxPoolingBackward = LoadAndBuildKernel(kernelsPath + "/MaxPooling.cl", "MaxPoolingBackward");
 
 
             // Fully connected layer
-            FCForward = LoadAndBuildKernel(kernelsPath + "/FCForward.cl", "FCForward");
-            FCBackward = LoadAndBuildKernel(kernelsPath + "/FCBackward.cl", "FCBackward");
-            FCUpdateSpeeds = LoadAndBuildKernel(kernelsPath + "/FCUpdateSpeeds.cl", "FCUpdateSpeeds");
-            FCUpdateParameters = LoadAndBuildKernel(kernelsPath + "/FCUpdateParameters.cl", "FCUpdateParameters");
-            FCForwardParallel = LoadAndBuildKernel(kernelsPath + "/FCForwardParallel.cl", "FCForwardParallel");
-            FCBackwardParallel = LoadAndBuildKernel(kernelsPath + "/FCBackwardParallel.cl", "FCBackwardParallel");
-            FCUpdateSpeedsParallel = LoadAndBuildKernel(kernelsPath + "/FCUpdateSpeedsParallel.cl", "FCUpdateSpeedsParallel");
+            FCUpdateParameters = LoadAndBuildKernel(kernelsPath + "/FullyConnected.cl", "FCUpdateParameters");
+            FCForward = LoadAndBuildKernel(kernelsPath + "/FullyConnected.cl", "FCForward");
+            FCBackward = LoadAndBuildKernel(kernelsPath + "/FullyConnected.cl", "FCBackward");
+            FCUpdateSpeeds = LoadAndBuildKernel(kernelsPath + "/FullyConnected.cl", "FCUpdateSpeeds");
 
             // ReLU layer
-            ReLUForward = LoadAndBuildKernel(kernelsPath + "/ReLUForward.cl", "ReLUForward");
-            ReLUBackward = LoadAndBuildKernel(kernelsPath + "/ReLUBackward.cl", "ReLUBackward");
+            ReLUForward = LoadAndBuildKernel(kernelsPath + "/ReLU.cl", "ReLUForward");
+            ReLUBackward = LoadAndBuildKernel(kernelsPath + "/ReLU.cl", "ReLUBackward");
 
-            // EU layer
-            ELUForward = LoadAndBuildKernel(kernelsPath + "/ELUForward.cl", "ELUForward");
-            ELUBackward = LoadAndBuildKernel(kernelsPath + "/ELUBackward.cl", "ELUBackward");
+            // ELU layer
+            ELUForward = LoadAndBuildKernel(kernelsPath + "/ELU.cl", "ELUForward");
+            ELUBackward = LoadAndBuildKernel(kernelsPath + "/ELU.cl", "ELUBackward");
 
             // Tanh layer
-            TanhForward = LoadAndBuildKernel(kernelsPath + "/TanhForward.cl", "TanhForward");
-            TanhBackward = LoadAndBuildKernel(kernelsPath + "/TanhBackward.cl", "TanhBackward");
-
-            // Softmax layer
-            SoftmaxForward = LoadAndBuildKernel(kernelsPath + "/SoftmaxForward.cl", "SoftmaxForward");
+            TanhForward = LoadAndBuildKernel(kernelsPath + "/Tanh.cl", "TanhForward");
+            TanhBackward = LoadAndBuildKernel(kernelsPath + "/Tanh.cl", "TanhBackward");
 
             // BatchNorm layer
             BNConvComputeMeansVariances = LoadAndBuildKernel(kernelsPath + "/BatchNorm.cl", "BNConvComputeMeansVariances");
@@ -332,15 +310,10 @@ namespace JaNet
             BNFCBackPropagate = LoadAndBuildKernel(kernelsPath + "/BatchNorm.cl", "BNFCBackPropagate");
 
 
-
-            // Classification
-            // TODO: implement a better kernel
-            //CheckClassification = LoadAndBuildKernel(kernelsPath + "/CheckClassification.cl", "CheckClassification");
-
             // Wipe kernel
-            WipeBufferFloatKernel = LoadAndBuildKernel(kernelsPath + "/WipeBufferFloatKernel.cl", "WipeBufferFloatKernel");
-            WipeBufferIntKernel = LoadAndBuildKernel(kernelsPath + "/WipeBufferIntKernel.cl", "WipeBufferIntKernel");
-            WipeBufferBoolKernel = LoadAndBuildKernel(kernelsPath + "/WipeBufferBoolKernel.cl", "WipeBufferBoolKernel");
+            WipeBufferFloatKernel = LoadAndBuildKernel(kernelsPath + "/Wipe.cl", "WipeBufferFloatKernel");
+            WipeBufferIntKernel = LoadAndBuildKernel(kernelsPath + "/Wipe.cl", "WipeBufferIntKernel");
+            WipeBufferBoolKernel = LoadAndBuildKernel(kernelsPath + "/Wipe.cl", "WipeBufferBoolKernel");
         }
 
 

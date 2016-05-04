@@ -32,10 +32,7 @@ namespace JaNet
             loss = 0.0;
             error = 0.0;
 
-            // Save dropout parameters and turn off dropout
-            double cachedDropoutFC = network.DropoutFC;
-            double cachedDropoutConv = network.DropoutConv;
-            network.Set("DropoutConv", 1.0);
+            // Turn off dropout
             network.Set("DropoutFC", 1.0);
 
             int miniBatchSize = network.Layers[0].OutputNeurons.MiniBatchSize;
@@ -69,12 +66,6 @@ namespace JaNet
              
             error /= dataSet.Size;
             loss /= dataSet.Size;
-
-            // restore dropout
-            network.Set("DropoutConv", cachedDropoutConv);
-            network.Set("DropoutFC", cachedDropoutFC);
-
-            network.Set("Inference", false);
         }
 
 

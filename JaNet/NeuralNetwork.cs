@@ -20,7 +20,6 @@ namespace JaNet
         private SoftMax outputLayer;
 
         private double dropoutFC;
-        private double dropoutConv;
 
         #endregion
 
@@ -55,11 +54,6 @@ namespace JaNet
             set { throw new InvalidOperationException("Use method Set(''DropoutFC'', <value>) to set field 'dropoutFC'"); }
         }
 
-        public double DropoutConv
-        {
-            get { return dropoutConv; }
-            set { throw new InvalidOperationException("Use method Set(''DropoutConv'', <value>) to set field 'dropoutConv'"); }
-        }
         #endregion
 
 
@@ -466,17 +460,6 @@ namespace JaNet
 
                         // Output layer only
                         outputLayer.SetupOutputScores(miniBatchSize);
-
-                        break;
-                    }
-                case "DropoutConv":
-                    {
-                        dropoutConv = (double)value;
-                        for (int l = 1; l < nLayers - 2; l++) // excluding input layer, final FC layer and softmax
-                        {
-                            if (layers[l].Type == "Convolutional")
-                                layers[l].DropoutParameter = dropoutConv;
-                        }
 
                         break;
                     }

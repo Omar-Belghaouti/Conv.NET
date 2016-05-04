@@ -23,8 +23,7 @@ namespace JaNet
         private bool evaluateBeforeTraining;
         private bool earlyStopping;
         private double dropoutFC;
-        private double dropoutConv;
-        private int epochsBeforeDropout;
+        private int epochsBeforeRegularization;
 
         // Losses/Errors
         private double lossTraining;
@@ -65,6 +64,12 @@ namespace JaNet
         {
             get { return maxTrainingEpochs; }
             set { maxTrainingEpochs = value; }
+        }
+
+        public int EpochsBeforeRegularization
+        {
+            get { return epochsBeforeRegularization; }
+            set { epochsBeforeRegularization = value; }
         }
 
         public int MiniBatchSize
@@ -128,24 +133,6 @@ namespace JaNet
             set { dropoutFC = value; }
         }
 
-        public double DropoutConvolutional
-        {
-            get { return dropoutConv; }
-            set { dropoutConv = value; }
-        }
-
-        public int EpochsBeforeDropout
-        {
-            get { return epochsBeforeDropout; }
-            set 
-            {
-                if (epochsBeforeDropout < 0)
-                    throw new ArgumentException("Property NetworkTrainer.EpochsBeforeDropout only accepts non-negative integers.");
-                else
-                    epochsBeforeDropout = value; 
-            }
-        }
-
         //public bool SaveIters
         //{
         //    set { saveIters = value; }
@@ -173,7 +160,6 @@ namespace JaNet
         {
             // Setup network before training
             network.Set("MiniBatchSize", this.miniBatchSize);
-            network.Set("DropoutConv", this.dropoutConv);
             network.Set("DropoutFC", this.dropoutFC);
 
             Sequence indicesSequence = new Sequence(trainingSet.Size);
@@ -200,8 +186,8 @@ namespace JaNet
                 if (epochsRemainingToOutput == 0)
                 {
                     /**************
-                        * Evaluation *
-                        **************/
+                     * Evaluation *
+                     **************/
 
                     // Evaluate on training set...
                     Console.WriteLine("Evaluating on TRAINING set...");
@@ -249,6 +235,9 @@ namespace JaNet
                             break;
                         }
                     }
+                    
+                    // Restore dropout
+                    network.Set("DropoutFC", dropoutFC);
 
                     epochsRemainingToOutput = consoleOutputLag;
                 }
@@ -263,17 +252,6 @@ namespace JaNet
 
                 Console.Write("\nEpoch {0}...", epoch);
 
-                // Dropout
-                if (epoch < epochsBeforeDropout)
-                {
-                    network.Set("DropoutConv", 1.0);
-                    network.Set("DropoutFC", 1.0);
-                }
-                else if (epoch == epochsBeforeDropout)
-                {
-                    network.Set("DropoutConv", dropoutConv);
-                    network.Set("DropoutFC", dropoutFC);
-                }
 
                 stopwatch.Restart();
                 stopwatchFwd.Reset();
@@ -327,9 +305,9 @@ namespace JaNet
 #if TIMING_LAYERS
                 Console.WriteLine("\n DETAILED RUNTIMES:");
 
-                Console.WriteLine("\n\tConvForward: {0}ms \n\tConvBackprop: {1}ms \n\tConvUpdateSpeeds: {2}ms \n\tConvUpdateParameters: {3}ms",
+                Console.WriteLine("\n\tConvForward: {0}ms \n\tConvBackprop: {1}ms \n\tConvUpdateSpeeds: {2}ms \n\tConvUpdateParameters: {3}ms \n\tConvPadUnpad: {4}ms",
                     Utils.ConvForwardTimer.ElapsedMilliseconds, Utils.ConvBackpropTimer.ElapsedMilliseconds, 
-                    Utils.ConvUpdateSpeedsTimer.ElapsedMilliseconds, Utils.ConvUpdateParametersTimer.ElapsedMilliseconds);
+                    Utils.ConvUpdateSpeedsTimer.ElapsedMilliseconds, Utils.ConvUpdateParametersTimer.ElapsedMilliseconds, Utils.ConvPadUnpadTimer.ElapsedMilliseconds);
 
                 Console.WriteLine("\n\tPoolingForward: {0}ms \n\tPoolingBackprop: {1}ms",
                     Utils.PoolingForwardTimer.ElapsedMilliseconds, Utils.PoolingBackpropTimer.ElapsedMilliseconds);

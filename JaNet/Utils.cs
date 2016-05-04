@@ -38,7 +38,8 @@ namespace JaNet
         public static Stopwatch ConvBackpropTimer = new Stopwatch();
         public static Stopwatch ConvUpdateSpeedsTimer = new Stopwatch();
         public static Stopwatch ConvUpdateParametersTimer = new Stopwatch();
-        
+        public static Stopwatch ConvPadUnpadTimer = new Stopwatch();
+
         public static Stopwatch NonlinearityForwardTimer = new Stopwatch();
         public static Stopwatch NonlinearityBackpropTimer = new Stopwatch();
 
@@ -65,6 +66,7 @@ namespace JaNet
             ConvBackpropTimer.Reset();
             ConvUpdateSpeedsTimer.Reset();
             ConvUpdateParametersTimer.Reset();
+            ConvPadUnpadTimer.Reset();
 
             NonlinearityForwardTimer.Reset();
             NonlinearityBackpropTimer.Reset();

@@ -48,15 +48,15 @@ namespace JaNet
 
             network.AddLayer(new InputLayer(1, 32, 32));
   
-            network.AddLayer(new ConvolutionalLayer(3, 8, 1, 1));
+            network.AddLayer(new ConvolutionalLayer(3, 4, 1, 1));
             network.AddLayer(new ELU(1.0f));
-            network.AddLayer(new ConvolutionalLayer(3, 8, 1, 1));
+            network.AddLayer(new ConvolutionalLayer(3, 4, 1, 1));
             network.AddLayer(new ELU(1.0f));
             network.AddLayer(new MaxPooling(2, 2));
 
-            network.AddLayer(new ConvolutionalLayer(3, 16, 1, 1));
+            network.AddLayer(new ConvolutionalLayer(3, 8, 1, 1));
             network.AddLayer(new ELU(1.0f));
-            network.AddLayer(new ConvolutionalLayer(3, 16, 1, 1));
+            network.AddLayer(new ConvolutionalLayer(3, 8, 1, 1));
             network.AddLayer(new ELU(1.0f));
             network.AddLayer(new MaxPooling(2, 2));
             /*
@@ -68,6 +68,7 @@ namespace JaNet
             */
 
             network.AddLayer(new FullyConnectedLayer(128));
+            network.AddLayer(new BatchNormFC());
             network.AddLayer(new ELU(1.0f));
 
             network.AddLayer(new FullyConnectedLayer(43));

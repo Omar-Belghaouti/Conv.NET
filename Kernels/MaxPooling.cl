@@ -1,5 +1,5 @@
 __kernel void 
-CreatePoolingTable(	__global int * poolingTable,		
+CreateMaxPoolingTable(	__global int * poolingTable,		
 					const int stride,
 					const int inputWidth,
 					const int outputWidth
@@ -35,7 +35,7 @@ CreatePoolingTable(	__global int * poolingTable,
 
 
 __kernel void 
-PoolingForward(	__global float * output,
+MaxPoolingForward(	__global float * output,
 				__global float * input,
 				__global bool * switches, // same dim as input
 				__global int * poolingTable,
@@ -90,7 +90,7 @@ PoolingForward(	__global float * output,
 
 
 __kernel void 
-PoolingBackward(__global float * deltaInput,
+MaxPoolingBackward(__global float * deltaInput,
 				__global float * deltaOutput,
 				__global bool * switches, // same dim as input
 				__global int * poolingTable,

@@ -1,19 +1,21 @@
 /*
- * OpenCL kernels used by BatchNorm layer.
+ * OpenCL kernels used by BatchNormConv layer.
  *	- BNConvComputeMeansVariances;
- *	- BNFCComputeMeansVariances;
  *	- BNConvForward;
- *	- BNFCForward;
- *	- BNConvUpdateSpeeds;
- *	- BNFCUpdateSpeeds;
- *	- BNUpdateParameters;
- *	- BNConvGradientMeanVariance;
- *	- BNFCGradientMeanVariance;
  *	- BNConvBackPropagate;
- *	- BNFCBackPropagate;
+ *	- BNConvGradientMeanVariance;  (auxiliary for BackPropagate)
+ *	- BNConvUpdateSpeeds;
+ *	- BNUpdateParameters;
  */
  
 #define EPSILON 1.0E-6 // constant small number needed to ensure not to divide by zero when dividing by standard deviation
+
+
+
+/**********************************
+ * TODO: get rid of extra kernels
+ **********************************/
+
 
 /* ==================================================================================================================================== */
 

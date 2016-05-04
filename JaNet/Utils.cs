@@ -51,10 +51,10 @@ namespace JaNet
         public static Stopwatch FCUpdateSpeedsTimer = new Stopwatch();
         public static Stopwatch FCUpdateParametersTimer = new Stopwatch();
 
-        public static Stopwatch BNForwardTimer = new Stopwatch();
-        public static Stopwatch BNBackpropTimer = new Stopwatch();
-        public static Stopwatch BNUpdateSpeedsTimer = new Stopwatch();
-        public static Stopwatch BNUpdateParametersTimer = new Stopwatch();
+        public static Stopwatch BNFCForwardTimer = new Stopwatch();
+        public static Stopwatch BNFCBackpropTimer = new Stopwatch();
+        public static Stopwatch BNFCUpdateSpeedsTimer = new Stopwatch();
+        public static Stopwatch BNFCUpdateParametersTimer = new Stopwatch();
 
         public static Stopwatch SoftmaxTimer = new Stopwatch();
 
@@ -78,6 +78,11 @@ namespace JaNet
             FCBackpropTimer.Reset();
             FCUpdateSpeedsTimer.Reset();
             FCUpdateParametersTimer.Reset();
+
+            BNFCForwardTimer.Reset();
+            BNFCBackpropTimer.Reset();
+            BNFCUpdateSpeedsTimer.Reset();
+            BNFCUpdateParametersTimer.Reset();
 
             SoftmaxTimer.Reset();
         }

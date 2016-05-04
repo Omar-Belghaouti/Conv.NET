@@ -296,19 +296,22 @@ namespace JaNet
             TanhForward = LoadAndBuildKernel(kernelsPath + "/Tanh.cl", "TanhForward");
             TanhBackward = LoadAndBuildKernel(kernelsPath + "/Tanh.cl", "TanhBackward");
 
-            // BatchNorm layer
-            BNConvComputeMeansVariances = LoadAndBuildKernel(kernelsPath + "/BatchNorm.cl", "BNConvComputeMeansVariances");
-            BNFCComputeMeansVariances = LoadAndBuildKernel(kernelsPath + "/BatchNorm.cl", "BNFCComputeMeansVariances");
-            BNConvForward = LoadAndBuildKernel(kernelsPath + "/BatchNorm.cl", "BNConvForward");
-            BNFCForward = LoadAndBuildKernel(kernelsPath + "/BatchNorm.cl", "BNFCForward");
-            BNConvUpdateSpeeds = LoadAndBuildKernel(kernelsPath + "/BatchNorm.cl", "BNConvUpdateSpeeds");
-            BNFCUpdateSpeeds = LoadAndBuildKernel(kernelsPath + "/BatchNorm.cl", "BNFCUpdateSpeeds");
-            BNUpdateParameters = LoadAndBuildKernel(kernelsPath + "/BatchNorm.cl", "BNUpdateParameters");
-            BNConvGradientMeanVariance = LoadAndBuildKernel(kernelsPath + "/BatchNorm.cl", "BNConvGradientMeanVariance");
-            BNFCGradientMeanVariance = LoadAndBuildKernel(kernelsPath + "/BatchNorm.cl", "BNFCGradientMeanVariance");
-            BNConvBackPropagate = LoadAndBuildKernel(kernelsPath + "/BatchNorm.cl", "BNConvBackPropagate");
-            BNFCBackPropagate = LoadAndBuildKernel(kernelsPath + "/BatchNorm.cl", "BNFCBackPropagate");
-
+            // BatchNorm layer...
+            // ...following FC
+            BNFCComputeMeansVariances = LoadAndBuildKernel(kernelsPath + "/BatchNormFC.cl", "BNFCComputeMeansVariances");
+            BNFCForward = LoadAndBuildKernel(kernelsPath + "/BatchNormFC.cl", "BNFCForward");
+            BNFCBackPropagate = LoadAndBuildKernel(kernelsPath + "/BatchNormFC.cl", "BNFCBackPropagate");
+            BNFCGradientMeanVariance = LoadAndBuildKernel(kernelsPath + "/BatchNormFC.cl", "BNFCGradientMeanVariance");
+            BNFCUpdateSpeeds = LoadAndBuildKernel(kernelsPath + "/BatchNormFC.cl", "BNFCUpdateSpeeds");
+            BNUpdateParameters = LoadAndBuildKernel(kernelsPath + "/BatchNormFC.cl", "BNUpdateParameters");
+            
+            // ...following Conv
+            BNConvComputeMeansVariances = LoadAndBuildKernel(kernelsPath + "/BatchNormConv.cl", "BNConvComputeMeansVariances");
+            BNConvForward = LoadAndBuildKernel(kernelsPath + "/BatchNormConv.cl", "BNConvForward");
+            BNConvBackPropagate = LoadAndBuildKernel(kernelsPath + "/BatchNormConv.cl", "BNConvBackPropagate");
+            BNConvUpdateSpeeds = LoadAndBuildKernel(kernelsPath + "/BatchNormConv.cl", "BNConvUpdateSpeeds");
+            BNConvGradientMeanVariance = LoadAndBuildKernel(kernelsPath + "/BatchNormConv.cl", "BNConvGradientMeanVariance");
+            
 
             // Wipe kernel
             WipeBufferFloatKernel = LoadAndBuildKernel(kernelsPath + "/Wipe.cl", "WipeBufferFloatKernel");

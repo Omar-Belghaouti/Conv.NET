@@ -27,7 +27,7 @@ namespace JaNet
         public void EvaluateNetwork(NeuralNetwork network, DataSet dataSet, out double loss, out double error)
         {
             // Set network for inference (needed for BatchNorm layers)
-            network.Set("Inference", true);
+            network.Set("Training", false);
 
             loss = 0.0;
             error = 0.0;

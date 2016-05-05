@@ -303,23 +303,27 @@ namespace JaNet
                     stopwatchFwd.ElapsedMilliseconds, stopwatchGrad.ElapsedMilliseconds, stopwatchBwd.ElapsedMilliseconds);
 
 #if TIMING_LAYERS
-                Console.WriteLine("\n DETAILED RUNTIMES:");
+                Console.WriteLine("\n Detailed runtimes::");
 
-                Console.WriteLine("\n\tConvForward: {0}ms \n\tConvBackprop: {1}ms \n\tConvUpdateSpeeds: {2}ms \n\tConvUpdateParameters: {3}ms \n\tConvPadUnpad: {4}ms",
+                Console.WriteLine("\nCONV: \n\tForward: {0}ms \n\tBackprop: {1}ms \n\tUpdateSpeeds: {2}ms \n\tUpdateParameters: {3}ms \n\tPadUnpad: {4}ms",
                     Utils.ConvForwardTimer.ElapsedMilliseconds, Utils.ConvBackpropTimer.ElapsedMilliseconds, 
                     Utils.ConvUpdateSpeedsTimer.ElapsedMilliseconds, Utils.ConvUpdateParametersTimer.ElapsedMilliseconds, Utils.ConvPadUnpadTimer.ElapsedMilliseconds);
 
-                Console.WriteLine("\n\tPoolingForward: {0}ms \n\tPoolingBackprop: {1}ms",
+                Console.WriteLine("\nPOOLING: \n\tForward: {0}ms \n\tBackprop: {1}ms",
                     Utils.PoolingForwardTimer.ElapsedMilliseconds, Utils.PoolingBackpropTimer.ElapsedMilliseconds);
 
-                Console.WriteLine("\n\tNonlinearityForward: {0}ms \n\tNonlinearityBackprop: {1}ms",
+                Console.WriteLine("\nNONLINEARITIES: \n\tForward: {0}ms \n\tBackprop: {1}ms",
                     Utils.NonlinearityForwardTimer.ElapsedMilliseconds, Utils.NonlinearityBackpropTimer.ElapsedMilliseconds);
 
-                Console.WriteLine("\n\tFCForward: {0}ms \n\tFCBackprop: {1}ms \n\tFCUpdateSpeeds: {2}ms \n\tFCUpdateParameters: {3}ms",
+                Console.WriteLine("\nFULLY CONNECTED: \n\tForward: {0}ms \n\tBackprop: {1}ms \n\tUpdateSpeeds: {2}ms \n\tUpdateParameters: {3}ms",
                         Utils.FCForwardTimer.ElapsedMilliseconds, Utils.FCBackpropTimer.ElapsedMilliseconds,
                         Utils.FCUpdateSpeedsTimer.ElapsedMilliseconds, Utils.FCUpdateParametersTimer.ElapsedMilliseconds);
 
-                Console.WriteLine("\n\tSoftmax: {0}ms", Utils.SoftmaxTimer.ElapsedMilliseconds);
+                Console.WriteLine("\nBATCHNORM FC \n\tForward: {0}ms \n\tBackprop: {1}ms \n\tUpdateSpeeds: {2}ms \n\tUpdateParameters: {3}ms",
+                        Utils.BNFCForwardTimer.ElapsedMilliseconds, Utils.BNFCBackpropTimer.ElapsedMilliseconds,
+                        Utils.BNFCUpdateSpeedsTimer.ElapsedMilliseconds, Utils.BNFCUpdateParametersTimer.ElapsedMilliseconds);
+
+                Console.WriteLine("\nSOFTMAX \n\tForward: {0}ms", Utils.SoftmaxTimer.ElapsedMilliseconds);
 
                 Utils.ResetTimers();
 #endif

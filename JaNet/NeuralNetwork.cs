@@ -384,6 +384,7 @@ namespace JaNet
 
         #endregion
 
+
         #region Set() function
 
         public void Set(string ArgumentString, object value)
@@ -443,7 +444,7 @@ namespace JaNet
                         {
                             for (int l = 1; l < nLayers - 1; ++l)
                             {
-                                if (layers[l].Type == "BatchNorm")
+                                if (layers[l].Type == "BatchNormFC")
                                     layers[l].IsEpochBeginning = true;
                             }
                         }
@@ -456,7 +457,7 @@ namespace JaNet
                     {
                         for (int l = 1; l < nLayers - 1; ++l)
                         {
-                            if (layers[l].Type == "BatchNorm")
+                            if (layers[l].Type == "BatchNormFC")
                                 layers[l].IsTraining = (bool)value;
                         }
 

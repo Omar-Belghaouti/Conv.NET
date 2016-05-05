@@ -106,7 +106,7 @@ CreatePaddingLookupTable (	__global int* paddingLookupTable,
 	{
 
 		int iExample = iUnpadded / unpaddedVolume;
-		int iUnpaddedWithinExample = iUnpadded % unpaddedVolume;
+		int iUnpaddedWithinExample = iUnpadded - unpaddedVolume*iExample;
 		
 		// Find beginning of mini-batch item that we are working on in *padded* array
 		int iExampleBeginningInPadded = iExample * paddedVolume;
@@ -138,7 +138,7 @@ CreatePaddingLookupTable (	__global int* paddingLookupTable,
 	if (iUnpadded < unpaddedVolume * miniBatchSize) // this is important because of how local/global work sizes are set (more efficient)
 	{
 		int iExample = iUnpadded / unpaddedVolume;
-		int iUnpaddedWithinExample = iUnpadded % unpaddedVolume;
+		int iUnpaddedWithinExample = iUnpadded - unpaddedVolume*iExample;
 		
 		// Find beginning of mini-batch item that we are working on in *padded* array
 		int iExampleBeginningInPadded = iExample * paddedVolume;

@@ -124,7 +124,7 @@ namespace JaNet
         public static Kernel BNFCUpdateSpeeds;
         public static Kernel BNUpdateParameters;
         public static Kernel BNConvGradientMeanVariance;
-        public static Kernel BNFCGradientMeanVariance;
+        //public static Kernel BNFCGradientMeanVariance;
         public static Kernel BNConvBackPropagate;
         public static Kernel BNFCBackPropagate;
 
@@ -301,7 +301,7 @@ namespace JaNet
             BNFCComputeMeansVariances = LoadAndBuildKernel(kernelsPath + "/BatchNormFC.cl", "BNFCComputeMeansVariances");
             BNFCForward = LoadAndBuildKernel(kernelsPath + "/BatchNormFC.cl", "BNFCForward");
             BNFCBackPropagate = LoadAndBuildKernel(kernelsPath + "/BatchNormFC.cl", "BNFCBackPropagate");
-            BNFCGradientMeanVariance = LoadAndBuildKernel(kernelsPath + "/BatchNormFC.cl", "BNFCGradientMeanVariance");
+            //BNFCGradientMeanVariance = LoadAndBuildKernel(kernelsPath + "/BatchNormFC.cl", "BNFCGradientMeanVariance");
             BNFCUpdateSpeeds = LoadAndBuildKernel(kernelsPath + "/BatchNormFC.cl", "BNFCUpdateSpeeds");
             BNUpdateParameters = LoadAndBuildKernel(kernelsPath + "/BatchNormFC.cl", "BNUpdateParameters");
             

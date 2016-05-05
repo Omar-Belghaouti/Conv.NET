@@ -34,7 +34,7 @@
     <DebugType>full</DebugType>
     <Optimize>true</Optimize>
     <OutputPath>bin\Debug\</OutputPath>
-    <DefineConstants>TRACE;DEBUG;OPENCL_ENABLED TIMING_LAYERS</DefineConstants>
+    <DefineConstants>TRACE;DEBUG;OPENCL_ENABLED</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
@@ -61,7 +61,7 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="BatchNormConv.cs" />
+    <None Include="BatchNormConv.cs" />
     <Compile Include="BatchNormFC.cs" />
     <Compile Include="ELU.cs" />
     <Compile Include="GradientChecker.cs" />

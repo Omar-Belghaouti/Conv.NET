@@ -48,15 +48,15 @@ namespace JaNet
 
             network.AddLayer(new InputLayer(1, 32, 32));
   
-            network.AddLayer(new ConvolutionalLayer(3, 4, 1, 1));
+            network.AddLayer(new ConvolutionalLayer(3, 8, 1, 1));
             network.AddLayer(new ELU(1.0f));
-            network.AddLayer(new ConvolutionalLayer(3, 4, 1, 1));
+            network.AddLayer(new ConvolutionalLayer(3, 8, 1, 1));
             network.AddLayer(new ELU(1.0f));
             network.AddLayer(new MaxPooling(2, 2));
 
-            network.AddLayer(new ConvolutionalLayer(3, 8, 1, 1));
+            network.AddLayer(new ConvolutionalLayer(3, 16, 1, 1));
             network.AddLayer(new ELU(1.0f));
-            network.AddLayer(new ConvolutionalLayer(3, 8, 1, 1));
+            network.AddLayer(new ConvolutionalLayer(3, 16, 1, 1));
             network.AddLayer(new ELU(1.0f));
             network.AddLayer(new MaxPooling(2, 2));
             /*
@@ -130,18 +130,20 @@ namespace JaNet
             DataSet trainingSet = new DataSet(43);
             trainingSet.ReadData(GTSRBtrainingDataGS);
             trainingSet.ReadLabels(GTSRBtrainingLabelsGS);
-
+            
 
             Console.WriteLine("Importing validation set...");
             DataSet validationSet = new DataSet(43);
             validationSet.ReadData(GTSRBvalidationDataGS);
             validationSet.ReadLabels(GTSRBvalidationLabelsGS);
+
             
             Console.WriteLine("Importing test set...");
             DataSet testSet = new DataSet(43);
             testSet.ReadData(GTSRBtestDataGS);
             testSet.ReadLabels(GTSRBtestLabelsGS);
             
+
 
 
             /*****************************************************
@@ -163,16 +165,16 @@ namespace JaNet
             networkTrainer.MiniBatchSize = 128;
             networkTrainer.ErrorTolerance = 0.0;
             networkTrainer.ConsoleOutputLag = 1; // 1 = print every epoch, N = print every N epochs
-            networkTrainer.EvaluateBeforeTraining = true;
+            networkTrainer.EvaluateBeforeTraining = false;
             networkTrainer.EarlyStopping = false;
-            networkTrainer.DropoutFullyConnected = 0.5;
+            networkTrainer.DropoutFullyConnected = 1.0;
 
             // Set output files save paths
             string savePath = @"C:\Users\jacopo\Dropbox\Chalmers\MSc thesis\Results\LossError\";
             networkTrainer.TrainingEpochSavePath = savePath + "trainingEpochs.txt";
             networkTrainer.ValidationEpochSavePath = savePath + "validationEpochs.txt";
 
-			
+
             networkTrainer.Train(network, trainingSet, validationSet);
 
             /*****************************************************

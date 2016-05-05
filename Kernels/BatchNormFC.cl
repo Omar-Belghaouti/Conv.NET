@@ -137,7 +137,7 @@ BNFCUpdateSpeeds(	__global float * gammaSpeed,
 	
 	if(i < 2 * nUnits)
 	{
-		if ( (i & 1) == 0) // even indices => gradient wrt gamma (this is the same as computing the modulo 2)
+		if ( (i & 1) == 0) // even indices => gradient wrt gamma (this is the same as computing the modulo 2, but faster)
 		{
 			int iParameter = i / 2; // retrieve correct index of parameter
 
@@ -178,16 +178,16 @@ BNFCUpdateSpeeds(	__global float * gammaSpeed,
 
 /* ==================================================================================================================================== */
 
-/* BNUPDATEPARAMETERS()
+/* BNFCUPDATEPARAMETERS()
  * Updates learnable parameters beta and gamma by simply adding the gradient-based update speed.
  * This kernel can be used for both the Conv and the FC case.
  */
 
 __kernel void 
-BNUpdateParameters(	__global float * gamma,
-					__global float * beta,
-					__constant float * gammaSpeed,
-					__constant float * betaSpeed,
+BNFCUpdateParameters(	__global float * gamma,
+						__global float * beta,
+						__constant float * gammaSpeed,
+						__constant float * betaSpeed,
 					const int nGamma // or equally nBeta
 						)
 {
@@ -233,7 +233,6 @@ BNFCBackPropagate(	__global float * deltaInput,
 		
 		// See backprop expression for how deltaX is computed...
 		
-		// First compute mean of normalized inputs
 		tmpDeltaX = miniBatchSize * deltaOutput[iActivation] - deltaBeta[iUnit] - deltaGamma[iUnit] * normalizedInput[iActivation];
 		tmpDeltaX *= native_divide(gamma[iUnit] * native_rsqrt(variance[iUnit] + EPSILON), miniBatchSize); 
 		

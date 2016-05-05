@@ -392,15 +392,15 @@ namespace JaNet
             Utils.BNFCUpdateParametersTimer.Start();
 #endif
 
-            OpenCLSpace.ClError = Cl.SetKernelArg(OpenCLSpace.BNUpdateParameters, 0, gammaGPU);
-            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.BNUpdateParameters, 1, betaGPU);
-            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.BNUpdateParameters, 2, gammaSpeedGPU);
-            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.BNUpdateParameters, 3, betaSpeedGPU);
-            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.BNUpdateParameters, 4, (IntPtr)sizeof(int), nInputUnits);
+            OpenCLSpace.ClError = Cl.SetKernelArg(OpenCLSpace.BNFCUpdateParameters, 0, gammaGPU);
+            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.BNFCUpdateParameters, 1, betaGPU);
+            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.BNFCUpdateParameters, 2, gammaSpeedGPU);
+            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.BNFCUpdateParameters, 3, betaSpeedGPU);
+            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.BNFCUpdateParameters, 4, (IntPtr)sizeof(int), nInputUnits);
             OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.SetKernelArg");
 
             OpenCLSpace.ClError = Cl.EnqueueNDRangeKernel(OpenCLSpace.Queue,
-                                                            OpenCLSpace.BNUpdateParameters,
+                                                            OpenCLSpace.BNFCUpdateParameters,
                                                             1,
                                                             null,
                                                             nUnitsGlobalWorkSizePtr,

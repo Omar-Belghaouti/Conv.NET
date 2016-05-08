@@ -242,10 +242,25 @@ namespace JaNet
                         Console.ReadKey();
                     }
                 }
+
                 /* ------------------------- END DEBUGGING --------------------------------------------- */
 #endif
 
             }
+
+#if DEBUGGING_STEPBYSTEP
+            Console.WriteLine("Class scores (softmax activation):");
+            for (int m = 0; m < layers[0].OutputNeurons.MiniBatchSize; m++)
+            {
+                double[] outputScores = outputLayer.OutputClassScores[m];
+
+                Console.WriteLine("\n --- Mini-batch item {0} -----", m);
+                for (int j = 0; j < outputScores.Length; j++)
+                    Console.Write("{0}  ", (float)outputScores[j]);
+                Console.WriteLine();
+                Console.ReadKey();
+            }
+#endif
         }
 
         /// <summary>
@@ -455,18 +470,56 @@ namespace JaNet
                     }
                 case "Training":
                     {
-                        for (int l = 1; l < nLayers - 1; ++l)
+                        if ((bool)value == true)
                         {
-                            if (layers[l].Type == "BatchNormFC" || layers[l].Type == "BatchNormConv")
-                                layers[l].IsTraining = (bool)value;
+                            for (int l = 1; l < nLayers - 1; ++l)
+                            {
+                                if (layers[l].Type == "BatchNormFC" || layers[l].Type == "BatchNormConv")
+                                {
+                                    layers[l].IsTraining = true;
+                                    layers[l].IsPreInference = false;
+                                    layers[l].IsInference = false;
+                                }
+                            }
                         }
-
+                        else
+                            throw new ArgumentException("Only <true> can be passed to Set(''Training'', <arg>)");
+                        break;
+                    }
+                case "PreInference":
+                    {
+                        if ((bool)value == true)
+                        {
+                            for (int l = 1; l < nLayers - 1; ++l)
+                            {
+                                if (layers[l].Type == "BatchNormFC" || layers[l].Type == "BatchNormConv")
+                                {
+                                    layers[l].IsTraining = false;
+                                    layers[l].IsPreInference = true;
+                                    layers[l].IsInference = false;
+                                }
+                            }
+                        }
+                        else
+                            throw new ArgumentException("Only <true> can be passed to Set(''PreInference'', <arg>)");
                         break;
                     }
                 case "Inference":
                     {
-                        this.Set("Training", !((bool)value));
-
+                        if ((bool)value == true)
+                        {
+                            for (int l = 1; l < nLayers - 1; ++l)
+                            {
+                                if (layers[l].Type == "BatchNormFC" || layers[l].Type == "BatchNormConv")
+                                {
+                                    layers[l].IsTraining = false;
+                                    layers[l].IsPreInference = false;
+                                    layers[l].IsInference = true;
+                                }
+                            }
+                        }
+                        else
+                            throw new ArgumentException("Only <true> can be passed to Set(''Inference'', <arg>)");
                         break;
                     }
                 default:

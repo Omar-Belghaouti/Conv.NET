@@ -15,6 +15,9 @@ namespace JaNet
 
         private bool isEpochBeginning;
         private bool isTraining;
+        private bool isPreInference;
+        private bool isInference;
+
         private int iCumulativeAverage;
         private int inputArea;
 
@@ -45,7 +48,6 @@ namespace JaNet
         private IntPtr[] baseLocalWorkSizePtr;
 
         private IntPtr[] nFeatureMapsGlobalWorkSizePtr;
-        //private IntPtr[] nParametersGlobalWorkSizePtr;
         private IntPtr[] nActivationsGlobalWorkSizePtr; // = nUnits * miniBatchSize
         private IntPtr[] nUnitsGlobalWorkSizePtr;
 
@@ -61,6 +63,14 @@ namespace JaNet
         public override bool IsTraining
         {
             set { this.isTraining = value; }
+        }
+        public override bool IsPreInference
+        {
+            set { this.isPreInference = value; }
+        }
+        public override bool IsInference
+        {
+            set { this.isInference = value; }
         }
 
         #endregion
@@ -91,7 +101,10 @@ namespace JaNet
         {
             this.iCumulativeAverage = 0;
             this.isEpochBeginning = true;
+
             this.isTraining = true;
+            this.isPreInference = false;
+            this.isInference = false;
 
             // 1. Initialize OpenCL buffers for mean, variance and their cumulative averages
 
@@ -246,6 +259,7 @@ namespace JaNet
 
         #endregion
 
+
         #region Methods
 
         public override void FeedForward()
@@ -255,17 +269,17 @@ namespace JaNet
 #endif
             if (isEpochBeginning)
             {
-                iCumulativeAverage = 0;
+                iCumulativeAverage = 0; 
 
-                // Wipe cumulative means and variances (no need actually: incorporated in kernel)
-                //OpenCLSpace.WipeBuffer(cumulativeMeanGPU, inputDepth, typeof(float));
-                //OpenCLSpace.WipeBuffer(cumulativeVarianceGPU, inputDepth, typeof(float));
+                // Wipe cumulative means and variances
+                OpenCLSpace.WipeBuffer(cumulativeMeanGPU, inputDepth, typeof(float));
+                OpenCLSpace.WipeBuffer(cumulativeVarianceGPU, inputDepth, typeof(float));
 
                 isEpochBeginning = false;
             }
 
-            // If training, compute means and variances, and update cumulative averages
-            if (isTraining)
+            // If training, compute means and variances. If pre-inference, compute means and variances and also update cumulative averages
+            if (isTraining || isPreInference)
             {
                 OpenCLSpace.ClError  = Cl.SetKernelArg(OpenCLSpace.BNConvComputeMeansVariances, 0, meanGPU);
                 OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.BNConvComputeMeansVariances, 1, varianceGPU);
@@ -276,7 +290,8 @@ namespace JaNet
                 OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.BNConvComputeMeansVariances, 6, (IntPtr)sizeof(int), inputArea);
                 OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.BNConvComputeMeansVariances, 7, (IntPtr)sizeof(int), nInputUnits);
                 OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.BNConvComputeMeansVariances, 8, (IntPtr)sizeof(int), inputNeurons.MiniBatchSize);
-                OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.BNConvComputeMeansVariances, 9, (IntPtr)sizeof(int), iCumulativeAverage);
+                OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.BNConvComputeMeansVariances, 9, (IntPtr)sizeof(int), Convert.ToInt32(isPreInference));
+                OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.BNConvComputeMeansVariances, 10, (IntPtr)sizeof(int), iCumulativeAverage);
                 OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.SetKernelArg");
             
                 OpenCLSpace.ClError = Cl.EnqueueNDRangeKernel(  OpenCLSpace.Queue,
@@ -293,8 +308,57 @@ namespace JaNet
                 OpenCLSpace.ClError = Cl.ReleaseEvent(OpenCLSpace.ClEvent);
                 OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.ReleaseEvent");
 
-                // increase cumulative average counter
-                iCumulativeAverage++;
+                if (isPreInference)
+                {
+
+
+                    /* ------------------------- DEBUGGING ---------------------------------------------
+
+                    Console.WriteLine("\nPRE-INFERENCE MINI-BATCH {0}\n", iCumulativeAverage);
+                    // Display cum means
+
+                    float[] cumMeans = new float[inputDepth];
+
+                    OpenCLSpace.ClError = Cl.EnqueueReadBuffer(OpenCLSpace.Queue,
+                                                                cumulativeMeanGPU, // source
+                                                                Bool.True,
+                                                                (IntPtr)0,
+                                                                (IntPtr)(inputDepth * sizeof(float)),
+                                                                cumMeans,  // destination
+                                                                0,
+                                                                null,
+                                                                out OpenCLSpace.ClEvent);
+                    OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.clEnqueueReadBuffer");
+
+                    Console.WriteLine("\nCumulative means:\n");
+                    for (int i = 0; i < inputDepth; i++)
+                        Console.Write("{0}  ", cumMeans[i]);
+                    //Console.ReadKey();
+
+                    // Display cum var
+                    float[] cumVar = new float[inputDepth];
+
+                    OpenCLSpace.ClError = Cl.EnqueueReadBuffer(OpenCLSpace.Queue,
+                                                                cumulativeVarianceGPU, // source
+                                                                Bool.True,
+                                                                (IntPtr)0,
+                                                                (IntPtr)(inputDepth * sizeof(float)),
+                                                                cumVar,  // destination
+                                                                0,
+                                                                null,
+                                                                out OpenCLSpace.ClEvent);
+                    OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.clEnqueueReadBuffer");
+
+                    Console.WriteLine("\n\nCumulative variance:\n");
+                    for (int i = 0; i < inputDepth; i++)
+                        Console.Write("{0}  ", cumVar[i]);
+                    Console.ReadKey();
+
+
+                    /* ------------------------- END DEBUGGING --------------------------------------------- */
+
+                    iCumulativeAverage++; // increase cumulative average counter
+                }
             }
 
             //Normalize input, scale and shift
@@ -302,16 +366,63 @@ namespace JaNet
             OpenCLSpace.ClError = Cl.SetKernelArg(OpenCLSpace.BNConvForward, 0, outputNeurons.ActivationsGPU);
             OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.BNConvForward, 1, normalizedInputGPU);
             OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.BNConvForward, 2, inputNeurons.ActivationsGPU);
-            if (isTraining)
+            if (isTraining || isPreInference)
             {
                 OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.BNConvForward, 3, meanGPU);
                 OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.BNConvForward, 4, varianceGPU);
             }
-            else
+            else if (isInference)
             {
+                /* ------------------------- DEBUGGING ---------------------------------------------
+
+
+                // Display cum means
+
+                float[] cumMeans = new float[inputDepth];
+
+                OpenCLSpace.ClError = Cl.EnqueueReadBuffer(OpenCLSpace.Queue,
+                                                            cumulativeMeanGPU, // source
+                                                            Bool.True,
+                                                            (IntPtr)0,
+                                                            (IntPtr)(inputDepth * sizeof(float)),
+                                                            cumMeans,  // destination
+                                                            0,
+                                                            null,
+                                                            out OpenCLSpace.ClEvent);
+                OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.clEnqueueReadBuffer");
+
+                Console.WriteLine("\nCumulative means:\n");
+                for (int i = 0; i < inputDepth; i++)
+                    Console.Write("{0}  ", cumMeans[i]);
+                //Console.ReadKey();
+
+                // Display cum var
+                float[] cumVar = new float[inputDepth];
+
+                OpenCLSpace.ClError = Cl.EnqueueReadBuffer(OpenCLSpace.Queue,
+                                                            cumulativeVarianceGPU, // source
+                                                            Bool.True,
+                                                            (IntPtr)0,
+                                                            (IntPtr)(inputDepth * sizeof(float)),
+                                                            cumVar,  // destination
+                                                            0,
+                                                            null,
+                                                            out OpenCLSpace.ClEvent);
+                OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.clEnqueueReadBuffer");
+
+                Console.WriteLine("\n\nCumulative variance:\n");
+                for (int i = 0; i < inputDepth; i++)
+                    Console.Write("{0}  ", cumVar[i]);
+                Console.ReadKey();
+
+
+                /* ------------------------- END DEBUGGING --------------------------------------------- */
+
                 OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.BNConvForward, 3, cumulativeMeanGPU);
                 OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.BNConvForward, 4, cumulativeVarianceGPU);
             }
+            else
+                throw new InvalidOperationException("ERROR: BatchNormConv is currently not in training mode, nor pre-inference, nor inference.");
             OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.BNConvForward, 5, gammaGPU);
             OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.BNConvForward, 6, betaGPU);
             OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.BNConvForward, 7, (IntPtr)sizeof(int), inputArea);
@@ -391,7 +502,7 @@ namespace JaNet
             Utils.BNConvUpdateSpeedsTimer.Stop();
 #endif
             // Step 1
-            
+            /*
             OpenCLSpace.ClError  = Cl.SetKernelArg(OpenCLSpace.BNConvParameterGradientsBatch, 0, deltaGammaBatchGPU);
             OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.BNConvParameterGradientsBatch, 1, deltaBetaBatchGPU);
             OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.BNConvParameterGradientsBatch, 2, outputNeurons.DeltaGPU);
@@ -446,7 +557,7 @@ namespace JaNet
             OpenCLSpace.ClError = Cl.Finish(OpenCLSpace.Queue);
             OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.Finish");
 
-
+            */
 
             // ALL IN ONE STEP 
             /*
@@ -492,7 +603,7 @@ namespace JaNet
 
         public override void UpdateParameters(double weightDecayCoeff)
         {
-            
+            /*
 #if TIMING_LAYERS
             Utils.BNConvUpdateParametersTimer.Start();
 #endif
@@ -520,11 +631,9 @@ namespace JaNet
 
             OpenCLSpace.ClError = Cl.Finish(OpenCLSpace.Queue);
             OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.Finish");
-            
+            */
 
-            /* ------------------------- DEBUGGING ---------------------------------------------
-
-            
+            /* ------------------------- DEBUGGING ---------------------------------------------     
             
             
             // Display gamma

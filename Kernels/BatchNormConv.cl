@@ -7,7 +7,7 @@
  *	- BNConvBackPropagate;
  */
  
-#define EPSILON 1.0E-8 // constant small number needed to ensure not to divide by zero when dividing by standard deviation
+#define EPSILON 1.0E-5 // constant small number needed to ensure not to divide by zero when dividing by standard deviation
 
 
 
@@ -32,6 +32,7 @@ BNConvComputeMeansVariances(__global float * means,
 							const int inputArea,
 							const int inputVolume,
 							const int miniBatchSize,
+							const int isPreInference,
 							const int iCumulativeAverage // index of current sample of mu and sigma^2 (should be between 0 and dataSetSize/miniBatchSize)
 				)
 {
@@ -56,12 +57,15 @@ BNConvComputeMeansVariances(__global float * means,
 			
 			iMapBeginning += inputVolume;
 		}
-		mean /= miniBatchSize * inputArea;
+		mean /= (miniBatchSize * inputArea);
 		
-		// save mean and also update cumulative average
+		// save mean 
 		means[iFeatureMap] = mean;
-		cumulativeMeans[iFeatureMap] = (iCumulativeAverage * cumulativeMeans[iFeatureMap] + mean) / (iCumulativeAverage + 1);
-		
+		// update cumulative average if pre-inference mode is on
+		if (isPreInference > 0)
+		{
+			cumulativeMeans[iFeatureMap] = (iCumulativeAverage * cumulativeMeans[iFeatureMap] + mean) / (iCumulativeAverage + 1);
+		}
 		
 		// Then compute variance
 		
@@ -74,14 +78,19 @@ BNConvComputeMeansVariances(__global float * means,
 			for (int iWithinMap = 0; iWithinMap < inputArea; iWithinMap++)
 			{
 				centeredInput = input[iMapBeginning+iWithinMap] - mean;
-				variance = fma(centeredInput, centeredInput, variance);
+				variance += centeredInput * centeredInput;
 			}
 		}
 		variance /= (miniBatchSize * inputArea - 1);
 		
-		// Save variance and update cumulativeVariance
+		// Save variance
 		variances[iFeatureMap] = variance;		
-		cumulativeVariances[iFeatureMap] = (iCumulativeAverage * cumulativeVariances[iFeatureMap] + variance) / (iCumulativeAverage + 1);
+		// update cumulative variance if pre-inference mode is on
+		if (isPreInference > 0)
+		{
+			cumulativeVariances[iFeatureMap] = (iCumulativeAverage * cumulativeVariances[iFeatureMap] + variance) / (iCumulativeAverage + 1);
+		}
+		
 	}
 }
 

@@ -7,7 +7,7 @@
  *	- BNFCBackPropagate;
  */
  
-#define EPSILON 1.0E-8 // constant small number needed to ensure not to divide by zero when dividing by standard deviation
+#define EPSILON 1.0E-5 // constant small number needed to ensure not to divide by zero when dividing by standard deviation
 
 /* ==================================================================================================================================== */
 
@@ -29,6 +29,7 @@ BNFCComputeMeansVariances(	__global float * means,
 							__global float * input, 
 							const int nUnits,
 							const int miniBatchSize,
+							const int isPreInference,
 							const int iCumulativeAverage // index of current sample of mu and sigma^2 (should be between 0 and dataSetSize/miniBatchSize)
 				)
 {
@@ -47,10 +48,12 @@ BNFCComputeMeansVariances(	__global float * means,
 		}
 		mean /= miniBatchSize;
 		
-		// save mean and also update cumulative average
+		// save mean and update cumulative average if pre-inference mode is on
 		means[iUnit] = mean;
-		cumulativeMeans[iUnit] = (iCumulativeAverage * cumulativeMeans[iUnit] + mean) / (iCumulativeAverage + 1);
-		
+		if (isPreInference > 0)
+		{
+			cumulativeMeans[iUnit] = (iCumulativeAverage * cumulativeMeans[iUnit] + mean) / (iCumulativeAverage + 1);
+		}
 		
 		// Now compute variance
 		
@@ -64,10 +67,12 @@ BNFCComputeMeansVariances(	__global float * means,
 		}
 		variance /= (miniBatchSize - 1);
 		
-		// Save variance and update cumulativeVariance
-		variances[iUnit] = variance;		
-		cumulativeVariances[iUnit] = (iCumulativeAverage * cumulativeVariances[iUnit] + variance) / (iCumulativeAverage + 1);
-		
+		// Save variance and update cumulativeVariance if pre-inference mode is on
+		variances[iUnit] = variance;	
+		if (isPreInference > 0)
+		{		
+			cumulativeVariances[iUnit] = (iCumulativeAverage * cumulativeVariances[iUnit] + variance) / (iCumulativeAverage + 1);
+		}
 	}
 }
 

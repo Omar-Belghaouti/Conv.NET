@@ -102,6 +102,14 @@ namespace JaNet
         {
             set { }
         }
+        public virtual bool IsPreInference
+        {
+            set { }
+        }
+        public virtual bool IsInference
+        {
+            set { }
+        }
 
 #if GRADIENT_CHECK
         // accessors for gradient check 

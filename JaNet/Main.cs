@@ -48,31 +48,30 @@ namespace JaNet
 
             network.AddLayer(new InputLayer(1, 32, 32));
 
-            
             network.AddLayer(new ConvolutionalLayer(3, 16, 1, 1));
             //network.AddLayer(new BatchNormConv());
-            network.AddLayer(new ELU(1.0f));
+            network.AddLayer(new ReLU());
 
-            //network.AddLayer(new ConvolutionalLayer(3, 8, 1, 1));
+            network.AddLayer(new ConvolutionalLayer(3, 16, 1, 1));
             //network.AddLayer(new BatchNormConv());
-            //network.AddLayer(new ReLU());
+            network.AddLayer(new ReLU());
             
             network.AddLayer(new MaxPooling(2, 2));
 
             network.AddLayer(new ConvolutionalLayer(3, 32, 1, 1));
             //network.AddLayer(new BatchNormConv());
-            network.AddLayer(new ELU(1.0f));
+            network.AddLayer(new ReLU());
 
-            //network.AddLayer(new ConvolutionalLayer(3, 16, 1, 1));
+            network.AddLayer(new ConvolutionalLayer(3, 32, 1, 1));
             //network.AddLayer(new BatchNormConv());
-            //network.AddLayer(new ReLU());
+            network.AddLayer(new ReLU());
 
             network.AddLayer(new MaxPooling(2, 2));
             
 
             network.AddLayer(new FullyConnectedLayer(128));
-            network.AddLayer(new BatchNormFC());
-            network.AddLayer(new ELU(1.0f));
+            //network.AddLayer(new BatchNormFC());
+            network.AddLayer(new ReLU());
             
             
             network.AddLayer(new FullyConnectedLayer(43));
@@ -129,24 +128,24 @@ namespace JaNet
             toySet.ReadLabels(MNISTreducedLabels);
             */
 
-            /*
+            
             Console.WriteLine("Importing training set...");
             DataSet trainingSet = new DataSet(43);
             trainingSet.ReadData(GTSRBtrainingDataGS);
             trainingSet.ReadLabels(GTSRBtrainingLabelsGS);
-            */
+            
 
             Console.WriteLine("Importing validation set...");
             DataSet validationSet = new DataSet(43);
             validationSet.ReadData(GTSRBvalidationDataGS);
             validationSet.ReadLabels(GTSRBvalidationLabelsGS);
 
-            /*
+            
             Console.WriteLine("Importing test set...");
             DataSet testSet = new DataSet(43);
             testSet.ReadData(GTSRBtestDataGS);
             testSet.ReadLabels(GTSRBtestLabelsGS);
-            */
+            
 
 
 
@@ -161,24 +160,26 @@ namespace JaNet
 
             NetworkTrainer networkTrainer = new NetworkTrainer();
 
-            networkTrainer.LearningRate = 0.01;
+            networkTrainer.LearningRate = 0.005;
             networkTrainer.MomentumMultiplier = 0.9;
             networkTrainer.WeightDecayCoeff = 0.0001;
-            networkTrainer.MaxTrainingEpochs = 20;
+            networkTrainer.MaxTrainingEpochs = 100;
             networkTrainer.EpochsBeforeRegularization = 0;
             networkTrainer.MiniBatchSize = 64;
             networkTrainer.ErrorTolerance = 0.0;
             networkTrainer.ConsoleOutputLag = 1; // 1 = print every epoch, N = print every N epochs
             networkTrainer.EvaluateBeforeTraining = true;
             networkTrainer.EarlyStopping = false;
-            networkTrainer.DropoutFullyConnected = 0.5;
+            networkTrainer.DropoutFullyConnected = 1.0;
 
             // Set output files save paths
-            string savePath = @"C:\Users\jacopo\Dropbox\Chalmers\MSc thesis\Results\LossError\";
-            networkTrainer.TrainingEpochSavePath = savePath + "trainingEpochs.txt";
-            networkTrainer.ValidationEpochSavePath = savePath + "validationEpochs.txt";
+            string trainingSavePath = @"C:\Users\jacopo\Dropbox\Chalmers\MSc thesis\Results\LossError\";
+            string testSavePath = @"C:\Users\jacopo\Dropbox\Chalmers\MSc thesis\Results\LossError\";
+            networkTrainer.TrainingEpochSavePath = trainingSavePath + "trainingEpochs.txt";
+            networkTrainer.ValidationEpochSavePath = trainingSavePath + "validationEpochs.txt";
+            networkTrainer.TestEpochSavePath = testSavePath + "testEpochs.txt";
 
-            networkTrainer.Train(network, validationSet, null);
+            networkTrainer.Train(network, trainingSet, validationSet, testSet);
             //networkTrainer.Train(network, trainingSet, validationSet);
 
             /*****************************************************
@@ -193,8 +194,8 @@ namespace JaNet
             networkEvaluator.EvaluateNetwork(network, validationSet, out loss, out error);
             Console.WriteLine("\nValidation set:\n\tLoss = {0}\n\tError = {1}", loss, error);
 
-            //networkEvaluator.EvaluateNetwork(network, testSet, out loss, out error);
-            //Console.WriteLine("\nTest set:\n\tLoss = {0}\n\tError = {1}", loss, error);
+            networkEvaluator.EvaluateNetwork(network, testSet, out loss, out error);
+            Console.WriteLine("\nTest set:\n\tLoss = {0}\n\tError = {1}", loss, error);
             
 #if GRADIENT_CHECK
             GradientChecker.Check(network, reducedMNIST);

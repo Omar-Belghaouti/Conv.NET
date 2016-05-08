@@ -32,10 +32,9 @@ namespace JaNet
         private double errorValidation;
 
         // Paths for saving data
-        //private bool saveIters;
-        //private string trainingIterSavePath;
         private string trainingEpochSavePath;
         private string validationEpochSavePath;
+        private string testEpochSavePath;
 
         #endregion
 
@@ -153,10 +152,15 @@ namespace JaNet
             set { validationEpochSavePath = value; }
         }
 
+        public string TestEpochSavePath
+        {
+            set { testEpochSavePath = value; }
+        }
+
         #endregion
 
 
-        public void Train(NeuralNetwork network, DataSet trainingSet, DataSet validationSet)
+        public void Train(NeuralNetwork network, DataSet trainingSet, DataSet validationSet, DataSet testSet)
         {
             // Setup network before training
             network.Set("MiniBatchSize", this.miniBatchSize);
@@ -189,7 +193,13 @@ namespace JaNet
                      * Evaluation *
                      **************/
 
+                    // Pre-inference pass: Computes cumulative averages in BatchNorm layers (needed for evaluation)
+                    network.Set("PreInference", true);
+                    networkEvaluator.PreEvaluateNetwork(network, trainingSet);
+            
+
                     // Evaluate on training set...
+                    network.Set("Inference", true);
                     Console.WriteLine("Evaluating on TRAINING set...");
                     stopwatch.Restart();
                     networkEvaluator.EvaluateNetwork(network, trainingSet, out lossTraining, out errorTraining);
@@ -235,6 +245,23 @@ namespace JaNet
                             break;
                         }
                     }
+
+                    // Evaluate on test set (workaround....)
+                    if (testSet != null)
+                    {
+                        double lossTest, errorTest;
+                        Console.WriteLine("Evaluating on TEST set...");
+                        stopwatch.Restart();
+                        networkEvaluator.EvaluateNetwork(network, testSet, out lossTest, out errorTest);
+                        Console.WriteLine("\tLoss = {0}\n\tError = {1}\n\tEval runtime = {2}ms\n",
+                                            lossTest, errorTest, stopwatch.ElapsedMilliseconds);
+                        // ...and save to file
+                        using (System.IO.StreamWriter testEpochOutputFile = new System.IO.StreamWriter(testEpochSavePath, true))
+                        {
+                            testEpochOutputFile.WriteLine(lossTest.ToString() + "\t" + errorTest.ToString());
+                        }
+                    }
+
                     
                     // Restore dropout
                     network.Set("DropoutFC", dropoutFC);
@@ -322,6 +349,10 @@ namespace JaNet
                 Console.WriteLine("\nBATCHNORM FC \n\tForward: {0}ms \n\tBackprop: {1}ms \n\tUpdateSpeeds: {2}ms \n\tUpdateParameters: {3}ms",
                         Utils.BNFCForwardTimer.ElapsedMilliseconds, Utils.BNFCBackpropTimer.ElapsedMilliseconds,
                         Utils.BNFCUpdateSpeedsTimer.ElapsedMilliseconds, Utils.BNFCUpdateParametersTimer.ElapsedMilliseconds);
+
+                 Console.WriteLine("\nBATCHNORM CONV \n\tForward: {0}ms \n\tBackprop: {1}ms \n\tUpdateSpeeds: {2}ms \n\tUpdateParameters: {3}ms",
+                        Utils.BNConvForwardTimer.ElapsedMilliseconds, Utils.BNConvBackpropTimer.ElapsedMilliseconds,
+                        Utils.BNConvUpdateSpeedsTimer.ElapsedMilliseconds, Utils.BNConvUpdateParametersTimer.ElapsedMilliseconds);
 
                 Console.WriteLine("\nSOFTMAX \n\tForward: {0}ms", Utils.SoftmaxTimer.ElapsedMilliseconds);
 

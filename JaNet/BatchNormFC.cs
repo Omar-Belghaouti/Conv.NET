@@ -15,6 +15,9 @@ namespace JaNet
 
         private bool isEpochBeginning;
         private bool isTraining;
+        private bool isPreInference;
+        private bool isInference;
+
         private int iCumulativeAverage;
 
         // OpenCL-only fields
@@ -57,6 +60,14 @@ namespace JaNet
         {
             set { this.isTraining = value; }
         }
+        public override bool IsPreInference
+        {
+            set { this.isPreInference = value; }
+        }
+        public override bool IsInference
+        {
+            set { this.isInference = value; }
+        }
 
         #endregion
 
@@ -85,7 +96,10 @@ namespace JaNet
         {
             this.iCumulativeAverage = 0;
             this.isEpochBeginning = true;
+
             this.isTraining = true;
+            this.isPreInference = false;
+            this.isInference = false;
 
             // 1. Initialize OpenCL buffers for mean, variance and their cumulative averages
           
@@ -231,15 +245,16 @@ namespace JaNet
             {
                 iCumulativeAverage = 0;
 
-                // Wipe cumulative means and variances (no need actually: incorporated in kernel)
+                // Wipe cumulative means and variances
                 OpenCLSpace.WipeBuffer(cumulativeMeanGPU, nInputUnits, typeof(float));
                 OpenCLSpace.WipeBuffer(cumulativeVarianceGPU, nInputUnits, typeof(float));
 
                 isEpochBeginning = false;
             }
 
+
             // If training, compute means and variances, and update cumulative averages
-            if (isTraining)
+            if (isTraining || isPreInference)
             {
                 OpenCLSpace.ClError = Cl.SetKernelArg(OpenCLSpace.BNFCComputeMeansVariances, 0, meanGPU);
                 OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.BNFCComputeMeansVariances, 1, varianceGPU);
@@ -248,7 +263,8 @@ namespace JaNet
                 OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.BNFCComputeMeansVariances, 4, inputNeurons.ActivationsGPU);
                 OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.BNFCComputeMeansVariances, 5, (IntPtr)sizeof(int), nInputUnits);
                 OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.BNFCComputeMeansVariances, 6, (IntPtr)sizeof(int), inputNeurons.MiniBatchSize);
-                OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.BNFCComputeMeansVariances, 7, (IntPtr)sizeof(int), iCumulativeAverage);
+                OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.BNFCComputeMeansVariances, 7, (IntPtr)sizeof(int), Convert.ToInt32(isPreInference));
+                OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.BNFCComputeMeansVariances, 8, (IntPtr)sizeof(int), iCumulativeAverage);
                 OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.SetKernelArg");
 
                 OpenCLSpace.ClError = Cl.EnqueueNDRangeKernel(OpenCLSpace.Queue,
@@ -265,8 +281,8 @@ namespace JaNet
                 OpenCLSpace.ClError = Cl.ReleaseEvent(OpenCLSpace.ClEvent);
                 OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.ReleaseEvent");
 
-                // increase cumulative average counter
-                iCumulativeAverage++;
+                if (isPreInference)
+                    iCumulativeAverage++; // increase cumulative average counter
             }
 
             
@@ -275,16 +291,18 @@ namespace JaNet
             OpenCLSpace.ClError = Cl.SetKernelArg(OpenCLSpace.BNFCForward, 0, outputNeurons.ActivationsGPU);
             OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.BNFCForward, 1, normalizedInputGPU);
             OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.BNFCForward, 2, inputNeurons.ActivationsGPU);
-            if (isTraining)
+            if (isTraining || isPreInference)
             {
                 OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.BNFCForward, 3, meanGPU);
                 OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.BNFCForward, 4, varianceGPU);
             }
-            else
+            else if (isInference)
             {
                 OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.BNFCForward, 3, cumulativeMeanGPU);
                 OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.BNFCForward, 4, cumulativeVarianceGPU);
             }
+            else
+                throw new InvalidOperationException("ERROR: BatchNormConv is currently not in training mode, nor pre-inference, nor inference.");
             OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.BNFCForward, 5, gammaGPU);
             OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.BNFCForward, 6, betaGPU);
             OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.BNFCForward, 7, (IntPtr)sizeof(int), nInputUnits);

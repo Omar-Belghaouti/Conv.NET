@@ -367,7 +367,7 @@ namespace JaNet
 #endif
                 }
 #if OPENCL_ENABLED
-                initBiases[iRow] = 0.01f; // experiment with these
+                initBiases[iRow] = 0.00f; // experiment with these
 #else
                 biases[iRow] = 0.01;
 #endif

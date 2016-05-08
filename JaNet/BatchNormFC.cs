@@ -103,6 +103,8 @@ namespace JaNet
             OpenCLSpace.CheckErr(OpenCLSpace.ClError, "InitializeParameters(): Cl.CreateBuffer");
             OpenCLSpace.WipeBuffer(varianceGPU, nInputUnits, typeof(float));
 
+            // (initialize cumulative means to zero...)
+
             this.cumulativeMeanGPU = (Mem)Cl.CreateBuffer(OpenCLSpace.Context,
                                                             MemFlags.ReadWrite,
                                                             (IntPtr)(sizeof(float) * nInputUnits),
@@ -110,9 +112,14 @@ namespace JaNet
             OpenCLSpace.CheckErr(OpenCLSpace.ClError, "InitializeParameters(): Cl.CreateBuffer");
             OpenCLSpace.WipeBuffer(cumulativeMeanGPU, nInputUnits, typeof(float));
 
+            // (...and variances to one)
+            float[] ones = new float[nInputUnits];
+            for (int i = 0; i < nInputUnits; ++i)
+                ones[i] = 1.0f;
             this.cumulativeVarianceGPU = (Mem)Cl.CreateBuffer(OpenCLSpace.Context,
-                                                                MemFlags.ReadWrite,
+                                                                MemFlags.ReadWrite | MemFlags.CopyHostPtr,
                                                                 (IntPtr)(sizeof(float) * nInputUnits),
+                                                                ones,
                                                                 out OpenCLSpace.ClError);
             OpenCLSpace.CheckErr(OpenCLSpace.ClError, "InitializeParameters(): Cl.CreateBuffer");
             OpenCLSpace.WipeBuffer(cumulativeVarianceGPU, nInputUnits, typeof(float));
@@ -131,9 +138,6 @@ namespace JaNet
             // 3. Initialize OpenCL buffers for learnable parameters gamma and beta, their gradients, and their update speed.
             // Write ones in gammas and zeros in betas (identity function in the beginning). Write zeros in speeds.
 
-            float[] ones = new float[nInputUnits];
-            for (int i = 0; i < nInputUnits; ++i)
-                ones[i] = 1.0f;
             this.gammaGPU = (Mem)Cl.CreateBuffer(OpenCLSpace.Context,
                                                     MemFlags.ReadWrite | MemFlags.CopyHostPtr,
                                                     (IntPtr)(sizeof(float) * nInputUnits),
@@ -195,13 +199,13 @@ namespace JaNet
             this.optimalLocalWorkSizePtr = new IntPtr[] { (IntPtr)OpenCLSpace.OPTIMAL_GROUP_SIZE };
 
             // _____________________________________________________________________________________________________________________
-            // Global 1D worksize of size nInputUnits: Use for ComputeMeansVariances()
+            // Global 1D worksize of size nInputUnits: Use for ComputeMeansVariances() and UpdateParameters() 
 
             int smallestMultiple = (int)(OpenCLSpace.OPTIMAL_GROUP_SIZE * Math.Ceiling((double)(nInputUnits) / (double)OpenCLSpace.OPTIMAL_GROUP_SIZE));
             this.nUnitsGlobalWorkSizePtr = new IntPtr[] { (IntPtr)smallestMultiple };
 
             // _____________________________________________________________________________________________________________________
-            // Global 1D worksize of size 2*nInputUnits: Use for UpdateSpeeds() and UpdateParameters() 
+            // Global 1D worksize of size 2*nInputUnits: Use for UpdateSpeeds()
             this.nParametersGlobalWorkSizePtr = new IntPtr[] { (IntPtr)(2 * smallestMultiple) };
 
             // _____________________________________________________________________________________________________________________
@@ -226,13 +230,18 @@ namespace JaNet
             if (isEpochBeginning)
             {
                 iCumulativeAverage = 0;
+
+                // Wipe cumulative means and variances (no need actually: incorporated in kernel)
+                OpenCLSpace.WipeBuffer(cumulativeMeanGPU, nInputUnits, typeof(float));
+                OpenCLSpace.WipeBuffer(cumulativeVarianceGPU, nInputUnits, typeof(float));
+
                 isEpochBeginning = false;
             }
 
             // If training, compute means and variances, and update cumulative averages
             if (isTraining)
             {
-                OpenCLSpace.ClError  = Cl.SetKernelArg(OpenCLSpace.BNFCComputeMeansVariances, 0, meanGPU);
+                OpenCLSpace.ClError = Cl.SetKernelArg(OpenCLSpace.BNFCComputeMeansVariances, 0, meanGPU);
                 OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.BNFCComputeMeansVariances, 1, varianceGPU);
                 OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.BNFCComputeMeansVariances, 2, cumulativeMeanGPU);
                 OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.BNFCComputeMeansVariances, 3, cumulativeVarianceGPU);
@@ -259,6 +268,7 @@ namespace JaNet
                 // increase cumulative average counter
                 iCumulativeAverage++;
             }
+
             
             //Normalize input, scale and shift
 
@@ -417,9 +427,7 @@ namespace JaNet
             OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.Finish");
 
 
-#if DEBUGGING_STEPBYSTEP
-
-            /* ------------------------- DEBUGGING --------------------------------------------- */
+            /* ------------------------- DEBUGGING --------------------------------------------- 
 
             // Display gamma
             float[] gamma = new float[nInputUnits];
@@ -435,10 +443,10 @@ namespace JaNet
                                                         out OpenCLSpace.ClEvent);
             OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.clEnqueueReadBuffer");
 
-            Console.WriteLine("\nUpdated gammas are:\n");
+            Console.WriteLine("\n\nUpdated gammas are:\n");
             for (int i = 0; i < nInputUnits; i++)
                 Console.Write("{0}  ", gamma[i]);
-            Console.ReadKey();
+            //Console.ReadKey();
 
             // Display beta
             float[] beta = new float[nInputUnits];
@@ -461,7 +469,6 @@ namespace JaNet
 
 
             /* ------------------------- END DEBUGGING --------------------------------------------- */
-#endif
 
 #if TIMING_LAYERS
             Utils.BNFCUpdateParametersTimer.Stop();

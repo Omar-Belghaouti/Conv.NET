@@ -61,7 +61,7 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="BatchNormConv.cs" />
+    <Compile Include="BatchNormConv.cs" />
     <Compile Include="BatchNormFC.cs" />
     <Compile Include="ELU.cs" />
     <Compile Include="GradientChecker.cs" />

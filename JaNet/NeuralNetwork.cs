@@ -444,7 +444,7 @@ namespace JaNet
                         {
                             for (int l = 1; l < nLayers - 1; ++l)
                             {
-                                if (layers[l].Type == "BatchNormFC")
+                                if (layers[l].Type == "BatchNormFC" || layers[l].Type == "BatchNormConv")
                                     layers[l].IsEpochBeginning = true;
                             }
                         }
@@ -457,7 +457,7 @@ namespace JaNet
                     {
                         for (int l = 1; l < nLayers - 1; ++l)
                         {
-                            if (layers[l].Type == "BatchNormFC")
+                            if (layers[l].Type == "BatchNormFC" || layers[l].Type == "BatchNormConv")
                                 layers[l].IsTraining = (bool)value;
                         }
 

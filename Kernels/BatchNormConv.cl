@@ -130,11 +130,112 @@ BNConvForward(	__global float * output,
 
 /* ==================================================================================================================================== */
 
+/* BNCONVPARAMETERGRADIENTSBATCH()
+ * First step in computation of the gradients of loss function with respect to learnable parameters gamma and beta:
+ * Gradient is first cumulated over the mini-batch. In the next step it will be cumulated over the feature map.
+ */
+ 
+ // STEP 1
+ 
+__kernel void 
+BNConvParameterGradientsBatch(	__global float * deltaGammaBatch,
+								__global float * deltaBetaBatch,
+								__global float * deltaOutput,
+								__global float * normalizedInput,
+								const int inputVolume,
+								const int miniBatchSize
+				)
+{
+	// Global work size = number of units = inputVolume = nInputUnits
+	const int iUnit = get_global_id(0);
+	
+	if(iUnit < inputVolume)
+	{
+		float tmpGammaGrad = 0.0F;
+		float tmpBetaGrad = 0.0F;
+		
+		int iActivation = iUnit;
+		
+		for (int iExample = 0; iExample < miniBatchSize; iExample++)
+		{
+			tmpGammaGrad += deltaOutput[iActivation] * normalizedInput[iActivation];
+			tmpBetaGrad += deltaOutput[iActivation];
+			
+			iActivation += inputVolume;
+		}
+		
+		deltaGammaBatch[iUnit] = tmpGammaGrad;
+		deltaBetaBatch[iUnit] = tmpBetaGrad;
+	}
+}
+
+
+
+/* ==================================================================================================================================== */
+
+/* BNCONVUPDATESPEEDS()
+ * Computes gradients of loss function with respect to learnable parameters gamma and beta, cumulating deltaGammaStep1 and deltaBetaStep1
+ * over each feature map. This should be considerably faster than doing the sum in one step with few work items doing a lot of work.
+ * The gradients are then saved (needed in BackPropagate) and used to update parameter change speed.
+ */
+ 
+ // STEP 2
+ 
+__kernel void 
+BNConvUpdateSpeeds(	__global float * gammaSpeed,
+					__global float * betaSpeed,
+					__global float * deltaGamma,
+					__global float * deltaBeta,
+					__global float * deltaGammaBatch,
+					__global float * deltaBetaBatch,
+					const int inputDepth,
+					const int inputArea,
+					const float momCoeff,
+					const float learningRate
+				)
+{
+	// Global work size = number of feature maps = inputDepth
+	const int iFeatureMap = get_global_id(0);
+	
+	if(iFeatureMap < inputDepth)
+	{
+		int iMapBeginning = iFeatureMap * inputArea;
+		int iTmpGrad = 0;
+		
+		float gammaGrad = 0.0F;
+		float betaGrad = 0.0F;
+		
+		for (int iWithinMap = 0; iWithinMap < inputArea; iWithinMap++)
+		{
+			iTmpGrad = iMapBeginning + iWithinMap;
+			
+			gammaGrad += deltaGammaBatch[iTmpGrad];
+			betaGrad += deltaBetaBatch[iTmpGrad];
+		}
+		
+		// Save gradients
+		deltaGamma[iFeatureMap] = gammaGrad;
+		deltaBeta[iFeatureMap] = betaGrad;
+		
+		// And then update parameter update speeds
+		gammaSpeed[iFeatureMap] = (momCoeff * gammaSpeed[iFeatureMap]) - learningRate * gammaGrad;
+		betaSpeed[iFeatureMap] = (momCoeff * betaSpeed[iFeatureMap]) - learningRate * betaGrad;
+		
+	}
+}
+
+
+
+
+
+/* ==================================================================================================================================== */
+
 /* BNCONVUPDATESPEEDS()
  * Computes gradients of loss function with respect to learnable parameters gamma and beta.
  * The gradients are then saved and used to update parameter change speed.
- */
-
+ 
+ 
+ // ONESTEP (BACKUP... PROBABLY BUGGY!)
 __kernel void 
 BNConvUpdateSpeeds(	__global float * gammaSpeed,
 					__global float * betaSpeed,
@@ -157,6 +258,7 @@ BNConvUpdateSpeeds(	__global float * gammaSpeed,
 	{
 		if ( (i & 1) == 0) // even indices => gradient wrt gamma (this is the same as computing the modulo 2, but faster)
 		{
+			
 			int iFeatureMap = i /2; // retrieve correct index of parameter / feature map
 			int iMapBeginning = iFeatureMap * inputArea; // beginning of this map in example 0
 			int iActivation = 0;
@@ -165,11 +267,10 @@ BNConvUpdateSpeeds(	__global float * gammaSpeed,
 
 			for (int iExample = 0; iExample < miniBatchSize; iExample++)
 			{
-				iActivation = iMapBeginning;
-				
 				for (int iWithinMap = 0; iWithinMap < inputArea; iWithinMap++)
 				{
-					iActivation += iWithinMap;
+					iActivation = iMapBeginning + iWithinMap;
+					//gammaGrad += deltaOutput[iActivation] * normalizedInput[iActivation];
 					gammaGrad = fma(deltaOutput[iActivation], normalizedInput[iActivation], gammaGrad);
 				}
 				iMapBeginning += inputVolume;
@@ -181,6 +282,7 @@ BNConvUpdateSpeeds(	__global float * gammaSpeed,
 		}
 		else // odd indices => gradient wrt beta
 		{
+			
 			int iFeatureMap = i / 2; // retrieve correct index of parameter / feature map
 			int iMapBeginning = iFeatureMap * inputArea; // beginning of this map in example 0
 			
@@ -198,7 +300,9 @@ BNConvUpdateSpeeds(	__global float * gammaSpeed,
 			deltaBeta[iFeatureMap] = betaGrad;
 			// And then update parameter update speed
 			betaSpeed[iFeatureMap] = (momCoeff * betaSpeed[iFeatureMap]) - learningRate * betaGrad;
+			
 		}
+		
 	}
 }
 
@@ -212,10 +316,10 @@ BNConvUpdateSpeeds(	__global float * gammaSpeed,
 
 __kernel void 
 BNConvUpdateParameters(	__global float * gamma,
-					__global float * beta,
-					__constant float * gammaSpeed,
-					__constant float * betaSpeed,
-					const int nFeatureMaps
+						__global float * beta,
+						__constant float * gammaSpeed,
+						__constant float * betaSpeed,
+						const int nFeatureMaps
 						)
 {
 	// Global work size = inputDepth
@@ -260,7 +364,7 @@ BNConvBackPropagate(__global float * deltaInput,
 		
 		// See backprop expression for how deltaX is computed...
 		
-		tmpDeltaX = miniBatchSize * deltaOutput[iActivation] - deltaBeta[iFeatureMap] - deltaGamma[iFeatureMap] * normalizedInput[iActivation];
+		tmpDeltaX = miniBatchSize * inputArea * deltaOutput[iActivation] - deltaBeta[iFeatureMap] - deltaGamma[iFeatureMap] * normalizedInput[iActivation];
 		tmpDeltaX *= native_divide(gamma[iFeatureMap] * native_rsqrt(variance[iFeatureMap] + EPSILON), (miniBatchSize*inputArea) ); 
 		
 		// Write gradient

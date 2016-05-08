@@ -125,6 +125,7 @@ namespace JaNet
         // BatchNormConv layer
         public static Kernel BNConvComputeMeansVariances;
         public static Kernel BNConvForward;
+        public static Kernel BNConvParameterGradientsBatch;
         public static Kernel BNConvUpdateSpeeds;
         public static Kernel BNConvUpdateParameters;
         public static Kernel BNConvBackPropagate;
@@ -232,7 +233,7 @@ namespace JaNet
 
             //Compile kernel source
             ClError = Cl.BuildProgram(clProgram, 1, new[] { device }, string.Empty, null, IntPtr.Zero);
-            CheckErr(ClError, "CL.LoadAndBuildKernel: Cl.BuildProgram " + kernelName);
+            CheckErr(ClError, "CL.LoadAndBuildKernel: Cl.BuildProgram " + kernelFilePath);
 
             //Check for any compilation errors
             if (Cl.GetProgramBuildInfo(clProgram, device, ProgramBuildInfo.Status, out ClError).CastTo<BuildStatus>()
@@ -298,9 +299,10 @@ namespace JaNet
             BNFCUpdateParameters = LoadAndBuildKernel(kernelsPath + "/BatchNormFC.cl", "BNFCUpdateParameters");
             BNFCBackPropagate = LoadAndBuildKernel(kernelsPath + "/BatchNormFC.cl", "BNFCBackPropagate");
 
-            // ...following Conv
+            // BatchNormConv
             BNConvComputeMeansVariances = LoadAndBuildKernel(kernelsPath + "/BatchNormConv.cl", "BNConvComputeMeansVariances");
             BNConvForward = LoadAndBuildKernel(kernelsPath + "/BatchNormConv.cl", "BNConvForward");
+            BNConvParameterGradientsBatch = LoadAndBuildKernel(kernelsPath + "/BatchNormConv.cl", "BNConvParameterGradientsBatch");
             BNConvUpdateSpeeds = LoadAndBuildKernel(kernelsPath + "/BatchNormConv.cl", "BNConvUpdateSpeeds");
             BNConvUpdateParameters = LoadAndBuildKernel(kernelsPath + "/BatchNormConv.cl", "BNConvUpdateParameters");
             BNConvBackPropagate = LoadAndBuildKernel(kernelsPath + "/BatchNormConv.cl", "BNConvBackPropagate");

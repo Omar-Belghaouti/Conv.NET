@@ -8,6 +8,7 @@ namespace JaNet
 {
 #if OPENCL_ENABLED
 
+    [Serializable]
     class BatchNormConv : Layer
     {
 
@@ -97,7 +98,7 @@ namespace JaNet
             this.outputNeurons = new Neurons(nOutputUnits);
         }
 
-        public override void InitializeParameters()
+        public override void InitializeParameters(string Option)
         {
             this.iCumulativeAverage = 0;
             this.isEpochBeginning = true;
@@ -255,6 +256,12 @@ namespace JaNet
             this.nUnitsGlobalWorkSizePtr = new IntPtr[] { (IntPtr)smallestMultiple };
 
             
+        }
+
+
+        public override void CopyBuffersToHost()
+        {
+
         }
 
         #endregion

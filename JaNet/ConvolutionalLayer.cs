@@ -8,6 +8,7 @@ using OpenCL.Net;
 
 namespace JaNet
 {
+    [Serializable]
     class ConvolutionalLayer : Layer
     {
         
@@ -25,18 +26,28 @@ namespace JaNet
         private int unpaddedVolume;
         private int paddedVolume;
 
-        
+        // Host
 
-#if OPENCL_ENABLED
-        
+        private float[] weightsHost;
+        private float[] biasesHost;
+
+        // Device
+
+        [NonSerialized]
         private Mem paddedInputBatchGPU;
+        [NonSerialized]
         private Mem paddingLookupTableGPU;
+        [NonSerialized]
         private Mem recFieldsLookupTableGPU;
 
+        [NonSerialized]
         private Mem weightsGPU;
+        [NonSerialized]
         private Mem biasesGPU;
 
+        [NonSerialized]
         private Mem weightsSpeedGPU;
+        [NonSerialized]
         private Mem biasesSpeedGPU;
 
         // Global and local work-group sizes (for OpenCL kernels) - will be set in SetWorkGroupSizes();
@@ -52,21 +63,6 @@ namespace JaNet
 
         private IntPtr[] updateParametersGlobalWorkSizePtr;
         private IntPtr[] updateParametersLocalWorkSizePtr;
-
-#else
-        private List<double[]> paddedInput; // dimension [inputD * (inputH + 2*padding) * (inutW + 2*padding)]
-        private int[,] lookupTable; // dimension [receptiveFieldSize , nReceptiveFields] = [inputDepth*filterSize^2 , outputWidth*outputHeight]
-        
-
-        private double[,] weights; // dimension [nFilters , inputDepth*filterSize^2]
-        private double[] biases; // dimension [nFilters , 1]
-
-        private double[,] weightsGradients;
-        private double[] biasesGradients;
-
-        private double[,] weightsUpdateSpeed; // dimension [nFilters , inputDepth*filterSize^2]
-        private double[] biasesUpdateSpeed; // dimension [nFilters , 1]
-#endif
 
         #endregion
 
@@ -125,8 +121,8 @@ namespace JaNet
         {
             this.type = "Convolutional";
 
-            if (FilterSize % 2 != 1)
-                throw new ArgumentException("Only odd filter size is supported.");
+            //if (FilterSize % 2 != 1)
+            //    throw new ArgumentException("Only odd filter size is supported."); // ...why should it?
             this.filterSize = FilterSize;
             this.nFilters = nOfFilters;
             this.strideLength = StrideLength;
@@ -145,7 +141,7 @@ namespace JaNet
             // Check if parameters fit
             double tmp = (double)(inputWidth - filterSize + 2 * zeroPadding) / (double)strideLength + 1;
             if (Math.Abs(tmp % 1) > Global.EPSILON) 
-                throw new System.ArgumentException("Input size, filter size, padding and stride length do not fit well (non-integer output size).");
+                throw new System.ArgumentException("Output size is non-integer. Check input size, filter size, padding and stride.");
             this.outputWidth = (int)tmp;
             this.outputHeight = (int)tmp;
             this.outputDepth = nFilters;
@@ -159,8 +155,6 @@ namespace JaNet
             this.unpaddedVolume = inputDepth * inputHeight * inputWidth;
             this.paddedVolume = inputDepth * (inputHeight + 2 * zeroPadding) * (inputWidth + 2 * zeroPadding);
 
-
-#if OPENCL_ENABLED
             // Initialize auxiliary structures  __________________________________________________________________________________________ 
 
             if (zeroPadding > 0)
@@ -266,16 +260,6 @@ namespace JaNet
 
             OpenCLSpace.ClError = Cl.Finish(OpenCLSpace.Queue);
             OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.Finish");
-#else
-            // Cpu code
-
-            this.paddedInput = new List<double[]>();
-            for (int m = 0; m < inputNeurons.MiniBatchSize; m++)
-                paddedInput.Add(new double[paddedInputSize]);
-
-            this.lookupTable = new int[receptiveFieldSize, nReceptiveFields];
-            this.lookupTable = CreateLookupTableCPU();
-#endif
         }
 
 
@@ -343,48 +327,41 @@ namespace JaNet
 
 
 
-        public override void InitializeParameters()
+        public override void InitializeParameters(string Option)
         {
-            // Initialize weigths as normally distributed numbers with mean 0 and std equals to 1/sqrt(numberOfInputUnits)
-            // Initialize biases as small positive numbers, e.g. 0.01
 
-#if OPENCL_ENABLED
-            float[,] initWeights = new float[nFilters, receptiveFieldSize];
-            float[] initBiases = new float[nFilters];
-#else
-            this.weights = new double[nFilters, receptiveFieldSize];
-            this.biases = new double[nFilters];
-#endif
 
-            double weightsStdDev = Math.Sqrt(2.0 / (filterSize * filterSize * inputDepth));
-            double uniformRand1;
-            double uniformRand2;
-            double tmp;
-
-            for (int iRow = 0; iRow < nFilters; iRow++)
+            if (Option == "random") // sample new parameters
             {
-                for (int iCol = 0; iCol < receptiveFieldSize; iCol++)
+                //  WEIGHTS are initialized as normally distributed numbers with mean 0 and std equals to 2/sqrt(filterSize * filterSize * inputDepth)
+                //  BIASES are initialized to a small positive number, e.g. 0.001
+
+                this.weightsHost = new float[nFilters * receptiveFieldSize];
+                this.biasesHost = new float[nFilters];
+
+
+                double weightsStdDev = Math.Sqrt(2.0 / (filterSize * filterSize * inputDepth));
+                double uniformRand1;
+                double uniformRand2;
+                double tmp;
+
+                for (int iRow = 0; iRow < nFilters; iRow++)
                 {
-                    uniformRand1 = Global.rng.NextDouble();
-                    uniformRand2 = Global.rng.NextDouble();
-                    // Use a Box-Muller transform to get a random normal(0,1)
-                    tmp = Math.Sqrt(-2.0 * Math.Log(uniformRand1)) * Math.Sin(2.0 * Math.PI * uniformRand2);
-                    tmp = weightsStdDev * tmp; // rescale using stdDev
-#if OPENCL_ENABLED
-                    initWeights[iRow, iCol] = (float)tmp;
-#else
-                    weights[iRow, iCol] = tmp;
-#endif
+                    for (int iCol = 0; iCol < receptiveFieldSize; iCol++)
+                    {
+                        uniformRand1 = Global.rng.NextDouble();
+                        uniformRand2 = Global.rng.NextDouble();
+                        // Use a Box-Muller transform to get a random normal(0,1)
+                        tmp = Math.Sqrt(-2.0 * Math.Log(uniformRand1)) * Math.Sin(2.0 * Math.PI * uniformRand2);
+                        tmp *= weightsStdDev; // rescale using stdDev
+
+                        weightsHost[iRow * receptiveFieldSize + iCol] = (float)tmp;
+                    }
+                    biasesHost[iRow] = 0.001f; // experiment with these
                 }
-#if OPENCL_ENABLED
-                initBiases[iRow] = 0.00f; // experiment with these
-#else
-                biases[iRow] = 0.01;
-#endif
             }
+            // else Option must be ''load'' => do not sample parameters, just load them from host to device
 
-
-#if OPENCL_ENABLED
             // Create weights and biases buffers and copy initial values
 
             int weightBufferSize = sizeof(float) * (nFilters * receptiveFieldSize);
@@ -393,42 +370,72 @@ namespace JaNet
             this.weightsGPU = (Mem)Cl.CreateBuffer( OpenCLSpace.Context,
                                                     MemFlags.ReadWrite | MemFlags.CopyHostPtr,
                                                     (IntPtr)weightBufferSize,
-                                                    initWeights,
+                                                    weightsHost,
                                                     out OpenCLSpace.ClError);
+            OpenCLSpace.CheckErr(OpenCLSpace.ClError, "InitializeParameters(): Cl.CreateBuffer");
+
             this.biasesGPU = (Mem)Cl.CreateBuffer(  OpenCLSpace.Context,
                                                     MemFlags.ReadWrite | MemFlags.CopyHostPtr,
                                                     (IntPtr)biasesBufferSize,
-                                                    initBiases,
+                                                    biasesHost,
                                                     out OpenCLSpace.ClError);
+            OpenCLSpace.CheckErr(OpenCLSpace.ClError, "InitializeParameters(): Cl.CreateBuffer");
 
-            // Also create weightsSpeed and biasesSpeed buffers, without copying anything.
-            // This USUALLY means they're initialized to zeros...
-
+            // Also create weightsSpeed and biasesSpeed buffers and initialize them to zero
             this.weightsSpeedGPU = (Mem)Cl.CreateBuffer(OpenCLSpace.Context,
                                                         MemFlags.ReadWrite,
                                                         (IntPtr)weightBufferSize,
                                                         out OpenCLSpace.ClError);
+            OpenCLSpace.CheckErr(OpenCLSpace.ClError, "InitializeParameters(): Cl.CreateBuffer");
+            OpenCLSpace.WipeBuffer(weightsSpeedGPU, nFilters * receptiveFieldSize, typeof(float));
+
             this.biasesSpeedGPU = (Mem)Cl.CreateBuffer( OpenCLSpace.Context,
                                                         MemFlags.ReadWrite,
                                                         (IntPtr)biasesBufferSize,
                                                         out OpenCLSpace.ClError);
             OpenCLSpace.CheckErr(OpenCLSpace.ClError, "InitializeParameters(): Cl.CreateBuffer");
-
-            // ...but better make extra sure and enforce this.
-            OpenCLSpace.WipeBuffer(weightsSpeedGPU, nFilters * receptiveFieldSize, typeof(float));
             OpenCLSpace.WipeBuffer(biasesSpeedGPU, nFilters, typeof(float));
-
-#else
-
-            this.weightsUpdateSpeed = new double[nFilters, receptiveFieldSize]; // zeors
-            this.biasesUpdateSpeed = new double[nFilters]; // zeros
-
-            this.weightsGradients = new double[nFilters, receptiveFieldSize];
-            this.biasesGradients = new double[nFilters];
-#endif
-
-
+            
         }
+
+
+        public override void CopyBuffersToHost()
+        {
+            OpenCLSpace.ClError = Cl.EnqueueReadBuffer( OpenCLSpace.Queue,
+                                                        weightsGPU, // source
+                                                        Bool.True,
+                                                        (IntPtr)0,
+                                                        (IntPtr)(sizeof(float) * nFilters * receptiveFieldSize),
+                                                        weightsHost,  // destination
+                                                        0,
+                                                        null,
+                                                        out OpenCLSpace.ClEvent);
+            OpenCLSpace.CheckErr(OpenCLSpace.ClError, "clEnqueueReadBuffer weightsGPU");
+
+            OpenCLSpace.ClError = Cl.ReleaseEvent(OpenCLSpace.ClEvent);
+            OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.ReleaseEvent");
+
+            OpenCLSpace.ClError = Cl.EnqueueReadBuffer(OpenCLSpace.Queue,
+                                                        biasesGPU, // source
+                                                        Bool.True,
+                                                        (IntPtr)0,
+                                                        (IntPtr)(sizeof(float) * nFilters),
+                                                        biasesHost,  // destination
+                                                        0,
+                                                        null,
+                                                        out OpenCLSpace.ClEvent);
+            OpenCLSpace.CheckErr(OpenCLSpace.ClError, "clEnqueueReadBuffer biasesGPU");
+
+            OpenCLSpace.ClError = Cl.ReleaseEvent(OpenCLSpace.ClEvent);
+            OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.ReleaseEvent");
+
+
+            OpenCLSpace.ClError = Cl.Finish(OpenCLSpace.Queue);
+            OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.Finish");
+
+            // Speeds are not saved.
+        }
+
 
         #endregion
 

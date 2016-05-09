@@ -7,7 +7,7 @@ using OpenCL.Net;
 
 namespace JaNet
 {
-
+    [Serializable]
     class SoftMax : Layer
     {
         #region Fields

@@ -63,6 +63,7 @@
   <ItemGroup>
     <Compile Include="BatchNormConv.cs" />
     <Compile Include="BatchNormFC.cs" />
+    <Compile Include="BinarySerialization.cs" />
     <Compile Include="ELU.cs" />
     <Compile Include="GradientChecker.cs" />
     <Compile Include="OpenCLSpace.cs" />

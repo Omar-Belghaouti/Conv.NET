@@ -7,6 +7,7 @@ using OpenCL.Net;
 
 namespace JaNet
 {
+    [Serializable]
     public class Neurons
     {
         // CLEAN 
@@ -17,7 +18,10 @@ namespace JaNet
         private int miniBatchSize;
 
 #if OPENCL_ENABLED
+        [NonSerialized]
         private Mem activationsGPU;
+
+        [NonSerialized]
         private Mem deltaGPU;
 #else
         private List<double[]> activations;
@@ -41,7 +45,6 @@ namespace JaNet
         }
 
 #if OPENCL_ENABLED
-
         public Mem ActivationsGPU 
         { 
             get { return this.activationsGPU; }

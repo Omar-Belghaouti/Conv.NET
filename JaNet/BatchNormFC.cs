@@ -8,6 +8,7 @@ namespace JaNet
 {
 #if OPENCL_ENABLED
 
+    [Serializable]
     class BatchNormFC : Layer
     {
 
@@ -92,7 +93,7 @@ namespace JaNet
             this.outputNeurons = new Neurons(nOutputUnits);
         }
 
-        public override void InitializeParameters()
+        public override void InitializeParameters(string Option)
         {
             this.iCumulativeAverage = 0;
             this.isEpochBeginning = true;

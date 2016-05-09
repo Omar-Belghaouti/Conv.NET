@@ -30,6 +30,27 @@ namespace JaNet
 
     static class Utils
     {
+        public static void SaveNetworkToFile(NeuralNetwork Network, string OutputFilePath)
+        {
+            
+            // First prepare network for saving (copy all buffers to managed structures)
+            for (int l = 1; l < Network.NumberOfLayers; l++)
+            {
+                Network.Layers[l].CopyBuffersToHost();
+            }
+
+            BinarySerialization.WriteToBinaryFile<NeuralNetwork>(OutputFilePath + Network.Name + ".bin", Network);
+        
+        }
+
+
+        public static NeuralNetwork LoadNetworkFromFile(string InputFilePath, string networkName)
+        {
+            return BinarySerialization.ReadFromBinaryFile<NeuralNetwork>(InputFilePath + networkName + ".bin");
+        }
+
+
+
 
 #if TIMING_LAYERS
 

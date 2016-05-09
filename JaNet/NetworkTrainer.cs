@@ -24,17 +24,23 @@ namespace JaNet
         private bool earlyStopping;
         private double dropoutFC;
         private int epochsBeforeRegularization;
+        private int patience;
 
         // Losses/Errors
         private double lossTraining;
-        private double lossValidation;
+        private double minLossValidation = double.PositiveInfinity;
+        private double newLossValidation;
         private double errorTraining;
         private double errorValidation;
+        private double newErrorValidation;
+        
+        // auxiliary fields
+        private int nBadEpochs = 0;
 
         // Paths for saving data
         private string trainingEpochSavePath;
         private string validationEpochSavePath;
-        private string testEpochSavePath;
+        private string networkOutputFilePath;
 
         #endregion
 
@@ -103,7 +109,7 @@ namespace JaNet
 
         public double LossValidation
         {
-            get { return lossValidation; }
+            get { return minLossValidation; }
         }
 
         public double ErrorTraining
@@ -132,16 +138,6 @@ namespace JaNet
             set { dropoutFC = value; }
         }
 
-        //public bool SaveIters
-        //{
-        //    set { saveIters = value; }
-        //}
-
-        //public string TrainingIterSavePath
-        //{
-        //    set { trainingIterSavePath = value; }
-        //}
-
         public string TrainingEpochSavePath
         {
             set { trainingEpochSavePath = value; }
@@ -152,18 +148,22 @@ namespace JaNet
             set { validationEpochSavePath = value; }
         }
 
-        public string TestEpochSavePath
+        public string NetworkOutputFilePath
         {
-            set { testEpochSavePath = value; }
+            set { networkOutputFilePath = value; }
+        }
+
+        public int Patience
+        {
+            set { patience = value; }
         }
 
         #endregion
 
 
-        public void Train(NeuralNetwork network, DataSet trainingSet, DataSet validationSet, DataSet testSet)
+        public void Train(NeuralNetwork network, DataSet trainingSet, DataSet validationSet)
         {
-            // Setup network before training
-            network.Set("MiniBatchSize", this.miniBatchSize);
+            // Set dropout
             network.Set("DropoutFC", this.dropoutFC);
 
             Sequence indicesSequence = new Sequence(trainingSet.Size);
@@ -171,22 +171,20 @@ namespace JaNet
 
             NetworkEvaluator networkEvaluator = new NetworkEvaluator();
 
-            // Timing
+            // Timers
             Stopwatch stopwatch = Stopwatch.StartNew();
             Stopwatch stopwatchFwd = Stopwatch.StartNew();
             Stopwatch stopwatchGrad = Stopwatch.StartNew();
             Stopwatch stopwatchBwd = Stopwatch.StartNew();
 
             int epoch = 0;
-            int epochsRemainingToOutput = (evaluateBeforeTraining == true) ? 0 : consoleOutputLag;
             bool stopFlag = false;
+            int epochsRemainingToOutput = (evaluateBeforeTraining == true) ? 0 : consoleOutputLag;
+            
 
-            //using (System.IO.StreamWriter iterOutputFile = new System.IO.StreamWriter(trainingIterSavePath, true))
-            //{
             while (epoch < maxTrainingEpochs && !stopFlag) // loop over training epochs
             {
-                // Epoch beginning
-
+                
                 if (epochsRemainingToOutput == 0)
                 {
                     /**************
@@ -194,8 +192,8 @@ namespace JaNet
                      **************/
 
                     // Pre-inference pass: Computes cumulative averages in BatchNorm layers (needed for evaluation)
-                    network.Set("PreInference", true);
-                    networkEvaluator.PreEvaluateNetwork(network, trainingSet);
+                    //network.Set("PreInference", true);
+                    //networkEvaluator.PreEvaluateNetwork(network, trainingSet);
             
 
                     // Evaluate on training set...
@@ -205,7 +203,7 @@ namespace JaNet
                     networkEvaluator.EvaluateNetwork(network, trainingSet, out lossTraining, out errorTraining);
                     Console.WriteLine("\tLoss = {0}\n\tError = {1}\n\tEval runtime = {2}ms\n",
                                         lossTraining, errorTraining, stopwatch.ElapsedMilliseconds);
-                    // ...and save to file
+                    // ...and save loss and error to file
                     using (System.IO.StreamWriter trainingEpochOutputFile = new System.IO.StreamWriter(trainingEpochSavePath, true))
                     {
                         trainingEpochOutputFile.WriteLine(lossTraining.ToString() + "\t" + errorTraining.ToString());
@@ -214,55 +212,46 @@ namespace JaNet
                     // Evaluate on validation set...
                     if (validationSet != null)
                     {
-                        double tmpErrorValidation;
+                        NetworkEvaluator anotherNetworkEvaluator = new NetworkEvaluator();
+
                         Console.WriteLine("Evaluating on VALIDATION set...");
                         stopwatch.Restart();
-                        networkEvaluator.EvaluateNetwork(network, validationSet, out lossValidation, out tmpErrorValidation);
+                        anotherNetworkEvaluator.EvaluateNetwork(network, validationSet, out newLossValidation, out newErrorValidation);
                         Console.WriteLine("\tLoss = {0}\n\tError = {1}\n\tEval runtime = {2}ms\n",
-                                            lossValidation, tmpErrorValidation, stopwatch.ElapsedMilliseconds);
-                        // ...and save to file
+                                            newLossValidation, newErrorValidation, stopwatch.ElapsedMilliseconds);
+                        // ...save loss and error to file
                         using (System.IO.StreamWriter validationEpochOutputFile = new System.IO.StreamWriter(validationEpochSavePath, true))
                         {
-                            validationEpochOutputFile.WriteLine(lossValidation.ToString() + "\t" + tmpErrorValidation.ToString());
+                            validationEpochOutputFile.WriteLine(newLossValidation.ToString() + "\t" + newErrorValidation.ToString());
                         }
 
-                        if (tmpErrorValidation < errorValidation || !earlyStopping)
+                        if (newLossValidation < minLossValidation)
                         {
-                            errorValidation = tmpErrorValidation;
-                            // TODO: save a (deep) copy of current network, with all parameters
+                            // nice, validation loss is decreasing!
+                            minLossValidation = newLossValidation;
+                            errorValidation = newErrorValidation;
+
+                            // Save network to file
+                            Utils.SaveNetworkToFile(network, networkOutputFilePath);
+
+                            // and keep training
+                            nBadEpochs = 0;
                         }
                         else
                         {
-                            Console.WriteLine("Classification error on the validation set started increasing. Stopping training.");
-                            stopFlag = true;
-                            break;
-                        }
-
-                        if (errorValidation < errorTolerance)
-                        {
-                            Console.WriteLine("Classification error is below tolerance. Stopping training.");
-                            stopFlag = true;
-                            break;
-                        }
-                    }
-
-                    // Evaluate on test set (workaround....)
-                    if (testSet != null)
-                    {
-                        double lossTest, errorTest;
-                        Console.WriteLine("Evaluating on TEST set...");
-                        stopwatch.Restart();
-                        networkEvaluator.EvaluateNetwork(network, testSet, out lossTest, out errorTest);
-                        Console.WriteLine("\tLoss = {0}\n\tError = {1}\n\tEval runtime = {2}ms\n",
-                                            lossTest, errorTest, stopwatch.ElapsedMilliseconds);
-                        // ...and save to file
-                        using (System.IO.StreamWriter testEpochOutputFile = new System.IO.StreamWriter(testEpochSavePath, true))
-                        {
-                            testEpochOutputFile.WriteLine(lossTest.ToString() + "\t" + errorTest.ToString());
+                            nBadEpochs++;
+                            Console.WriteLine("Loss on the validation set has been increasing for {0} epoch(s)...", nBadEpochs);
+                            if (patience - nBadEpochs > 0)
+                                Console.WriteLine("...I'll be patient for {0} more epoch(s)!", patience - nBadEpochs); // keep training
+                            else
+                            {
+                                Console.WriteLine("...and I've run out of patience! Training ends here.");
+                                stopFlag = true;
+                                break;
+                            }
                         }
                     }
 
-                    
                     // Restore dropout
                     network.Set("DropoutFC", dropoutFC);
 
@@ -271,8 +260,8 @@ namespace JaNet
                 epochsRemainingToOutput--;
 
                 /************
-                    * Training *
-                    ************/
+                * Training *
+                ************/
 
                 network.Set("Training", true);
                 network.Set("EpochBeginning", true);
@@ -299,17 +288,6 @@ namespace JaNet
                     stopwatchFwd.Start();
                     network.ForwardPass();
                     stopwatchFwd.Stop();
-
-                    /*
-                    if (saveIters)
-                    {
-                        // Compute loss and error on this mini-batch and save to text file
-                        double lossBatch;
-                        double errorBatch;
-                        networkEvaluator.ComputeBatchLossError(network, trainingSet, miniBatch, out lossBatch, out errorBatch);
-                        iterOutputFile.WriteLine(lossBatch.ToString() + "\t" + errorBatch.ToString());
-                    }
-                    */
 
                     // Compute gradient and backpropagate 
                     stopwatchGrad.Start();

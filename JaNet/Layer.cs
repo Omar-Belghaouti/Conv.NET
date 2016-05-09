@@ -12,6 +12,7 @@ namespace JaNet
     /// <summary>
     /// Base layer class. All other layers will inherit from this.
     /// </summary>
+    [Serializable]
     public abstract class Layer
     {
 
@@ -189,11 +190,11 @@ namespace JaNet
         /// <summary>
         /// Initialize layer parameters. Layer type-specific.
         /// </summary>
-        public virtual void InitializeParameters()
+        public virtual void InitializeParameters(string Option)
         {
             // Base class: just make sure output neurons exist (i.e. this method is called AFTER method ConnectTo() )
             if (outputNeurons == null)
-                throw new MissingFieldException("Cannot call InitializeParameters() if parameters do not exist yet! Make sure layer has been connected.");
+                throw new MissingFieldException("Cannot call InitializeParameters(). Layer has not been connected yet.");
         }
 
         /// <summary>
@@ -204,7 +205,11 @@ namespace JaNet
             // Implementation is layer type-specific.
         }
 
-        
+
+        public virtual void CopyBuffersToHost()
+        {
+
+        }
 
         #endregion
 

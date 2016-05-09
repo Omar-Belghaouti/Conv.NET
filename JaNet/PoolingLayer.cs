@@ -7,6 +7,7 @@ using OpenCL.Net;
 
 namespace JaNet
 {
+    [Serializable]
     class MaxPooling : Layer
     {
         #region Fields
@@ -15,7 +16,9 @@ namespace JaNet
         private int stride;
 
 #if OPENCL_ENABLED
+        [NonSerialized]
         private Mem poolingTableGPU;
+        [NonSerialized]
         private Mem switchesGPU;
 
         private IntPtr[] globalWorkSizePtr;

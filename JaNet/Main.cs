@@ -36,22 +36,26 @@ namespace JaNet
              * OPTIONS:
              * ConvolutionalLayer(filterSize, numberOfFilters, strideLength, zeroPadding)
              * FullyConnectedLayer(numberOfUnits)
-             * Tanh(beta)
+             * MaxPooling(2, 2)
              * ReLU()
+             * ELU(alpha)
              * SoftMax()
              ****************************************************/
+
             Console.WriteLine("\n=========================================");
             Console.WriteLine("    Neural network creation");
             Console.WriteLine("=========================================\n");
 
+            
             NeuralNetwork network = new NeuralNetwork();
-
+            network.Name = "myNetwork1";
+             
             network.AddLayer(new InputLayer(1, 32, 32));
 
-            network.AddLayer(new ConvolutionalLayer(5, 16, 1, 0));
+            network.AddLayer(new ConvolutionalLayer(5, 32, 1, 0));
             //network.AddLayer(new BatchNormConv());
-            //network.AddLayer(new ReLU());
-            network.AddLayer(new ELU(1.0f));
+            network.AddLayer(new ReLU());
+            //network.AddLayer(new ELU(1.0f));
 
             //network.AddLayer(new ConvolutionalLayer(5, 16, 1, 1));
             //network.AddLayer(new BatchNormConv());
@@ -59,10 +63,10 @@ namespace JaNet
             
             network.AddLayer(new MaxPooling(2, 2));
 
-            network.AddLayer(new ConvolutionalLayer(3, 32, 1, 0));
+            network.AddLayer(new ConvolutionalLayer(3, 64, 1, 0));
             //network.AddLayer(new BatchNormConv());
-            //network.AddLayer(new ReLU());
-            network.AddLayer(new ELU(1.0f));
+            network.AddLayer(new ReLU());
+            //network.AddLayer(new ELU(1.0f));
 
             //network.AddLayer(new ConvolutionalLayer(3, 32, 1, 1));
             //network.AddLayer(new BatchNormConv());
@@ -73,12 +77,17 @@ namespace JaNet
 
             network.AddLayer(new FullyConnectedLayer(128));
             //network.AddLayer(new BatchNormFC());
-            //network.AddLayer(new ReLU());
-            network.AddLayer(new ELU(1.0f));
+            network.AddLayer(new ReLU());
+            //network.AddLayer(new ELU(1.0f));
             
             network.AddLayer(new FullyConnectedLayer(43));
             network.AddLayer(new SoftMax());
 
+
+            network.Set("MiniBatchSize", 32);
+            network.InitializeParameters("random");
+              
+            
 
 
             /*****************************************************
@@ -159,39 +168,50 @@ namespace JaNet
             Console.WriteLine("=========================================\n");
 
 
-
             NetworkTrainer networkTrainer = new NetworkTrainer();
 
             networkTrainer.LearningRate = 0.005;
             networkTrainer.MomentumMultiplier = 0.9;
             networkTrainer.WeightDecayCoeff = 0.0001;
-            networkTrainer.MaxTrainingEpochs = 20;
+            networkTrainer.MaxTrainingEpochs = 50;
             networkTrainer.EpochsBeforeRegularization = 0;
             networkTrainer.MiniBatchSize = 32;
-            networkTrainer.ErrorTolerance = 0.0;
             networkTrainer.ConsoleOutputLag = 1; // 1 = print every epoch, N = print every N epochs
             networkTrainer.EvaluateBeforeTraining = true;
-            networkTrainer.EarlyStopping = false;
-            networkTrainer.DropoutFullyConnected = 0.6;
+            networkTrainer.DropoutFullyConnected = 0.5;
+            networkTrainer.Patience = 5;
 
             // Set output files save paths
             string trainingSavePath = @"C:\Users\jacopo\Dropbox\Chalmers\MSc thesis\Results\LossError\";
-            string testSavePath = @"C:\Users\jacopo\Dropbox\Chalmers\MSc thesis\Results\LossError\";
             networkTrainer.TrainingEpochSavePath = trainingSavePath + "trainingEpochs.txt";
             networkTrainer.ValidationEpochSavePath = trainingSavePath + "validationEpochs.txt";
-            networkTrainer.TestEpochSavePath = testSavePath + "testEpochs.txt";
 
-            networkTrainer.Train(network, trainingSet, validationSet, testSet);
-            //networkTrainer.Train(network, testSet, null, null);
+            networkTrainer.NetworkOutputFilePath = @"C:\Users\jacopo\Dropbox\Chalmers\MSc thesis\Results\Networks\";
+             
+            
+            networkTrainer.Train(network, trainingSet, validationSet);
+            //networkTrainer.Train(network, testSet, validationSet);
+            
 
             /*****************************************************
              * (4) Test network
              ****************************************************/
-            
+            Console.WriteLine("\nFINAL EVALUATION:");
+
+            //string summaryFilePath = @"C:\Users\jacopo\Dropbox\Chalmers\MSc thesis\Results\Summaries\";
+
+            // Load best network from file
+
+            NeuralNetwork bestNetwork = Utils.LoadNetworkFromFile(@"C:\Users\jacopo\Dropbox\Chalmers\MSc thesis\Results\Networks\", network.Name);
+            network.Set("MiniBatchSize", 32); // this SHOULDN'T matter!
+            network.InitializeParameters("load");
+
             NetworkEvaluator networkEvaluator = new NetworkEvaluator();
             double loss;
             double error;
-            Console.WriteLine("\nFinal evaluation:");
+
+            networkEvaluator.EvaluateNetwork(network, trainingSet, out loss, out error);
+            Console.WriteLine("\nValidation set:\n\tLoss = {0}\n\tError = {1}", loss, error);
 
             networkEvaluator.EvaluateNetwork(network, validationSet, out loss, out error);
             Console.WriteLine("\nValidation set:\n\tLoss = {0}\n\tError = {1}", loss, error);
@@ -204,7 +224,8 @@ namespace JaNet
 #endif
             
             // Save filters of first conv layer
-            Utils.SaveFilters(network, @"C:\Users\jacopo\Dropbox\Chalmers\MSc thesis\Results\Filters\firstLayerFilters.txt");
+            Utils.SaveFilters(bestNetwork, @"C:\Users\jacopo\Dropbox\Chalmers\MSc thesis\Results\Filters\" + network.Name + "_filters.txt");
+        
         }
     }
 }

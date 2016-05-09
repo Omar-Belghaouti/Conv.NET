@@ -11,6 +11,7 @@ namespace JaNet
     /// This is a just a dummy layer to be set as the 0th layer of the network.
     /// It only contains output Neurons, which will be used to feed the data into the next layer.
     /// </summary>
+    [Serializable]
     class InputLayer : Layer
     {
         #region Fields

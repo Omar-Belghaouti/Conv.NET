@@ -7,7 +7,6 @@ using OpenCL.Net;
 
 namespace JaNet
 {
-
     class NetworkEvaluator
     {
 

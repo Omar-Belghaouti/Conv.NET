@@ -7,6 +7,7 @@ using OpenCL.Net;
 
 namespace JaNet
 {
+    [Serializable]
     class ELU : Layer
     {
         #region Fields
@@ -63,8 +64,7 @@ namespace JaNet
             this.localWorkSizePtr = new IntPtr[] { (IntPtr)OpenCLSpace.OPTIMAL_GROUP_SIZE };
 
             // Global
-            int totalWorkItemsNeeded = nOutputUnits * outputNeurons.MiniBatchSize;
-            int smallestMultipleOfLocal = (int)(OpenCLSpace.OPTIMAL_GROUP_SIZE * Math.Ceiling((double)(totalWorkItemsNeeded) / (double)OpenCLSpace.OPTIMAL_GROUP_SIZE));
+            int smallestMultipleOfLocal = (int)(OpenCLSpace.OPTIMAL_GROUP_SIZE * Math.Ceiling((double)(nOutputUnits * outputNeurons.MiniBatchSize) / (double)OpenCLSpace.OPTIMAL_GROUP_SIZE));
             this.globalWorkSizePtr = new IntPtr[] { (IntPtr)(smallestMultipleOfLocal) };
 #endif
         }

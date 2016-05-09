@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Diagnostics;
+using OpenCL.Net;
 
 namespace JaNet
 {
@@ -194,6 +195,46 @@ namespace JaNet
         }
 
 
+        public static void SaveFilters(NeuralNetwork network, string outputFilePath)
+        {
+            if (network.Layers[1].Type != "Convolutional")
+                throw new InvalidOperationException("First hidden layer is not convolutional. Cannot save filters.");
+
+            Mem filtersGPU = network.Layers[1].WeightsGPU;
+
+            int nFilters = network.Layers[1].OutputDepth;
+            int inputDepth = network.Layers[1].InputDepth;
+            int filterSize = network.Layers[1].FilterSize;
+
+            int nParameters = nFilters * inputDepth * filterSize * filterSize;
+
+            float[] filters = new float[nParameters];
+
+            OpenCLSpace.ClError = Cl.EnqueueReadBuffer( OpenCLSpace.Queue,
+                                                        filtersGPU, // source
+                                                        Bool.True,
+                                                        (IntPtr)0,
+                                                        (IntPtr)(sizeof(float) * nParameters),
+                                                        filters,  // destination
+                                                        0,
+                                                        null,
+                                                        out OpenCLSpace.ClEvent);
+            OpenCLSpace.CheckErr(OpenCLSpace.ClError, "clEnqueueReadBuffer filtersGPU");
+
+            OpenCLSpace.ClError = Cl.ReleaseEvent(OpenCLSpace.ClEvent);
+            OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.ReleaseEvent");
+
+            OpenCLSpace.ClError = Cl.Finish(OpenCLSpace.Queue);
+            OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.Finish");
+
+            using (System.IO.StreamWriter outputFile = new System.IO.StreamWriter(outputFilePath))
+            {
+                foreach (float filterValue in filters)
+                {
+                    outputFile.WriteLine(filterValue.ToString());
+                }
+            }
+        }
 
         /// <summary>
         /// Generates a random permutation of the set 0, 1, 2, ..., maxN-1 consecutive integers.

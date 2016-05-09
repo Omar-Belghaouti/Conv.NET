@@ -72,6 +72,21 @@ namespace JaNet
             get { return outputNeurons; }
         }
 
+        public int InputDepth // allows setup of next layer
+        {
+            get { return inputDepth; }
+        }
+
+        public int InputHeight // allows setup of next layer
+        {
+            get { return inputHeight; }
+        }
+
+        public int InputWidth // allows setup of next layer
+        {
+            get { return inputWidth; }
+        }
+
         public int OutputDepth // allows setup of next layer
         {
             get { return outputDepth; }
@@ -109,6 +124,16 @@ namespace JaNet
         public virtual bool IsInference
         {
             set { }
+        }
+
+        public virtual Mem WeightsGPU
+        {
+            get { return new Mem();  }
+        }
+
+        public virtual int FilterSize
+        {
+            get { return 0; }
         }
 
 #if GRADIENT_CHECK

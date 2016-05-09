@@ -73,6 +73,16 @@ namespace JaNet
 
         #region Properties
 
+        // to save weights
+        public override Mem WeightsGPU
+        {
+            get { return weightsGPU; }
+        }
+
+        public override int FilterSize
+        {
+            get { return filterSize; }
+        }
         
 #if GRADIENT_CHECK
         // accessors for gradient check

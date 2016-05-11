@@ -122,15 +122,8 @@ namespace JaNet
                         }
                     case "SoftMax":
                         {
-                            if (layers.Last().Type != "FullyConnected")
-                            {
-                                throw new ArgumentException("You should only connect a SoftMax layer to a classifier (FullyConnected layer).");
-                            }
-                            else
-                            {
-                                newLayer.ID = layers.Last().ID + 1;
-                                this.outputLayer = (SoftMax)newLayer;
-                            }
+                            newLayer.ID = layers.Last().ID + 1;
+                            this.outputLayer = (SoftMax)newLayer;
                             break;
                         }
                     default: // valid connection
@@ -296,12 +289,37 @@ namespace JaNet
 
         #region Methods
 
-        public void ForwardPass()
+        public void ForwardPass(object StartPoint, object EndPoint)
         {
-            //TODO: generalise to miniBatchSize > 1
+            int iStartLayer, iEndLayer;
+
+            if (StartPoint.GetType() == typeof(string))
+            {
+                if (StartPoint.ToString() == "beginning")
+                    iStartLayer = 1;
+                else
+                    throw new ArgumentException("First argument: pass either ''beginning'', or an integer corresponding to starting layer.");
+            }
+            else if (StartPoint.GetType() == typeof(int))
+                iStartLayer = (int)StartPoint;
+            else
+                throw new ArgumentException("First argument <StartPoint> is invalid.");
+
+            if (EndPoint.GetType() == typeof(string))
+            {
+                if (EndPoint.ToString() == "end")
+                    iEndLayer = nLayers;
+                else
+                    throw new ArgumentException("Second argument: pass either ''end'', or an integer corresponding to end layer.");
+            }
+            else if (EndPoint.GetType() == typeof(int))
+                iEndLayer = (int)EndPoint;
+            else
+                throw new ArgumentException("Second argument <EndPoint> is invalid.");
+
 
             // Run network forward
-            for (int l = 1; l < nLayers; l++)
+            for (int l = iStartLayer; l < iEndLayer; l++)
             {
 
 #if DEBUGGING_STEPBYSTEP
@@ -407,9 +425,6 @@ namespace JaNet
         /// </summary>
         public void BackwardPass(double learningRate, double momentumMultiplier, double weightDecayCoeff)
         {
-#if GRADIENT_CHECK
-            learningRate = 0.0;
-#endif
 
             for (int l = nLayers - 2; l > 0; l--) // propagate error signal backwards (layers L-2 to 1, i.e. second last to second)
             {
@@ -475,16 +490,18 @@ namespace JaNet
         public void CrossEntropyGradient(DataSet DataSet, int[] iMiniBatch)
         {
             float[] crossEntropyGradientBatch = new float[iMiniBatch.Length * DataSet.NumberOfClasses];
+            int nClasses = DataSet.NumberOfClasses;
 
             for (int m = 0; m < iMiniBatch.Length; m++)
             {
                 int iDataPoint = iMiniBatch[m];
                 int trueLabel = DataSet.Labels[iDataPoint];
 
-                double[] crossEntropyGradient = outputLayer.OutputClassScores[m];
+                double[] crossEntropyGradient = new double[nClasses];
+                Array.Copy(outputLayer.OutputClassScores[m], crossEntropyGradient, nClasses);
                 crossEntropyGradient[trueLabel] -= 1.0;
 
-                for (int c = 0; c < DataSet.NumberOfClasses; c++)
+                for (int c = 0; c < nClasses; c++)
                 {
                     crossEntropyGradientBatch[m * DataSet.NumberOfClasses + c] = (float)crossEntropyGradient[c];
                 }

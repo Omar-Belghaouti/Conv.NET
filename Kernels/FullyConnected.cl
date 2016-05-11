@@ -138,6 +138,8 @@ FCBackward(	__global float * deltaXbatch,
 __kernel void 
 FCUpdateSpeeds(	__global float * wSpeed,	
 				__global float * bSpeed,
+				__global float * wGradients,	
+				__global float * bGradients,
 				__global float * inputBatch,	
 				__global float * deltaYbatch,
 				__global bool * dropoutMask,
@@ -188,14 +190,20 @@ FCUpdateSpeeds(	__global float * wSpeed,
 				}
 			}
 		}
+		gradientWeight /= miniBatchSize;
+		
+		// Save weight gradient
+		wGradients[iWeight] = gradientWeight;
 		
 		// Update weight speed
-		wSpeed[iWeight] = (momCoeff * wSpeed[iWeight]) - (learningRate/miniBatchSize) * gradientWeight;
+		wSpeed[iWeight] = (momCoeff * wSpeed[iWeight]) - learningRate * gradientWeight;
 		
 		// Update biases speed (once per output unit)
 		if (isFirstInputUnit)
 		{
-			bSpeed[iOutput] = (momCoeff * bSpeed[iOutput]) - (learningRate/miniBatchSize) * gradientBias;
+			gradientBias /= miniBatchSize;
+			bGradients[iOutput] = gradientBias;
+			bSpeed[iOutput] = (momCoeff * bSpeed[iOutput]) - learningRate * gradientBias;
 		}
 	}
 	

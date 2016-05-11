@@ -200,7 +200,8 @@ BNConvUpdateSpeeds(	__global float * gammaSpeed,
 					const int inputDepth,
 					const int inputArea,
 					const float momCoeff,
-					const float learningRate
+					const float learningRate,
+					const int miniBatchSize
 				)
 {
 	// Global work size = number of feature maps = inputDepth
@@ -221,6 +222,10 @@ BNConvUpdateSpeeds(	__global float * gammaSpeed,
 			gammaGrad += deltaGammaBatch[iTmpGrad];
 			betaGrad += deltaBetaBatch[iTmpGrad];
 		}
+		
+		// EXPERIMENTAL
+		gammaGrad /= miniBatchSize;
+		betaGrad /= miniBatchSize;
 		
 		// Save gradients
 		deltaGamma[iFeatureMap] = gammaGrad;

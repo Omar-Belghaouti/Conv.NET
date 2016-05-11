@@ -9,122 +9,225 @@ namespace JaNet
 #if GRADIENT_CHECK
     static class GradientChecker
     {
+        //const string typeToCheck = "BatchNormFC";
 
-        const double EPSILON = 0.0001;
-        const double TOLERANCE_REL = 0.01;
-        const double learningRate = 0;
-        const double momentumMultiplier = 0;
+        const int miniBatchSize = 4;
 
-        const int nPointsToCheck = 10;
+        const double EPSILON = 0.00001;
+        const double MAX_RELATIVE_ERROR = 0.01;
+
 
         public static void Check(NeuralNetwork network, DataSet dataSet)
         {
-            // for some random points in dataSet
-            for (int iCheck = 0; iCheck < nPointsToCheck; iCheck++)
+            // Setup network 
+
+            network.Set("MiniBatchSize", miniBatchSize);
+            network.InitializeParameters("random");
+            network.Set("DropoutFC", 1.0);
+            network.Set("Training", true);
+            network.Set("EpochBeginning", true);
+
+            // Get a mini-batch of data
+
+            Sequence indicesSequence = new Sequence(dataSet.Size);
+            indicesSequence.Shuffle();
+            int[] miniBatch = indicesSequence.GetMiniBatchIndices(0, miniBatchSize);
+
+            // Run network forward and backward
+
+            network.InputLayer.FeedData(dataSet, miniBatch);
+            network.ForwardPass("beginning", "end");
+            List<int> trueLabels = new List<int>();
+            for (int m = 0; m < miniBatchSize; m++)
+                trueLabels.Add(dataSet.Labels[miniBatch[m]]);
+            network.CrossEntropyGradient(dataSet, miniBatch);
+            network.BackwardPass(0.0, 0.0, 0.0); // no momentum, no learning rate, no weight decay
+            
+
+            for (int iLayer = 1; iLayer < network.NumberOfLayers; iLayer++)
             {
-                int iDataPoint = Global.rng.Next(0, dataSet.Size);
-
-                // perform a SINGLE forward and backward pass with a SINGLE (random) example
-                network.FeedDatum(dataSet, iDataPoint );
-                network.ForwardPass();
-                double[] outputScores = network.Layers.Last().OutputClassScores[0];
-                int trueLabel = dataSet.GetLabel(iDataPoint);
-                network.CrossEntropyGradient(dataSet, new int[] { iDataPoint });
-                network.BackwardPass(learningRate, momentumMultiplier);
-
-
-                for (int iLayer = 0; iLayer < network.NumberOfLayers; iLayer++)
+                if (network.Layers[iLayer].Type != "Input" && network.Layers[iLayer].Type != "MaxPooling" && network.Layers[iLayer].Type != "ReLU" &&
+                    network.Layers[iLayer].Type != "SoftMax" && network.Layers[iLayer].Type != "Convolutional" && network.Layers[iLayer].Type != "FullyConnected")
                 {
-                    Console.Write("\nChecking gradients in layer {0} ({1})...", iLayer, network.Layers[iLayer].Type);
-                    
+                    Console.WriteLine("\nChecking gradients in layer {0} ({1})...", iLayer, network.Layers[iLayer].Type);
+                    int nChecks = 0;
+                    int nErrors = 0;
+                    double cumulativeError = 0.0;
 
-                    if (network.Layers[iLayer].Type != "Convolutional" && network.Layers[iLayer].Type != "FullyConnected")
-                        Console.Write("OK (no parameters in this layer)");
+                    double[] parametersBackup = network.Layers[iLayer].GetParameters();
+                    double[] parameterGradients = network.Layers[iLayer].GetParameterGradients();
+                    int nParameters = parametersBackup.Length;
+
+                    // First parameters
+
+                    Console.WriteLine("\n...with respect to PARAMETERS");
+                    for (int j = 0; j < nParameters; j++)
+                    {
+                        // decrease jth parameter by EPSILON
+                        double[] parametersMinus = new double[nParameters];
+                        Array.Copy(parametersBackup, parametersMinus, nParameters);
+                        parametersMinus[j] -= EPSILON;
+                        network.Layers[iLayer].SetParameters(parametersMinus);
+                        // then run network forward and compute loss
+                        network.ForwardPass(iLayer, "end");
+                        List<double[]> outputClassScoresMinus = network.OutputLayer.OutputClassScores;
+                        double lossMinus = 0;
+                        for (int m = 0; m < miniBatchSize; m++)
+                        {
+                            int trueLabel = trueLabels[m];
+                            lossMinus -= Math.Log(outputClassScoresMinus[m][trueLabel]); // score of true class in example m
+                        }
+                        lossMinus /= miniBatchSize;
+
+                        // increse jth parameter by EPSILON
+                        double[] parametersPlus = new double[nParameters];
+                        Array.Copy(parametersBackup, parametersPlus, nParameters);
+                        parametersPlus[j] += EPSILON;
+                        network.Layers[iLayer].SetParameters(parametersPlus);
+                        // then run network forward and compute loss
+                        network.ForwardPass(iLayer, "end");
+                        List<double[]> outputClassScoresPlus = network.OutputLayer.OutputClassScores;
+                        double lossPlus = 0;
+                        for (int m = 0; m < miniBatchSize; m++)
+                        {
+                            int trueLabel = trueLabels[m];
+                            lossPlus -= Math.Log(outputClassScoresPlus[m][trueLabel]); // score of true class in example m
+                        }
+                        lossPlus /= miniBatchSize;
+
+                        // compute gradient numerically
+                        double gradientNumerical = (lossPlus - lossMinus) / (2*EPSILON);
+
+                        // retrieve gradient computed with backprop
+                        double gradientBackprop = parameterGradients[j];
+
+                        if (Math.Abs(gradientNumerical) > EPSILON || Math.Abs(gradientBackprop) > EPSILON) // when the gradient is very small, finite arithmetics effects are too large => don't check
+                        {
+                            nChecks++;
+
+                            // compare the gradients
+                            double relativeError = Math.Abs(gradientNumerical - gradientBackprop) / Math.Max(Math.Abs(gradientNumerical), Math.Abs(gradientBackprop));
+                            if (relativeError > MAX_RELATIVE_ERROR)
+                            {
+                                /*
+                                Console.Write("\nGradient check failed for parameter {0}\n", j);
+                                Console.WriteLine("\tBackpropagation gradient: {0}", gradientBackprop);
+                                Console.WriteLine("\tFinite difference gradient: {0}", gradientNumerical);
+                                Console.WriteLine("\tRelative error: {0}", relativeError);
+                                */
+                                nErrors++;
+                            }
+                            cumulativeError = (relativeError + (nChecks - 1) * cumulativeError) / nChecks;
+                        }
+
+                        // restore original weights before checking next gradient
+                        network.Layers[iLayer].SetParameters(parametersBackup);
+
+                    }
+
+                    if (nChecks == 0)
+                        Console.Write("\nAll gradients are zero... Something is probably wrong!");
+                    else if (nErrors == 0)
+                        Console.Write("\nGradient check 100% passed!");
                     else
                     {
-                        int nErrors = 0;
-                        int nChecks = 0;
-                        // Get parameters
-                        
-                        //double[] biases = network.Layers[iLayer].Biases;
-
-                        // Get gradients
-                        
-                        //double[] biasesGradients = network.Layers[iLayer].BiasesGradients;
-
-
-                        for (int i = 0; i < network.Layers[iLayer].Weights.GetLength(0); i++)
-                        {
-                            for (int j = 0; j < network.Layers[iLayer].Weights.GetLength(1); j++)
-                            {
-                                double[,] weights = network.Layers[iLayer].Weights;
-                                double[,] weightsGradients = network.Layers[iLayer].WeightsGradients;
-
-                                // decrease weight [i,j] by EPSILON and compute loss
-                                double[,] weightsMinus = weights;
-                                weightsMinus[i, j] -= EPSILON;
-                                network.Layers[iLayer].Weights = weightsMinus;
-                                network.FeedDatum(dataSet, iDataPoint );
-                                network.ForwardPass();
-                                double[] outputScoresPlus = network.Layers.Last().OutputClassScores[0];
-                                double lossMinus = -Math.Log(outputScoresPlus[trueLabel]);
-                                    
-                                // increase weight [i,j] by EPSILON and compute loss
-                                double[,] weightsPlus = weights;
-                                weightsPlus[i, j] += EPSILON;
-                                network.Layers[iLayer].Weights = weightsPlus;
-                                network.FeedDatum(dataSet, iDataPoint );
-                                network.ForwardPass();
-                                double[] outputScoresMinus = network.Layers.Last().OutputClassScores[0];
-                                double lossPlus = -Math.Log(outputScoresMinus[trueLabel]);
-
-                                
-                                double approxGradient = (lossPlus - lossMinus) / (EPSILON);
-
-                                if (Math.Abs(approxGradient) > EPSILON)
-                                {
-                                        nChecks++;
-                                    // compare gradient from backprop and approximate gradient
-                                    double relativeError = Math.Abs(approxGradient - weightsGradients[i, j]) / 
-                                        Math.Max( Math.Abs(weightsGradients[i, j]), Math.Abs(approxGradient) );
-                                    if (relativeError > TOLERANCE_REL)
-                                    {
-                                        Console.Write("OUCH! Gradient check failed at weight {0}\n", i * weights.GetLength(1) + j);
-                                       Console.WriteLine("\tBackpropagation gradient: {0}", weightsGradients[i, j]);
-                                        Console.WriteLine("\tFinite difference gradient: {0}", approxGradient);
-                                        Console.WriteLine("\tRelative error: {0}", relativeError);
-                                        //Console.ReadKey();
-                                        nErrors++;
-                                    }
-
-                                    
-
-                                    // restore original weights before checking next
-                                    network.Layers[iLayer].Weights = weights;
-                                }
-                            }
-                        }
-                        if (nChecks == 0)
-                            Console.Write("SUSPECT! (all gradients are zero)");
-                        else if (nErrors == 0)
-                            Console.Write("OK :D");
-                        else
-                            Console.Write("{0} errors out of {1} checks.", nErrors, nChecks);
-                        
+                        Console.Write("\n{0} errors out of {1} checks.", nErrors, nChecks);
+                        Console.Write("\nAverage error = {0}", cumulativeError);
                     }
+                    Console.Write("\n\n");
+
+
+                    // Now inputs
                     
+                    nChecks = 0;
+                    nErrors = 0;
+                    cumulativeError = 0.0;
 
+                    double[] inputBackup = network.Layers[iLayer].GetInput();
+                    double[] inputGradients = network.Layers[iLayer].GetInputGradients();
+                    int inputArraySize = inputBackup.Length;
+
+                    Console.WriteLine("\n...with respect to INPUT");
+                    for (int j = 0; j < inputArraySize; j++)
+                    {
+                        // decrease jth parameter by EPSILON
+                        double[] inputMinus = new double[inputArraySize];
+                        Array.Copy(inputBackup, inputMinus, inputArraySize);
+                        inputMinus[j] -= EPSILON;
+                        network.Layers[iLayer].SetInput(inputMinus);
+                        // then run network forward and compute loss
+                        network.ForwardPass(iLayer, "end");
+                        List<double[]> outputClassScoresMinus = network.OutputLayer.OutputClassScores;
+                        double lossMinus = 0;
+                        for (int m = 0; m < miniBatchSize; m++)
+                        {
+                            int trueLabel = trueLabels[m];
+                            lossMinus -= Math.Log(outputClassScoresMinus[m][trueLabel]); // score of true class in example m
+                        }
+                        lossMinus /= miniBatchSize;
+
+                        // increse jth parameter by EPSILON
+                        double[] inputPlus = new double[inputArraySize];
+                        Array.Copy(inputBackup, inputPlus, inputArraySize);
+                        inputPlus[j] += EPSILON;
+                        network.Layers[iLayer].SetInput(inputPlus);
+                        // then run network forward and compute loss
+                        network.ForwardPass(iLayer, "end");
+                        List<double[]> outputClassScoresPlus = network.OutputLayer.OutputClassScores;
+                        double lossPlus = 0;
+                        for (int m = 0; m < miniBatchSize; m++)
+                        {
+                            int trueLabel = trueLabels[m];
+                            lossPlus -= Math.Log(outputClassScoresPlus[m][trueLabel]); // score of true class in example m
+                        }
+                        lossPlus /= miniBatchSize;
+
+                        // compute gradient numerically
+                        double gradientNumerical = (lossPlus - lossMinus) / (2*EPSILON);
+
+                        // retrieve gradient computed with backprop
+                        double gradientBackprop = inputGradients[j]/miniBatchSize;
+
+                        if (Math.Abs(gradientNumerical) > EPSILON || Math.Abs(gradientBackprop) > EPSILON) // when the gradient is very small, finite arithmetics effects are too large => don't check
+                        {
+                            nChecks++;
+
+                            // compare the gradients
+                            double relativeError = Math.Abs(gradientNumerical - gradientBackprop) / Math.Max(Math.Abs(gradientNumerical), Math.Abs(gradientBackprop));
+                            if (relativeError > MAX_RELATIVE_ERROR)
+                            {
+                                
+                                Console.Write("\nGradient check failed for input {0}\n", j);
+                                Console.WriteLine("\tBackpropagation gradient: {0}", gradientBackprop);
+                                Console.WriteLine("\tFinite difference gradient: {0}", gradientNumerical);
+                                Console.WriteLine("\tRelative error: {0}", relativeError);
+                                
+                                nErrors++;
+                            }
+                            cumulativeError = (relativeError + (nChecks - 1) * cumulativeError) / nChecks;
+                        }
+
+                        // restore original input before checking next gradient
+                        network.Layers[iLayer].SetInput(inputBackup);
+
+                    }
+
+                    if (nChecks == 0)
+                        Console.Write("\nAll gradients are zero... Something is probably wrong!");
+                    else if (nErrors == 0)
+                        Console.Write("\nGradient check 100% passed!");
+                    else
+                    {
+                        Console.Write("\n{0} errors out of {1} checks.", nErrors, nChecks);
+                        Console.Write("\nAverage error = {0}", cumulativeError);
+                    }
+                    Console.Write("\n\n");
+                    
                 }
-
-
-                Console.Write("\n\n");
             }
-
-
         }
-
-
-
     }
+
 #endif
+
 }

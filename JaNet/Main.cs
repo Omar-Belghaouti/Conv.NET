@@ -48,22 +48,25 @@ namespace JaNet
 
             
             NeuralNetwork network = new NeuralNetwork();
-            network.Name = "myNetwork1";
+            network.Name = "withoutBatchNormFC";
              
+            
             network.AddLayer(new InputLayer(1, 32, 32));
 
-            network.AddLayer(new ConvolutionalLayer(5, 32, 1, 0));
+            
+            //network.AddLayer(new ConvolutionalLayer(5, 8, 1, 0));
             //network.AddLayer(new BatchNormConv());
-            network.AddLayer(new ReLU());
+            //network.AddLayer(new ReLU());
             //network.AddLayer(new ELU(1.0f));
-
+            /*
+            
             //network.AddLayer(new ConvolutionalLayer(5, 16, 1, 1));
             //network.AddLayer(new BatchNormConv());
             //network.AddLayer(new ReLU());
             
             network.AddLayer(new MaxPooling(2, 2));
 
-            network.AddLayer(new ConvolutionalLayer(3, 64, 1, 0));
+            network.AddLayer(new ConvolutionalLayer(3, 16, 1, 0));
             //network.AddLayer(new BatchNormConv());
             network.AddLayer(new ReLU());
             //network.AddLayer(new ELU(1.0f));
@@ -71,23 +74,28 @@ namespace JaNet
             //network.AddLayer(new ConvolutionalLayer(3, 32, 1, 1));
             //network.AddLayer(new BatchNormConv());
             //network.AddLayer(new ReLU());
-
-            network.AddLayer(new MaxPooling(2, 2));
             
 
-            network.AddLayer(new FullyConnectedLayer(128));
+            //network.AddLayer(new MaxPooling(2, 2));
+            //network.AddLayer(new MaxPooling(2, 2));
+            network.AddLayer(new MaxPooling(2, 2));
+            */
+
+            //network.AddLayer(new MaxPooling(2, 2));
+            //network.AddLayer(new MaxPooling(2, 2));
+            //network.AddLayer(new MaxPooling(2, 2));
+            
+            //network.AddLayer(new FullyConnectedLayer(128));
             //network.AddLayer(new BatchNormFC());
-            network.AddLayer(new ReLU());
+            //network.AddLayer(new ReLU());
             //network.AddLayer(new ELU(1.0f));
             
+
+
+
             network.AddLayer(new FullyConnectedLayer(43));
+            //network.AddLayer(new BatchNormFC());
             network.AddLayer(new SoftMax());
-
-
-            network.Set("MiniBatchSize", 32);
-            network.InitializeParameters("random");
-              
-            
 
 
             /*****************************************************
@@ -156,13 +164,21 @@ namespace JaNet
             DataSet testSet = new DataSet(43);
             testSet.ReadData(GTSRBtestDataGS);
             testSet.ReadLabels(GTSRBtestLabelsGS);
-            
 
 
 
             /*****************************************************
-             * (3) Train network
+             * (3) Gradient check
              ****************\************************************/
+            //GradientChecker.Check(network, testSet);
+
+
+
+
+
+            /*****************************************************
+             * (4) Train network
+             *****************************************************/
             Console.WriteLine("\n=========================================");
             Console.WriteLine("    Network training");
             Console.WriteLine("=========================================\n");
@@ -175,16 +191,16 @@ namespace JaNet
             networkTrainer.WeightDecayCoeff = 0.0001;
             networkTrainer.MaxTrainingEpochs = 50;
             networkTrainer.EpochsBeforeRegularization = 0;
-            networkTrainer.MiniBatchSize = 32;
+            networkTrainer.MiniBatchSize = 64;
             networkTrainer.ConsoleOutputLag = 1; // 1 = print every epoch, N = print every N epochs
             networkTrainer.EvaluateBeforeTraining = true;
-            networkTrainer.DropoutFullyConnected = 0.5;
-            networkTrainer.Patience = 5;
+            networkTrainer.DropoutFullyConnected = 1.0;
+            networkTrainer.Patience = 10;
 
             // Set output files save paths
             string trainingSavePath = @"C:\Users\jacopo\Dropbox\Chalmers\MSc thesis\Results\LossError\";
-            networkTrainer.TrainingEpochSavePath = trainingSavePath + "trainingEpochs.txt";
-            networkTrainer.ValidationEpochSavePath = trainingSavePath + "validationEpochs.txt";
+            networkTrainer.TrainingEpochSavePath = trainingSavePath + network.Name + "_trainingEpochs.txt";
+            networkTrainer.ValidationEpochSavePath = trainingSavePath + network.Name + "_validationEpochs.txt";
 
             networkTrainer.NetworkOutputFilePath = @"C:\Users\jacopo\Dropbox\Chalmers\MSc thesis\Results\Networks\";
              
@@ -194,8 +210,8 @@ namespace JaNet
             
 
             /*****************************************************
-             * (4) Test network
-             ****************************************************/
+             * (5) Test network
+             *****************************************************
             Console.WriteLine("\nFINAL EVALUATION:");
 
             //string summaryFilePath = @"C:\Users\jacopo\Dropbox\Chalmers\MSc thesis\Results\Summaries\";
@@ -203,29 +219,33 @@ namespace JaNet
             // Load best network from file
 
             NeuralNetwork bestNetwork = Utils.LoadNetworkFromFile(@"C:\Users\jacopo\Dropbox\Chalmers\MSc thesis\Results\Networks\", network.Name);
-            network.Set("MiniBatchSize", 32); // this SHOULDN'T matter!
-            network.InitializeParameters("load");
+            bestNetwork.Set("MiniBatchSize", 32); // this SHOULDN'T matter!
+            bestNetwork.InitializeParameters("load");
 
             NetworkEvaluator networkEvaluator = new NetworkEvaluator();
             double loss;
             double error;
 
-            networkEvaluator.EvaluateNetwork(network, trainingSet, out loss, out error);
+            // Pre-inference pass: Computes cumulative averages in BatchNorm layers (needed for evaluation)
+            bestNetwork.Set("PreInference", true);
+            networkEvaluator.PreEvaluateNetwork(bestNetwork, testSet);
+
+            bestNetwork.Set("Inference", true);
+            //networkEvaluator.EvaluateNetwork(bestNetwork, trainingSet, out loss, out error);
+            //Console.WriteLine("\nTraining set:\n\tLoss = {0}\n\tError = {1}", loss, error);
+
+            networkEvaluator.EvaluateNetwork(bestNetwork, validationSet, out loss, out error);
             Console.WriteLine("\nValidation set:\n\tLoss = {0}\n\tError = {1}", loss, error);
 
-            networkEvaluator.EvaluateNetwork(network, validationSet, out loss, out error);
-            Console.WriteLine("\nValidation set:\n\tLoss = {0}\n\tError = {1}", loss, error);
-
-            networkEvaluator.EvaluateNetwork(network, testSet, out loss, out error);
+            networkEvaluator.EvaluateNetwork(bestNetwork, testSet, out loss, out error);
             Console.WriteLine("\nTest set:\n\tLoss = {0}\n\tError = {1}", loss, error);
             
-#if GRADIENT_CHECK
-            GradientChecker.Check(network, reducedMNIST);
-#endif
+
             
             // Save filters of first conv layer
             Utils.SaveFilters(bestNetwork, @"C:\Users\jacopo\Dropbox\Chalmers\MSc thesis\Results\Filters\" + network.Name + "_filters.txt");
-        
+            
+            /*****************************************************/
         }
     }
 }

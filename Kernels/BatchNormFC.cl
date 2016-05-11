@@ -30,7 +30,7 @@ BNFCComputeMeansVariances(	__global float * means,
 							const int nUnits,
 							const int miniBatchSize,
 							const int isPreInference,
-							const int iCumulativeAverage // index of current sample of mu and sigma^2 (should be between 0 and dataSetSize/miniBatchSize)
+							const int iCumulativeAverage // index of current miniBatch (needed to cumulate statistics)
 				)
 {
 	// Global work size = number of units in layer
@@ -48,8 +48,9 @@ BNFCComputeMeansVariances(	__global float * means,
 		}
 		mean /= miniBatchSize;
 		
-		// save mean and update cumulative average if pre-inference mode is on
+		// save mean
 		means[iUnit] = mean;
+		// update cumulative average if pre-inference mode is on
 		if (isPreInference > 0)
 		{
 			cumulativeMeans[iUnit] = (iCumulativeAverage * cumulativeMeans[iUnit] + mean) / (iCumulativeAverage + 1);
@@ -57,18 +58,19 @@ BNFCComputeMeansVariances(	__global float * means,
 		
 		// Now compute variance
 		
-		float difference = 0.0F;
+		float centeredInput = 0.0F;
 		float variance = 0.0F;
 		
 		for (int iExample = 0; iExample < miniBatchSize; iExample++)
 		{
-			difference = input[iUnit + iExample*nUnits] - mean;
-			variance += (difference * difference);
+			centeredInput = input[iUnit + iExample*nUnits] - mean;
+			variance += (centeredInput * centeredInput);
 		}
-		variance /= (miniBatchSize - 1);
+		variance /= miniBatchSize;
 		
-		// Save variance and update cumulativeVariance if pre-inference mode is on
-		variances[iUnit] = variance;	
+		// Save variance
+		variances[iUnit] = variance;
+		// update cumulativeVariance if pre-inference mode is on
 		if (isPreInference > 0)
 		{		
 			cumulativeVariances[iUnit] = (iCumulativeAverage * cumulativeVariances[iUnit] + variance) / (iCumulativeAverage + 1);
@@ -93,8 +95,8 @@ BNFCForward(__global float * output,
 			__global float * input,
 			__constant float * means,		// will be over mini-batch if training, cumulative if inference
 			__constant float * variances, 	// same
-			__constant float * gammas, 
-			__constant float * betas,	
+			__constant float * gamma, 
+			__constant float * beta,	
 			const int nUnits,
 			const int miniBatchSize
 			)
@@ -108,11 +110,11 @@ BNFCForward(__global float * output,
 		int iUnit = iActivation % nUnits;
 		
 		// Normalize input, using the pre-calculated mean and variance
-		float privateNormalizedInput = (input[iActivation] - means[iUnit]) * native_rsqrt(variances[iUnit] + EPSILON);
-		normalizedInput[iActivation] = privateNormalizedInput;
+		float tmpNormalizedInput = (input[iActivation] - means[iUnit]) * native_rsqrt(variances[iUnit] + EPSILON);
+		normalizedInput[iActivation] = tmpNormalizedInput;
 		
 		// Scale and shift
-		output[iActivation] = gammas[iUnit] * privateNormalizedInput + betas[iUnit];
+		output[iActivation] = gamma[iUnit] * tmpNormalizedInput + beta[iUnit];
 	}
 }
 
@@ -137,47 +139,38 @@ BNFCUpdateSpeeds(	__global float * gammaSpeed,
 					const float learningRate
 				)
 {
-	// Global work size = number of parameters = 2 * nUnits (should be a bit more efficient)
-	const int i = get_global_id(0);
+	// Global work size = number of units
+	const int iUnit = get_global_id(0);
 	
-	if(i < 2 * nUnits)
+	if (iUnit < nUnits)
 	{
-		if ( (i & 1) == 0) // even indices => gradient wrt gamma (this is the same as computing the modulo 2, but faster)
+		float gammaGrad = 0.0F;
+		float betaGrad = 0.0F;
+		int iActivation = iUnit;
+		
+		for (int iExample = 0; iExample < miniBatchSize; iExample++)
 		{
-			int iParameter = i / 2; // retrieve correct index of parameter
-
-			int iUnit = iParameter;
-			float gammaGrad = 0.0F;
-
-			for (int iExample = 0; iExample < miniBatchSize; iExample++)
-			{
-				gammaGrad = fma(deltaOutput[iUnit], normalizedInput[iUnit], gammaGrad);
-				
-				iUnit += nUnits;
-			}
-			// Save gradient of gamma
-			deltaGamma[iParameter] = gammaGrad;
-			// And then update parameter update speed
-			gammaSpeed[iParameter] = (momCoeff * gammaSpeed[iParameter]) - learningRate * gammaGrad;
+			gammaGrad += (deltaOutput[iActivation] * normalizedInput[iActivation]);
+			betaGrad += deltaOutput[iActivation];
+			
+			iActivation += nUnits;
 		}
-		else // odd indices => gradient wrt beta
-		{
-			int iParameter = i / 2; // retrieve correct index of parameter
-
-			int iUnit = iParameter;
-			float betaGrad = 0.0F;
-
-			for (int iExample = 0; iExample < miniBatchSize; iExample++)
-			{
-				betaGrad += deltaOutput[iUnit];
-				
-				iUnit += nUnits;
-			}
-			// Save gradient of beta
-			deltaBeta[iParameter] = betaGrad;
-			// And then update parameter update speed
-			betaSpeed[iParameter] = (momCoeff * betaSpeed[iParameter]) - learningRate * betaGrad;
-		}
+			
+		//EXPERIMENTAL
+		gammaGrad /= miniBatchSize;
+		betaGrad /= miniBatchSize;
+		
+		// Save gradient of gamma
+		deltaGamma[iUnit] = gammaGrad;
+		// And then update parameter update speed
+		gammaSpeed[iUnit] = (momCoeff * gammaSpeed[iUnit]) - learningRate * gammaGrad;
+	
+		
+		// Save gradient of beta
+		deltaBeta[iUnit] = betaGrad;
+		// And then update parameter update speed
+		betaSpeed[iUnit] = (momCoeff * betaSpeed[iUnit]) - learningRate * betaGrad;
+		
 	}
 }
 
@@ -193,7 +186,7 @@ BNFCUpdateParameters(	__global float * gamma,
 						__global float * beta,
 						__constant float * gammaSpeed,
 						__constant float * betaSpeed,
-					const int nGamma // or equally nBeta
+						const int nGamma // or equally nBeta
 						)
 {
 	// Global work size = nInputUnits
@@ -238,8 +231,9 @@ BNFCBackPropagate(	__global float * deltaInput,
 		
 		// See backprop expression for how deltaX is computed...
 		
-		tmpDeltaX = miniBatchSize * deltaOutput[iActivation] - deltaBeta[iUnit] - deltaGamma[iUnit] * normalizedInput[iActivation];
-		tmpDeltaX *= native_divide(gamma[iUnit] * native_rsqrt(variance[iUnit] + EPSILON), miniBatchSize); 
+		tmpDeltaX = deltaOutput[iActivation] - deltaBeta[iUnit] - (deltaGamma[iUnit] * normalizedInput[iActivation]);
+		tmpDeltaX *= ( gamma[iUnit] * native_rsqrt(variance[iUnit] + EPSILON) ); 
+		
 		
 		// Write gradient
 		deltaInput[iActivation] = tmpDeltaX;

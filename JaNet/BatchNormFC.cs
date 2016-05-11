@@ -21,23 +21,39 @@ namespace JaNet
 
         private int iCumulativeAverage;
 
-        // OpenCL-only fields
+        // Host parameters
 
+        private float[] gammaHost;
+        private float[] betaHost;
+
+        // Device
+
+        [NonSerialized]
         private Mem meanGPU;
+        [NonSerialized]
         private Mem varianceGPU;
 
+        [NonSerialized]
         private Mem cumulativeMeanGPU;
+        [NonSerialized]
         private Mem cumulativeVarianceGPU;
 
+        [NonSerialized]
         private Mem normalizedInputGPU;
 
+        [NonSerialized]
         private Mem gammaGPU;
+        [NonSerialized]
         private Mem betaGPU;
 
+        [NonSerialized]
         private Mem deltaGammaGPU;
+        [NonSerialized]
         private Mem deltaBetaGPU;
 
+        [NonSerialized]
         private Mem gammaSpeedGPU;
+        [NonSerialized]
         private Mem betaSpeedGPU;
 
 
@@ -91,19 +107,9 @@ namespace JaNet
 
             this.nOutputUnits = nInputUnits;
             this.outputNeurons = new Neurons(nOutputUnits);
-        }
 
-        public override void InitializeParameters(string Option)
-        {
-            this.iCumulativeAverage = 0;
-            this.isEpochBeginning = true;
-
-            this.isTraining = true;
-            this.isPreInference = false;
-            this.isInference = false;
-
-            // 1. Initialize OpenCL buffers for mean, variance and their cumulative averages
-          
+            // Also initialize OpenCL buffers for mean, variance, their cumulative averages, and normalized input activations
+            
             this.meanGPU = (Mem)Cl.CreateBuffer(OpenCLSpace.Context,
                                                 MemFlags.ReadWrite,
                                                 (IntPtr)(sizeof(float) * nInputUnits),
@@ -118,8 +124,6 @@ namespace JaNet
             OpenCLSpace.CheckErr(OpenCLSpace.ClError, "InitializeParameters(): Cl.CreateBuffer");
             OpenCLSpace.WipeBuffer(varianceGPU, nInputUnits, typeof(float));
 
-            // (initialize cumulative means to zero...)
-
             this.cumulativeMeanGPU = (Mem)Cl.CreateBuffer(OpenCLSpace.Context,
                                                             MemFlags.ReadWrite,
                                                             (IntPtr)(sizeof(float) * nInputUnits),
@@ -127,20 +131,12 @@ namespace JaNet
             OpenCLSpace.CheckErr(OpenCLSpace.ClError, "InitializeParameters(): Cl.CreateBuffer");
             OpenCLSpace.WipeBuffer(cumulativeMeanGPU, nInputUnits, typeof(float));
 
-            // (...and variances to one)
-            float[] ones = new float[nInputUnits];
-            for (int i = 0; i < nInputUnits; ++i)
-                ones[i] = 1.0f;
             this.cumulativeVarianceGPU = (Mem)Cl.CreateBuffer(OpenCLSpace.Context,
-                                                                MemFlags.ReadWrite | MemFlags.CopyHostPtr,
+                                                                MemFlags.ReadWrite,
                                                                 (IntPtr)(sizeof(float) * nInputUnits),
-                                                                ones,
                                                                 out OpenCLSpace.ClError);
             OpenCLSpace.CheckErr(OpenCLSpace.ClError, "InitializeParameters(): Cl.CreateBuffer");
             OpenCLSpace.WipeBuffer(cumulativeVarianceGPU, nInputUnits, typeof(float));
-            
-
-            // 2. Initialize OpenCL buffers for normalized input values (needed for backprop)
             
             this.normalizedInputGPU = (Mem)Cl.CreateBuffer( OpenCLSpace.Context,
                                                             MemFlags.ReadWrite,
@@ -149,25 +145,46 @@ namespace JaNet
             OpenCLSpace.CheckErr(OpenCLSpace.ClError, "InitializeParameters(): Cl.CreateBuffer");
             OpenCLSpace.WipeBuffer(normalizedInputGPU, nInputUnits * inputNeurons.MiniBatchSize, typeof(float));
 
+        }
 
-            // 3. Initialize OpenCL buffers for learnable parameters gamma and beta, their gradients, and their update speed.
-            // Write ones in gammas and zeros in betas (identity function in the beginning). Write zeros in speeds.
+        public override void InitializeParameters(string Option)
+        {
+            this.iCumulativeAverage = 0;
+            this.isEpochBeginning = true;
+
+            this.isTraining = true;
+            this.isPreInference = false;
+            this.isInference = false;
+
+            if (Option == "random") // initialize parameters on host
+            {
+                // Gamma parameters are initialized to one
+                gammaHost = new float[nInputUnits];
+                for (int i = 0; i < nInputUnits; ++i)
+                    gammaHost[i] = 1.0f;
+                // And beta parameters to zero
+                betaHost = new float[nInputUnits];
+            }
+            // else Option must be ''load'' => do not initialized parameters, just load them from host to device
+
+            // Tranfer parameters to device
 
             this.gammaGPU = (Mem)Cl.CreateBuffer(OpenCLSpace.Context,
                                                     MemFlags.ReadWrite | MemFlags.CopyHostPtr,
                                                     (IntPtr)(sizeof(float) * nInputUnits),
-                                                    ones,
+                                                    gammaHost,
                                                     out OpenCLSpace.ClError);
             OpenCLSpace.CheckErr(OpenCLSpace.ClError, "InitializeParameters(): Cl.CreateBuffer");
 
-            float[] zeros = new float[nInputUnits];
             this.betaGPU = (Mem)Cl.CreateBuffer(OpenCLSpace.Context,
                                                 MemFlags.ReadWrite | MemFlags.CopyHostPtr,
                                                 (IntPtr)(sizeof(float) * nInputUnits),
-                                                zeros,
+                                                betaHost,
                                                 out OpenCLSpace.ClError);
             OpenCLSpace.CheckErr(OpenCLSpace.ClError, "InitializeParameters(): Cl.CreateBuffer");
             
+            // Also create buffers for parameter gradients
+
             this.deltaGammaGPU = (Mem)Cl.CreateBuffer(  OpenCLSpace.Context,
                                                         MemFlags.ReadWrite,
                                                         (IntPtr)(sizeof(float) * nInputUnits),
@@ -182,19 +199,21 @@ namespace JaNet
             OpenCLSpace.CheckErr(OpenCLSpace.ClError, "InitializeParameters(): Cl.CreateBuffer");
             OpenCLSpace.WipeBuffer(deltaBetaGPU, nInputUnits, typeof(float));
 
+            // And for parameter update speed
+
             this.gammaSpeedGPU = (Mem)Cl.CreateBuffer(OpenCLSpace.Context,
-                                                        MemFlags.ReadWrite | MemFlags.CopyHostPtr,
+                                                        MemFlags.ReadWrite,
                                                         (IntPtr)(sizeof(float) * nInputUnits),
-                                                        zeros,
                                                         out OpenCLSpace.ClError);
             OpenCLSpace.CheckErr(OpenCLSpace.ClError, "InitializeParameters(): Cl.CreateBuffer");
+            OpenCLSpace.WipeBuffer(gammaSpeedGPU, nInputUnits, typeof(float));
 
             this.betaSpeedGPU = (Mem)Cl.CreateBuffer(OpenCLSpace.Context,
-                                                        MemFlags.ReadWrite | MemFlags.CopyHostPtr,
+                                                        MemFlags.ReadWrite,
                                                         (IntPtr)(sizeof(float) * nInputUnits),
-                                                        zeros,
                                                         out OpenCLSpace.ClError);
             OpenCLSpace.CheckErr(OpenCLSpace.ClError, "InitializeParameters(): Cl.CreateBuffer");
+            OpenCLSpace.WipeBuffer(betaSpeedGPU, nInputUnits, typeof(float));
         }
         
 
@@ -246,7 +265,7 @@ namespace JaNet
             {
                 iCumulativeAverage = 0;
 
-                // Wipe cumulative means and variances
+                // Wipe cumulative means and variances (theoretically, this is redundant)
                 OpenCLSpace.WipeBuffer(cumulativeMeanGPU, nInputUnits, typeof(float));
                 OpenCLSpace.WipeBuffer(cumulativeVarianceGPU, nInputUnits, typeof(float));
 
@@ -257,7 +276,7 @@ namespace JaNet
             // If training, compute means and variances, and update cumulative averages
             if (isTraining || isPreInference)
             {
-                OpenCLSpace.ClError = Cl.SetKernelArg(OpenCLSpace.BNFCComputeMeansVariances, 0, meanGPU);
+                OpenCLSpace.ClError  = Cl.SetKernelArg(OpenCLSpace.BNFCComputeMeansVariances, 0, meanGPU);
                 OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.BNFCComputeMeansVariances, 1, varianceGPU);
                 OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.BNFCComputeMeansVariances, 2, cumulativeMeanGPU);
                 OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.BNFCComputeMeansVariances, 3, cumulativeVarianceGPU);
@@ -292,12 +311,12 @@ namespace JaNet
             OpenCLSpace.ClError = Cl.SetKernelArg(OpenCLSpace.BNFCForward, 0, outputNeurons.ActivationsGPU);
             OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.BNFCForward, 1, normalizedInputGPU);
             OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.BNFCForward, 2, inputNeurons.ActivationsGPU);
-            if (isTraining || isPreInference)
+            if (isTraining)
             {
                 OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.BNFCForward, 3, meanGPU);
                 OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.BNFCForward, 4, varianceGPU);
             }
-            else if (isInference)
+            else if (isPreInference || isInference)
             {
                 OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.BNFCForward, 3, cumulativeMeanGPU);
                 OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.BNFCForward, 4, cumulativeVarianceGPU);
@@ -395,7 +414,7 @@ namespace JaNet
                                                             OpenCLSpace.BNFCUpdateSpeeds,
                                                             1,
                                                             null,
-                                                            nParametersGlobalWorkSizePtr,
+                                                            nUnitsGlobalWorkSizePtr,
                                                             optimalLocalWorkSizePtr,
                                                             0,
                                                             null,
@@ -407,6 +426,52 @@ namespace JaNet
 
             OpenCLSpace.ClError = Cl.Finish(OpenCLSpace.Queue);
             OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.Finish");
+
+
+            /* ------------------------- DEBUGGING ---------------------------------------------
+
+            // Display gamma gradient
+            
+            float[] deltaGgamma = new float[nInputUnits];
+
+            OpenCLSpace.ClError = Cl.EnqueueReadBuffer(OpenCLSpace.Queue,
+                                                        deltaGammaGPU, // source
+                                                        Bool.True,
+                                                        (IntPtr)0,
+                                                        (IntPtr)(nInputUnits * sizeof(float)),
+                                                        deltaGgamma,  // destination
+                                                        0,
+                                                        null,
+                                                        out OpenCLSpace.ClEvent);
+            OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.clEnqueueReadBuffer");
+
+            Console.WriteLine("\nGradient wrt gamma:\n");
+            for (int i = 0; i < nInputUnits; i++)
+                Console.Write("{0}  ", deltaGgamma[i]);
+            //Console.ReadKey();
+            
+            // Display beta
+            float[] deltaBeta = new float[nInputUnits];
+
+            OpenCLSpace.ClError = Cl.EnqueueReadBuffer(OpenCLSpace.Queue,
+                                                        deltaBetaGPU, // source
+                                                        Bool.True,
+                                                        (IntPtr)0,
+                                                        (IntPtr)(nInputUnits * sizeof(float)),
+                                                        deltaBeta,  // destination
+                                                        0,
+                                                        null,
+                                                        out OpenCLSpace.ClEvent);
+            OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.clEnqueueReadBuffer");
+
+            Console.WriteLine("\n\nGradient wrt beta:\n");
+            for (int i = 0; i < nInputUnits; i++)
+                Console.Write("{0}  ", deltaBeta[i]);
+            Console.ReadKey();
+
+
+            /* ------------------------- END DEBUGGING --------------------------------------------- */
+
 
 #if TIMING_LAYERS
             Utils.BNFCUpdateSpeedsTimer.Stop();
@@ -446,7 +511,7 @@ namespace JaNet
             OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.Finish");
 
 
-            /* ------------------------- DEBUGGING --------------------------------------------- 
+            /* ------------------------- DEBUGGING ---------------------------------------------
 
             // Display gamma
             float[] gamma = new float[nInputUnits];
@@ -493,6 +558,245 @@ namespace JaNet
             Utils.BNFCUpdateParametersTimer.Stop();
 #endif
 
+        }
+
+        #endregion
+
+
+        #region Gradient check
+
+        public override double[] GetParameters()
+        {
+            double[] parameters = new double[2 * nInputUnits];
+
+            // Copy gamma and beta buffers to host
+            float[] tmpGamma = new float[nInputUnits];
+            OpenCLSpace.ClError = Cl.EnqueueReadBuffer(OpenCLSpace.Queue,
+                                                        gammaGPU, // source
+                                                        Bool.True,
+                                                        (IntPtr)0,
+                                                        (IntPtr)(sizeof(float) * nInputUnits),
+                                                        tmpGamma,  // destination
+                                                        0,
+                                                        null,
+                                                        out OpenCLSpace.ClEvent);
+            OpenCLSpace.CheckErr(OpenCLSpace.ClError, "clEnqueueReadBuffer");
+
+            OpenCLSpace.ClError = Cl.ReleaseEvent(OpenCLSpace.ClEvent);
+            OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.ReleaseEvent");
+
+            float[] tmpBeta = new float[nInputUnits];
+            OpenCLSpace.ClError = Cl.EnqueueReadBuffer(OpenCLSpace.Queue,
+                                                        betaGPU, // source
+                                                        Bool.True,
+                                                        (IntPtr)0,
+                                                        (IntPtr)(sizeof(float) * nInputUnits),
+                                                        tmpBeta,  // destination
+                                                        0,
+                                                        null,
+                                                        out OpenCLSpace.ClEvent);
+            OpenCLSpace.CheckErr(OpenCLSpace.ClError, "clEnqueueReadBuffer");
+
+            OpenCLSpace.ClError = Cl.ReleaseEvent(OpenCLSpace.ClEvent);
+            OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.ReleaseEvent");
+
+            OpenCLSpace.ClError = Cl.Finish(OpenCLSpace.Queue);
+            OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.Finish");
+
+            // Convert to double and write into public fields
+            for (int i = 0; i < nInputUnits; ++i)
+            {
+                parameters[i] = (double)tmpGamma[i];
+                parameters[nInputUnits + i] = (double)tmpBeta[i];
+            }
+
+            return parameters;
+        }
+
+        public override double[] GetParameterGradients()
+        {
+            double[] parameterGradients = new double[2 * nInputUnits];
+
+            // Copy gamma and beta gradients buffers to host
+            float[] tmpGammaGrad = new float[nInputUnits];
+            OpenCLSpace.ClError = Cl.EnqueueReadBuffer(OpenCLSpace.Queue,
+                                                        deltaGammaGPU, // source
+                                                        Bool.True,
+                                                        (IntPtr)0,
+                                                        (IntPtr)(sizeof(float) * nInputUnits),
+                                                        tmpGammaGrad,  // destination
+                                                        0,
+                                                        null,
+                                                        out OpenCLSpace.ClEvent);
+            OpenCLSpace.CheckErr(OpenCLSpace.ClError, "clEnqueueReadBuffer");
+
+            OpenCLSpace.ClError = Cl.ReleaseEvent(OpenCLSpace.ClEvent);
+            OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.ReleaseEvent");
+
+            float[] tmpBetaGrad = new float[nInputUnits];
+            OpenCLSpace.ClError = Cl.EnqueueReadBuffer(OpenCLSpace.Queue,
+                                                        deltaBetaGPU, // source
+                                                        Bool.True,
+                                                        (IntPtr)0,
+                                                        (IntPtr)(sizeof(float) * nInputUnits),
+                                                        tmpBetaGrad,  // destination
+                                                        0,
+                                                        null,
+                                                        out OpenCLSpace.ClEvent);
+            OpenCLSpace.CheckErr(OpenCLSpace.ClError, "clEnqueueReadBuffer");
+
+            OpenCLSpace.ClError = Cl.ReleaseEvent(OpenCLSpace.ClEvent);
+            OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.ReleaseEvent");
+
+            OpenCLSpace.ClError = Cl.Finish(OpenCLSpace.Queue);
+            OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.Finish");
+
+            // Convert to double and write into public fields
+            for (int i = 0; i < nInputUnits; ++i)
+            {
+                parameterGradients[i] = (double)tmpGammaGrad[i];
+                parameterGradients[nInputUnits + i] = (double)tmpBetaGrad[i];
+            }
+
+            return parameterGradients;
+        }
+
+        public override void SetParameters(double[] NewParameters)
+        {
+            // Convert to float and write into tmp arrays
+
+            float[] tmpGamma = new float[nInputUnits];
+            float[] tmpBeta = new float[nInputUnits];
+            for (int i = 0; i < nInputUnits; ++i)
+            {
+                tmpGamma[i] = (float)NewParameters[i];
+                tmpBeta[i] = (float)NewParameters[nInputUnits + i];
+            }
+
+            // Write arrays into buffers on device
+
+            OpenCLSpace.ClError = Cl.EnqueueWriteBuffer(OpenCLSpace.Queue,
+                                                        gammaGPU,
+                                                        OpenCL.Net.Bool.True,
+                                                        (IntPtr)0,
+                                                        (IntPtr)(sizeof(float) * nInputUnits),
+                                                        tmpGamma,
+                                                        0,
+                                                        null,
+                                                        out OpenCLSpace.ClEvent);
+            OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.EnqueueWriteBuffer");
+            OpenCLSpace.ClError = Cl.ReleaseEvent(OpenCLSpace.ClEvent);
+            OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.ReleaseEvent");
+
+            OpenCLSpace.ClError = Cl.EnqueueWriteBuffer(OpenCLSpace.Queue,
+                                                        betaGPU,
+                                                        OpenCL.Net.Bool.True,
+                                                        (IntPtr)0,
+                                                        (IntPtr)(sizeof(float) * nInputUnits),
+                                                        tmpBeta,
+                                                        0,
+                                                        null,
+                                                        out OpenCLSpace.ClEvent);
+            OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.EnqueueWriteBuffer");
+            OpenCLSpace.ClError = Cl.ReleaseEvent(OpenCLSpace.ClEvent);
+            OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.ReleaseEvent");
+
+            OpenCLSpace.ClError = Cl.Finish(OpenCLSpace.Queue);
+            OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.Finish");
+        }
+
+
+        public override double[] GetInput()
+        {
+            int inputArraySize = nInputUnits * inputNeurons.MiniBatchSize;
+            double[] input = new double[inputArraySize];
+
+            // Copy device buffer to host
+            float[] tmpInput = new float[inputArraySize];
+            OpenCLSpace.ClError = Cl.EnqueueReadBuffer( OpenCLSpace.Queue,
+                                                        inputNeurons.ActivationsGPU, // source
+                                                        Bool.True,
+                                                        (IntPtr)0,
+                                                        (IntPtr)(sizeof(float) * inputArraySize),
+                                                        tmpInput,  // destination
+                                                        0,
+                                                        null,
+                                                        out OpenCLSpace.ClEvent);
+            OpenCLSpace.CheckErr(OpenCLSpace.ClError, "clEnqueueReadBuffer");
+
+            OpenCLSpace.ClError = Cl.ReleaseEvent(OpenCLSpace.ClEvent);
+            OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.ReleaseEvent");
+
+            OpenCLSpace.ClError = Cl.Finish(OpenCLSpace.Queue);
+            OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.Finish");
+
+            // Convert to double and write into public fields
+            for (int i = 0; i < inputArraySize; ++i)
+            {
+                input[i] = (double)tmpInput[i];
+            }
+
+            return input;
+        }
+
+        public override double[] GetInputGradients()
+        {
+            int inputArraySize = nInputUnits * inputNeurons.MiniBatchSize;
+            double[] inputGradients = new double[inputArraySize];
+
+            // Copy device buffer to host
+            float[] tmpInputGradients = new float[inputArraySize];
+            OpenCLSpace.ClError = Cl.EnqueueReadBuffer(OpenCLSpace.Queue,
+                                                        inputNeurons.DeltaGPU, // source
+                                                        Bool.True,
+                                                        (IntPtr)0,
+                                                        (IntPtr)(sizeof(float) * inputArraySize),
+                                                        tmpInputGradients,  // destination
+                                                        0,
+                                                        null,
+                                                        out OpenCLSpace.ClEvent);
+            OpenCLSpace.CheckErr(OpenCLSpace.ClError, "clEnqueueReadBuffer");
+
+            OpenCLSpace.ClError = Cl.ReleaseEvent(OpenCLSpace.ClEvent);
+            OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.ReleaseEvent");
+
+            OpenCLSpace.ClError = Cl.Finish(OpenCLSpace.Queue);
+            OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.Finish");
+
+            // Convert to double and write into public fields
+            for (int i = 0; i < inputArraySize; ++i)
+            {
+                inputGradients[i] = (double)tmpInputGradients[i];
+            }
+
+            return inputGradients;
+        }
+
+        public override void SetInput(double[] NewInput )
+        {
+            // Convert to float and write into tmp arrays
+            int inputArraySize = nInputUnits * inputNeurons.MiniBatchSize;
+            float[] tmpInput = new float[inputArraySize];
+            for (int i = 0; i < inputArraySize; ++i)
+                tmpInput[i] = (float)NewInput[i];
+
+            // Write arrays into buffers on device
+
+            OpenCLSpace.ClError = Cl.EnqueueWriteBuffer(OpenCLSpace.Queue,
+                                                        inputNeurons.ActivationsGPU,
+                                                        OpenCL.Net.Bool.True,
+                                                        (IntPtr)0,
+                                                        (IntPtr)(sizeof(float) * inputArraySize),
+                                                        tmpInput,
+                                                        0,
+                                                        null,
+                                                        out OpenCLSpace.ClEvent);
+            OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.EnqueueWriteBuffer");
+            OpenCLSpace.ClError = Cl.ReleaseEvent(OpenCLSpace.ClEvent);
+            OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.ReleaseEvent");
+
+            OpenCLSpace.ClError = Cl.Finish(OpenCLSpace.Queue);
+            OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.Finish");
         }
 
         #endregion

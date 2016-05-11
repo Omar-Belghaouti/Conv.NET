@@ -43,7 +43,6 @@ namespace JaNet
         public string Type
         {
             get { return type; }
-            //set { this.type = value; } // shouldn't need this. TO-DELETE
         }
 
         public int ID
@@ -137,32 +136,6 @@ namespace JaNet
             get { return 0; }
         }
 
-#if GRADIENT_CHECK
-        // accessors for gradient check 
-
-        public virtual double[,] Weights
-        {
-            get { return null; }
-            set { }
-        }
-
-        public virtual double[] Biases
-        {
-            get { return null; }
-            set { }
-        }
-
-        public virtual double[,] WeightsGradients
-        {
-            get { return null; }
-        }
-
-        public virtual double[] BiasesGradients
-        {
-            get { return null; }
-        }
-#endif
-
         #endregion
 
 
@@ -244,5 +217,116 @@ namespace JaNet
 
         #endregion
 
+
+        #region Gradient check
+
+        public virtual double[] GetParameters()
+        {
+            return null;
+        }
+
+        public virtual double[] GetParameterGradients()
+        {
+            return null;
+        }
+
+        public virtual void SetParameters(double[] NewParameters)
+        {
+        }
+
+        public virtual double[] GetInput()
+        {
+            int inputArraySize = nInputUnits * inputNeurons.MiniBatchSize;
+            double[] input = new double[inputArraySize];
+
+            // Copy device buffer to host
+            float[] tmpInput = new float[inputArraySize];
+            OpenCLSpace.ClError = Cl.EnqueueReadBuffer(OpenCLSpace.Queue,
+                                                        inputNeurons.ActivationsGPU, // source
+                                                        Bool.True,
+                                                        (IntPtr)0,
+                                                        (IntPtr)(sizeof(float) * inputArraySize),
+                                                        tmpInput,  // destination
+                                                        0,
+                                                        null,
+                                                        out OpenCLSpace.ClEvent);
+            OpenCLSpace.CheckErr(OpenCLSpace.ClError, "clEnqueueReadBuffer");
+
+            OpenCLSpace.ClError = Cl.ReleaseEvent(OpenCLSpace.ClEvent);
+            OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.ReleaseEvent");
+
+            OpenCLSpace.ClError = Cl.Finish(OpenCLSpace.Queue);
+            OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.Finish");
+
+            // Convert to double and write into public fields
+            for (int i = 0; i < inputArraySize; ++i)
+            {
+                input[i] = (double)tmpInput[i];
+            }
+
+            return input;
+        }
+
+        public virtual double[] GetInputGradients()
+        {
+            int inputArraySize = nInputUnits * inputNeurons.MiniBatchSize;
+            double[] inputGradients = new double[inputArraySize];
+
+            // Copy device buffer to host
+            float[] tmpInputGradients = new float[inputArraySize];
+            OpenCLSpace.ClError = Cl.EnqueueReadBuffer(OpenCLSpace.Queue,
+                                                        inputNeurons.DeltaGPU, // source
+                                                        Bool.True,
+                                                        (IntPtr)0,
+                                                        (IntPtr)(sizeof(float) * inputArraySize),
+                                                        tmpInputGradients,  // destination
+                                                        0,
+                                                        null,
+                                                        out OpenCLSpace.ClEvent);
+            OpenCLSpace.CheckErr(OpenCLSpace.ClError, "clEnqueueReadBuffer");
+
+            OpenCLSpace.ClError = Cl.ReleaseEvent(OpenCLSpace.ClEvent);
+            OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.ReleaseEvent");
+
+            OpenCLSpace.ClError = Cl.Finish(OpenCLSpace.Queue);
+            OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.Finish");
+
+            // Convert to double and write into public fields
+            for (int i = 0; i < inputArraySize; ++i)
+            {
+                inputGradients[i] = (double)tmpInputGradients[i];
+            }
+
+            return inputGradients;
+        }
+
+        public virtual void SetInput(double[] NewInput)
+        {
+            // Convert to float and write into tmp arrays
+            int inputArraySize = nInputUnits * inputNeurons.MiniBatchSize;
+            float[] tmpInput = new float[inputArraySize];
+            for (int i = 0; i < inputArraySize; ++i)
+                tmpInput[i] = (float)NewInput[i];
+
+            // Write arrays into buffers on device
+
+            OpenCLSpace.ClError = Cl.EnqueueWriteBuffer(OpenCLSpace.Queue,
+                                                        inputNeurons.ActivationsGPU,
+                                                        OpenCL.Net.Bool.True,
+                                                        (IntPtr)0,
+                                                        (IntPtr)(sizeof(float) * inputArraySize),
+                                                        tmpInput,
+                                                        0,
+                                                        null,
+                                                        out OpenCLSpace.ClEvent);
+            OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.EnqueueWriteBuffer");
+            OpenCLSpace.ClError = Cl.ReleaseEvent(OpenCLSpace.ClEvent);
+            OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.ReleaseEvent");
+
+            OpenCLSpace.ClError = Cl.Finish(OpenCLSpace.Queue);
+            OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.Finish");
+        }
+
+        #endregion
     }
 }

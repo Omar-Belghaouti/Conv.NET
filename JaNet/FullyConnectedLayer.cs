@@ -32,6 +32,11 @@ namespace JaNet
         private Mem biasesGPU;
 
         [NonSerialized]
+        private Mem weightsGradientsGPU;
+        [NonSerialized]
+        private Mem biasesGradientsGPU;
+
+        [NonSerialized]
         private Mem weightsSpeedGPU;
         [NonSerialized]
         private Mem biasesSpeedGPU;
@@ -44,48 +49,16 @@ namespace JaNet
         private IntPtr[] updateGlobalWorkSizePtr;
         private IntPtr[] updateLocalWorkSizePtr;
 
-        
-
-#if GRADIENT_CHECK
-        private double[,] weightsGradients;
-        private double[] biasesGradients;
-#endif
-
-
         #endregion
 
 
         #region Properties
+
         public override double DropoutParameter
         {
             set { this.dropoutParameter = value; }
         }
 
-#if GRADIENT_CHECK
-        // Accessors for gradient check
-
-        public override double[,] Weights
-        {
-            get { return weights; }
-            set { this.weights = value; }
-        }
-
-        public override double[] Biases
-        {
-            get { return biases; }
-            set { this.biases = value; }
-        }
-
-        public override double[,] WeightsGradients
-        {
-            get { return weightsGradients; }
-        }
-
-        public override double[] BiasesGradients
-        {
-            get { return biasesGradients; }
-        }
-#endif
         #endregion
 
 
@@ -125,10 +98,6 @@ namespace JaNet
 
             base.InitializeParameters(Option); // makes sure this method is only call AFTER "SetupOutput()"
 
-#if GRADIENT_CHECK
-            this.weightsGradients = new double[this.OutputNeurons.NumberOfUnits, this.InputNeurons.NumberOfUnits];
-            this.biasesGradients = new double[this.OutputNeurons.NumberOfUnits];
-#endif
             if (Option == "random") // sample new parameters
             {
                 //  WEIGHTS are initialized as normally distributed numbers with mean 0 and std equals to sqrt(2/nInputUnits)
@@ -176,6 +145,22 @@ namespace JaNet
                                                     biasesHost,
                                                     out OpenCLSpace.ClError);
             OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.CreateBuffer");
+
+            // Also create weightsGradients and biasesGradients buffers and initialize them to zero
+
+            this.weightsGradientsGPU = (Mem)Cl.CreateBuffer(OpenCLSpace.Context,
+                                                            MemFlags.ReadWrite,
+                                                            (IntPtr)weightBufferSize,
+                                                            out OpenCLSpace.ClError);
+            OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.CreateBuffer");
+            OpenCLSpace.WipeBuffer(weightsGradientsGPU, (nInputUnits * nOutputUnits), typeof(float));
+
+            this.biasesGradientsGPU = (Mem)Cl.CreateBuffer( OpenCLSpace.Context,
+                                                            MemFlags.ReadWrite,
+                                                            (IntPtr)biasesBufferSize,
+                                                            out OpenCLSpace.ClError);
+            OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.CreateBuffer");
+            OpenCLSpace.WipeBuffer(biasesGradientsGPU, nOutputUnits, typeof(float));
 
             // Also create weightsSpeed and biasesSpeed buffers and initialize them to zero
 
@@ -542,16 +527,18 @@ namespace JaNet
 
 #if OPENCL_ENABLED
             // Set kernel arguments
-            OpenCLSpace.ClError = Cl.SetKernelArg(OpenCLSpace.FCUpdateSpeeds, 0, weightsSpeedGPU);
+            OpenCLSpace.ClError  = Cl.SetKernelArg(OpenCLSpace.FCUpdateSpeeds, 0, weightsSpeedGPU);
             OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.FCUpdateSpeeds, 1, biasesSpeedGPU);
-            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.FCUpdateSpeeds, 2, inputNeurons.ActivationsGPU);
-            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.FCUpdateSpeeds, 3, outputNeurons.DeltaGPU);
-            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.FCUpdateSpeeds, 4, dropoutMaskGPU);
-            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.FCUpdateSpeeds, 5, (IntPtr)sizeof(int), nInputUnits);
-            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.FCUpdateSpeeds, 6, (IntPtr)sizeof(int), nOutputUnits);
-            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.FCUpdateSpeeds, 7, (IntPtr)sizeof(float), (float)momentumCoefficient);
-            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.FCUpdateSpeeds, 8, (IntPtr)sizeof(float), (float)learningRate);
-            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.FCUpdateSpeeds, 9, (IntPtr)sizeof(int), inputNeurons.MiniBatchSize);
+            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.FCUpdateSpeeds, 2, weightsGradientsGPU);
+            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.FCUpdateSpeeds, 3, biasesGradientsGPU);
+            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.FCUpdateSpeeds, 4, inputNeurons.ActivationsGPU);
+            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.FCUpdateSpeeds, 5, outputNeurons.DeltaGPU);
+            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.FCUpdateSpeeds, 6, dropoutMaskGPU);
+            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.FCUpdateSpeeds, 7, (IntPtr)sizeof(int), nInputUnits);
+            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.FCUpdateSpeeds, 8, (IntPtr)sizeof(int), nOutputUnits);
+            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.FCUpdateSpeeds, 9, (IntPtr)sizeof(float), (float)momentumCoefficient);
+            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.FCUpdateSpeeds, 10, (IntPtr)sizeof(float), (float)learningRate);
+            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.FCUpdateSpeeds, 11, (IntPtr)sizeof(int), inputNeurons.MiniBatchSize);
             OpenCLSpace.CheckErr(OpenCLSpace.ClError, "FullyConnected.UpdateSpeeds(): Cl.SetKernelArg");
 
             // Run kernel
@@ -608,90 +595,6 @@ namespace JaNet
             } // end loop over mini-batch
 #endif
 
-
-#if DEBUGGING_STEPBYSTEP_FC
-            /* ------------------------- DEBUGGING --------------------------------------------- */
-
-            // Display weight update speed after update
-#if OPENCL_ENABLED
-            OpenCLSpace.ClError = Cl.EnqueueReadBuffer(OpenCLSpace.Queue,
-                                            weightsUpdateSpeedGPU, // source
-                                            Bool.True,
-                                            (IntPtr)0,
-                                            (IntPtr)(output.NumberOfUnits * input.NumberOfUnits * sizeof(float)),
-                                            tmpWeightsUpdateSpeed,  // destination
-                                            0,
-                                            null,
-                                            out OpenCLSpace.ClEvent);
-            OpenCLSpace.CheckErr(OpenCLSpace.ClError, "FullyConnectedLayer.UpdateParameters Cl.clEnqueueReadBuffer weightsUpdateSpeed");
-#else
-            tmpWeightsUpdateSpeed = weightsUpdateSpeed;
-#endif
-            Console.WriteLine("\nWeight update speed AFTER update:");
-            for (int i = 0; i < tmpWeightsUpdateSpeed.GetLength(0); i++)
-            {
-                for (int j = 0; j < tmpWeightsUpdateSpeed.GetLength(1); j++)
-                    Console.Write("{0}  ", tmpWeightsUpdateSpeed[i, j]);
-                Console.WriteLine();
-            }
-            Console.WriteLine();
-            Console.ReadKey();
-            
-
-            // Display weights after update
-            float[,] weightsAfterUpdate = new float[output.NumberOfUnits, input.NumberOfUnits];
-#if OPENCL_ENABLED
-            OpenCLSpace.ClError = Cl.EnqueueReadBuffer(OpenCLSpace.Queue,
-                                            weightsGPU, // source
-                                            Bool.True,
-                                            (IntPtr)0,
-                                            (IntPtr)(output.NumberOfUnits * input.NumberOfUnits * sizeof(float)),
-                                            weightsAfterUpdate,  // destination
-                                            0,
-                                            null,
-                                            out OpenCLSpace.ClEvent);
-            OpenCLSpace.CheckErr(OpenCLSpace.ClError, "FullyConnectedLayer.UpdateParameters Cl.clEnqueueReadBuffer weightsAfterUpdate");
-#else
-            weightsAfterUpdate = weights;
-#endif
-            Console.WriteLine("\nWeights AFTER update:");
-            for (int i = 0; i < weightsAfterUpdate.GetLength(0); i++)
-            {
-                for (int j = 0; j < weightsAfterUpdate.GetLength(1); j++)
-                    Console.Write("{0}  ", weightsAfterUpdate[i, j]);
-                Console.WriteLine();
-            }
-            Console.WriteLine();
-            Console.ReadKey();
-            
-
-            // Display biases after update
-            float[] biasesAfterUpdate = new float[output.NumberOfUnits];
-#if OPENCL_ENABLED
-            OpenCLSpace.ClError = Cl.EnqueueReadBuffer(OpenCLSpace.Queue,
-                                            biasesGPU, // source
-                                            Bool.True,
-                                            (IntPtr)0,
-                                            (IntPtr)(output.NumberOfUnits * sizeof(float)),
-                                            biasesAfterUpdate,  // destination
-                                            0,
-                                            null,
-                                            out OpenCLSpace.ClEvent);
-            OpenCLSpace.CheckErr(OpenCLSpace.ClError, "FullyConnectedLayer.UpdateParameters Cl.clEnqueueReadBuffer biasesAfterUpdate");
-#else
-            biasesAfterUpdate = biases;
-#endif
-            Console.WriteLine("\nBiases AFTER update:");
-            for (int i = 0; i < biasesAfterUpdate.Length; i++)
-            {
-                Console.Write("{0}  ", biasesAfterUpdate[i]);
-            }
-            Console.WriteLine();
-            Console.ReadKey();
-
-
-            /*------------------------- END DEBUGGING ---------------------------------------- */
-#endif
 
 #if TIMING_LAYERS
             Utils.FCUpdateSpeedsTimer.Stop();
@@ -758,5 +661,163 @@ namespace JaNet
         
         #endregion
 
+
+        #region Gradient check
+
+        public override double[] GetParameters()
+        {
+            int nParameters = nInputUnits * nOutputUnits + nOutputUnits;
+            double[] parameters = new double[nParameters];
+
+            // Copy weights and biases buffers to host
+            float[] tmpWeights = new float[nInputUnits * nOutputUnits];
+            OpenCLSpace.ClError = Cl.EnqueueReadBuffer(OpenCLSpace.Queue,
+                                                        weightsGPU, // source
+                                                        Bool.True,
+                                                        (IntPtr)0,
+                                                        (IntPtr)(sizeof(float) * nInputUnits * nOutputUnits),
+                                                        tmpWeights,  // destination
+                                                        0,
+                                                        null,
+                                                        out OpenCLSpace.ClEvent);
+            OpenCLSpace.CheckErr(OpenCLSpace.ClError, "clEnqueueReadBuffer");
+
+            OpenCLSpace.ClError = Cl.ReleaseEvent(OpenCLSpace.ClEvent);
+            OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.ReleaseEvent");
+
+            float[] tmpBiases = new float[nOutputUnits];
+            OpenCLSpace.ClError = Cl.EnqueueReadBuffer(OpenCLSpace.Queue,
+                                                        biasesGPU, // source
+                                                        Bool.True,
+                                                        (IntPtr)0,
+                                                        (IntPtr)(sizeof(float) * nOutputUnits),
+                                                        tmpBiases,  // destination
+                                                        0,
+                                                        null,
+                                                        out OpenCLSpace.ClEvent);
+            OpenCLSpace.CheckErr(OpenCLSpace.ClError, "clEnqueueReadBuffer");
+
+            OpenCLSpace.ClError = Cl.ReleaseEvent(OpenCLSpace.ClEvent);
+            OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.ReleaseEvent");
+
+            OpenCLSpace.ClError = Cl.Finish(OpenCLSpace.Queue);
+            OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.Finish");
+
+            // Convert to double and write into parameters array
+            for (int i = 0; i < nInputUnits*nOutputUnits; ++i)
+            {
+                parameters[i] = (double)tmpWeights[i];
+            }
+            for (int i = 0; i < nOutputUnits; ++i)
+            {
+                parameters[nInputUnits * nOutputUnits + i] = (double)tmpBiases[i];
+            }
+
+            return parameters;
+        }
+
+        public override double[] GetParameterGradients()
+        {
+            int nParameters = nInputUnits * nOutputUnits + nOutputUnits;
+            double[] parameterGradients = new double[nParameters];
+
+            // Copy weights and biases gradients buffers to host
+            float[] tmpWeightsGrad = new float[nInputUnits * nOutputUnits];
+            OpenCLSpace.ClError = Cl.EnqueueReadBuffer(OpenCLSpace.Queue,
+                                                        weightsGradientsGPU, // source
+                                                        Bool.True,
+                                                        (IntPtr)0,
+                                                        (IntPtr)(sizeof(float) * nInputUnits * nOutputUnits),
+                                                        tmpWeightsGrad,  // destination
+                                                        0,
+                                                        null,
+                                                        out OpenCLSpace.ClEvent);
+            OpenCLSpace.CheckErr(OpenCLSpace.ClError, "clEnqueueReadBuffer");
+
+            OpenCLSpace.ClError = Cl.ReleaseEvent(OpenCLSpace.ClEvent);
+            OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.ReleaseEvent");
+
+            float[] tmpBiasesGrad = new float[nOutputUnits];
+            OpenCLSpace.ClError = Cl.EnqueueReadBuffer(OpenCLSpace.Queue,
+                                                        biasesGradientsGPU, // source
+                                                        Bool.True,
+                                                        (IntPtr)0,
+                                                        (IntPtr)(sizeof(float) * nOutputUnits),
+                                                        tmpBiasesGrad,  // destination
+                                                        0,
+                                                        null,
+                                                        out OpenCLSpace.ClEvent);
+            OpenCLSpace.CheckErr(OpenCLSpace.ClError, "clEnqueueReadBuffer");
+
+            OpenCLSpace.ClError = Cl.ReleaseEvent(OpenCLSpace.ClEvent);
+            OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.ReleaseEvent");
+
+            OpenCLSpace.ClError = Cl.Finish(OpenCLSpace.Queue);
+            OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.Finish");
+
+            // Convert to double and write into parameterGradients
+            //Console.WriteLine("Weight gradients:\n");
+            for (int i = 0; i < nInputUnits * nOutputUnits; ++i)
+            {
+                parameterGradients[i] = (double)tmpWeightsGrad[i];
+                //Console.Write(" {0}", tmpWeightsGrad[i]);
+            }
+            //Console.ReadKey();
+            for (int i = 0; i < nOutputUnits; ++i)
+            {
+                parameterGradients[nInputUnits * nOutputUnits + i] = (double)tmpBiasesGrad[i];
+            }
+
+            return parameterGradients;
+        }
+
+        public override void SetParameters(double[] NewParameters)
+        {
+            // Convert to float and write into tmp arrays
+
+            float[] tmpWeights = new float[nInputUnits * nOutputUnits];
+            float[] tmpBiases = new float[nOutputUnits];
+            for (int i = 0; i < nInputUnits * nOutputUnits; ++i)
+            {
+                tmpWeights[i] = (float)NewParameters[i];
+            }
+            for (int i = 0; i < nOutputUnits; ++i)
+            {
+                tmpBiases[i] = (float)NewParameters[nInputUnits * nOutputUnits + i];
+            }
+
+            // Write arrays into buffers on device
+
+            OpenCLSpace.ClError = Cl.EnqueueWriteBuffer(OpenCLSpace.Queue,
+                                                        weightsGPU,
+                                                        OpenCL.Net.Bool.True,
+                                                        (IntPtr)0,
+                                                        (IntPtr)(sizeof(float) * nInputUnits * nOutputUnits),
+                                                        tmpWeights,
+                                                        0,
+                                                        null,
+                                                        out OpenCLSpace.ClEvent);
+            OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.EnqueueWriteBuffer");
+            OpenCLSpace.ClError = Cl.ReleaseEvent(OpenCLSpace.ClEvent);
+            OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.ReleaseEvent");
+
+            OpenCLSpace.ClError = Cl.EnqueueWriteBuffer(OpenCLSpace.Queue,
+                                                        biasesGPU,
+                                                        OpenCL.Net.Bool.True,
+                                                        (IntPtr)0,
+                                                        (IntPtr)(sizeof(float) * nOutputUnits),
+                                                        tmpBiases,
+                                                        0,
+                                                        null,
+                                                        out OpenCLSpace.ClEvent);
+            OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.EnqueueWriteBuffer");
+            OpenCLSpace.ClError = Cl.ReleaseEvent(OpenCLSpace.ClEvent);
+            OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.ReleaseEvent");
+
+            OpenCLSpace.ClError = Cl.Finish(OpenCLSpace.Queue);
+            OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.Finish");
+        }
+
+        #endregion
     }
 }

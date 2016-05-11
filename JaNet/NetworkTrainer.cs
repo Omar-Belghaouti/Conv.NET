@@ -163,6 +163,12 @@ namespace JaNet
 
         public void Train(NeuralNetwork network, DataSet trainingSet, DataSet validationSet)
         {
+            // Setup miniBatchSize
+            network.Set("MiniBatchSize", miniBatchSize);
+
+            // Initialize parameters
+            network.InitializeParameters("random");
+
             // Set dropout
             network.Set("DropoutFC", this.dropoutFC);
 
@@ -192,8 +198,8 @@ namespace JaNet
                      **************/
 
                     // Pre-inference pass: Computes cumulative averages in BatchNorm layers (needed for evaluation)
-                    //network.Set("PreInference", true);
-                    //networkEvaluator.PreEvaluateNetwork(network, trainingSet);
+                    network.Set("PreInference", true);
+                    networkEvaluator.PreEvaluateNetwork(network, trainingSet);
             
 
                     // Evaluate on training set...
@@ -286,7 +292,7 @@ namespace JaNet
 
                     // Forward pass
                     stopwatchFwd.Start();
-                    network.ForwardPass();
+                    network.ForwardPass("beginning", "end");
                     stopwatchFwd.Stop();
 
                     // Compute gradient and backpropagate 
@@ -358,7 +364,7 @@ namespace JaNet
 
             stopwatch.Stop();
 
-        //}
+        
         }
 
         #region Deprecated methods

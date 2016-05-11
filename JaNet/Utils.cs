@@ -254,82 +254,12 @@ namespace JaNet
                 {
                     outputFile.WriteLine(filterValue.ToString());
                 }
+                Console.WriteLine("Filters of first convolutional layers saved in file" + outputFilePath);
             }
+
         }
 
-        /// <summary>
-        /// Generates a random permutation of the set 0, 1, 2, ..., maxN-1 consecutive integers.
-        /// </summary>
-        /// <param name="maxN"></param>
-        /// <returns></returns>
-        [Obsolete("Replaced by Sequence class")]
-        public static int[] GenerateRandomPermutation(int maxN)
-        {
-            
-            int[] sequence = new int[maxN];
-            int n = maxN;
-
-            for (int i = 0; i < maxN; i++)
-                sequence[i] = i;
-            
-            while (n > 1)
-            {
-                int randomIndex = Global.rng.Next(n--);
-                int temp = sequence[randomIndex];
-                sequence[randomIndex] = sequence[n];
-                sequence[n] = temp;
-            }
-
-            return sequence;
-        }
-
-        /// <summary>
-        /// Generate list of mini-batches indices, i.e. output is a list, each element of which is a minibatch, containing indices in random order
-        /// </summary>
-        /// <param name="maxN"></param>
-        /// <returns></returns>
-        [Obsolete("Method replaced by GenerateRandomPermutation")]
-        public static List<int[]> GenerateMiniBatches(int maxN, int miniBatchSize)
-        {
-
-            if (maxN % miniBatchSize != 0)
-                throw new System.ArgumentException("Cannot generate mini-batches.");
-
-
-            List<int[]> miniBatchesList = new List<int[]>();
-            int[] sequence = new int[maxN];
-            int n = maxN;
-            
-
-            for (int i = 0; i < maxN; i++)
-                sequence[i] = i;
-
-            while (n > 1)
-            {
-                int randomIndex = Global.rng.Next(n--);
-                int temp = sequence[randomIndex];
-                sequence[randomIndex] = sequence[n];
-                sequence[n] = temp;
-            }
-
-            int[] tmp = new int[miniBatchSize];
-            int j = 0;
-            for (int i = 0; i < maxN; i++)
-            {
-                tmp[j] = sequence[i];
-                j++;
-
-                if (j % miniBatchSize == 0)
-                {
-                    j = 0;
-                    int[] tmp2 = (int[])tmp.Clone();
-                    miniBatchesList.Add(tmp2);
-                }
-            }
-
-            return miniBatchesList;
-        }
-
+        
 
     }
 

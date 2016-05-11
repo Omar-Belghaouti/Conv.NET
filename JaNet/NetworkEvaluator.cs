@@ -51,7 +51,7 @@ namespace JaNet
                 network.InputLayer.FeedData(dataSet, miniBatch);
 
                 // Run network forward
-                network.ForwardPass();
+                network.ForwardPass("beginning", "end");
 
                 // Do not compute loss or error
                 
@@ -81,16 +81,12 @@ namespace JaNet
                 network.InputLayer.FeedData(dataSet, miniBatch);
 
                 // Run network forward
-                network.ForwardPass();
+                network.ForwardPass("beginning", "end");
 
 
                 for (int m = 0; m < Math.Min(miniBatchSize,dataSet.Size-iStartMiniBatch) ; m++) // In case dataSet.Size doesn't divide miniBatchSize, the last miniBatch contains copies! Don't want to re-evaluate them
                 {
                     double[] outputScores = network.OutputLayer.OutputClassScores[m];
-
-
-                    
-
 
                     int assignedLabel = Utils.IndexOfMax(outputScores);
                     int trueLabel = dataSet.Labels[miniBatch[m]];

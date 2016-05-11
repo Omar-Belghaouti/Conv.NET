@@ -87,33 +87,6 @@ namespace JaNet
         public Neurons(int NumberOfUnits)
         {
             this.nUnits = NumberOfUnits;
-
-#if OPENCL_ENABLED
-            /*
-            this.activationsGPU = new List<Mem>();
-            this.activationsGPU.Add( (Mem)Cl.CreateBuffer(  OpenCLSpace.Context,
-                                                            MemFlags.ReadWrite,
-                                                            (IntPtr)(sizeof(float) * NumberOfUnits),
-                                                            out OpenCLSpace.ClError) );
-            
-
-            this.deltaGPU = new List<Mem>();
-            
-            this.deltaGPU.Add( (Mem)Cl.CreateBuffer(OpenCLSpace.Context,
-                                                    MemFlags.ReadWrite,
-                                                    (IntPtr)(sizeof(float) * NumberOfUnits),
-                                                    out OpenCLSpace.ClError) );
-
-            OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Neurons constructor: Cl.CreateBuffer");
-            */
-#else
-            this.activations = new List<double[]>();
-            this.activations.Add(new double[nUnits]);
-
-            this.delta = new List<double[]>();
-            this.delta.Add(new double[nUnits]);
-#endif
-
         }
         
         #endregion

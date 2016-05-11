@@ -79,10 +79,11 @@ namespace JaNet
         {
             get { return filterSize; }
         }
-        
+
+        /*
 #if GRADIENT_CHECK
         // accessors for gradient check
-
+        
         public override double[,] Weights
         {
             get { return weights; }
@@ -104,7 +105,9 @@ namespace JaNet
         {
             get { return biasesGradients; }
         }
+        
 #endif
+         */
         #endregion
 
 

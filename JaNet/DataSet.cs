@@ -109,8 +109,6 @@ namespace JaNet
 
 #if OPENCL_ENABLED
             this.dataGPU = new List<Mem>();
-            //this.labelsGPU = new List<Mem>();
-            //this.labelArraysGPU = new List<Mem>();
 #else
             this.data = new List<double[]>();
             //this.labelArrays = new List<int[]>();

@@ -782,7 +782,6 @@ namespace JaNet
             OpenCLSpace.ClError = Cl.ReleaseEvent(OpenCLSpace.ClEvent);
             OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.ReleaseEvent");
 
-            //Console.WriteLine("Checkpoint F");
 #else
             //double weightNorm = 0;
             //double updateNorm = 0;

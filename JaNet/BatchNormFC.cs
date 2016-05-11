@@ -251,6 +251,45 @@ namespace JaNet
 
         }
 
+
+        public override void CopyBuffersToHost()
+        {
+            OpenCLSpace.ClError = Cl.EnqueueReadBuffer(OpenCLSpace.Queue,
+                                                        gammaGPU, // source
+                                                        Bool.True,
+                                                        (IntPtr)0,
+                                                        (IntPtr)(sizeof(float) * nInputUnits),
+                                                        gammaHost,  // destination
+                                                        0,
+                                                        null,
+                                                        out OpenCLSpace.ClEvent);
+            OpenCLSpace.CheckErr(OpenCLSpace.ClError, "clEnqueueReadBuffer gammaGPU");
+
+            OpenCLSpace.ClError = Cl.ReleaseEvent(OpenCLSpace.ClEvent);
+            OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.ReleaseEvent");
+
+            OpenCLSpace.ClError = Cl.EnqueueReadBuffer(OpenCLSpace.Queue,
+                                                        betaGPU, // source
+                                                        Bool.True,
+                                                        (IntPtr)0,
+                                                        (IntPtr)(sizeof(float) * nInputUnits),
+                                                        betaHost,  // destination
+                                                        0,
+                                                        null,
+                                                        out OpenCLSpace.ClEvent);
+            OpenCLSpace.CheckErr(OpenCLSpace.ClError, "clEnqueueReadBuffer betaGPU");
+
+            OpenCLSpace.ClError = Cl.ReleaseEvent(OpenCLSpace.ClEvent);
+            OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.ReleaseEvent");
+
+
+            OpenCLSpace.ClError = Cl.Finish(OpenCLSpace.Queue);
+            OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.Finish");
+
+            // Gradients and speeds are not saved.
+        }
+
+
         #endregion
 
 

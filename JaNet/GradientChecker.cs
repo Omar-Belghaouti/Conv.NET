@@ -158,7 +158,7 @@ namespace JaNet
                     Console.ReadKey();
 
                     // Now inputs
-                    /*
+                    
                     nChecks = 0;
                     nErrors = 0;
                     cumulativeError = 0.0;
@@ -247,7 +247,7 @@ namespace JaNet
                         Console.Write("\nAverage error = {0}", cumulativeError);
                     }
                     Console.Write("\n\n");
-                    */
+                    
                 }
             }
         }

@@ -713,7 +713,7 @@ namespace JaNet
             OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.Finish");
             
 
-            /* ------------------------- DEBUGGING ---------------------------------------------    
+            /* ------------------------- DEBUGGING ---------------------------------------------
             
             
             // Display gamma

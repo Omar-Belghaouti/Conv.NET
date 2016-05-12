@@ -53,29 +53,21 @@ namespace JaNet
             
             network.AddLayer(new InputLayer(1, 32, 32));
 
-            //network.AddLayer(new ConvolutionalLayer(3, 2, 1, 1));
+            network.AddLayer(new ConvolutionalLayer(3, 8, 1, 1));
             //network.AddLayer(new BatchNormConv());
-            //network.AddLayer(new ReLU());
+            network.AddLayer(new ReLU());
 
             network.AddLayer(new MaxPooling(2, 2));
 
-            //network.AddLayer(new ConvolutionalLayer(3, 4, 1, 1));
-            
-            //network.AddLayer(new ReLU());
+            network.AddLayer(new ConvolutionalLayer(3, 16, 1, 1));
+            network.AddLayer(new BatchNormConv());
+            network.AddLayer(new ReLU());
 
             network.AddLayer(new MaxPooling(2, 2));
 
             
-
-            network.AddLayer(new ConvolutionalLayer(3, 4, 1, 1));
-
-            network.AddLayer(new BatchNormConv());
-            network.AddLayer(new BatchNormConv());
-
-            //network.AddLayer(new ConvolutionalLayer(4, 43, 1, 0));
-            
-
-            //network.AddLayer(new FullyConnectedLayer(32));
+            network.AddLayer(new FullyConnectedLayer(128));
+            network.AddLayer(new ReLU());
 
             network.AddLayer(new FullyConnectedLayer(43));
             //network.AddLayer(new BatchNormFC());
@@ -143,18 +135,18 @@ namespace JaNet
             validationSet.ReadData(GTSRBvalidationDataGS);
             validationSet.ReadLabels(GTSRBvalidationLabelsGS);
 
-            /*
+            
             Console.WriteLine("Importing test set...");
             DataSet testSet = new DataSet(43);
             testSet.ReadData(GTSRBtestDataGS);
             testSet.ReadLabels(GTSRBtestLabelsGS);
-            */
+            
 
 
             /*****************************************************
              * (3) Gradient check
              ****************\************************************/
-            GradientChecker.Check(network, validationSet);
+            //GradientChecker.Check(network, validationSet);
 
 
 
@@ -162,7 +154,7 @@ namespace JaNet
 
             /*****************************************************
              * (4) Train network
-             *****************************************************
+             *****************************************************/
             Console.WriteLine("\n=========================================");
             Console.WriteLine("    Network training");
             Console.WriteLine("=========================================\n");
@@ -175,7 +167,7 @@ namespace JaNet
             networkTrainer.WeightDecayCoeff = 0.0001;
             networkTrainer.MaxTrainingEpochs = 50;
             networkTrainer.EpochsBeforeRegularization = 0;
-            networkTrainer.MiniBatchSize = 2;
+            networkTrainer.MiniBatchSize = 32;
             networkTrainer.ConsoleOutputLag = 1; // 1 = print every epoch, N = print every N epochs
             networkTrainer.EvaluateBeforeTraining = true;
             networkTrainer.DropoutFullyConnected = 1.0;

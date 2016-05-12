@@ -10,7 +10,6 @@
 #define EPSILON 1.0E-5 // constant small number needed to ensure not to divide by zero when dividing by standard deviation
 
 
-
 /* ==================================================================================================================================== */
 
 /* BNCONVCOMPUTEMEANSVARIANCES()
@@ -55,7 +54,7 @@ BNConvComputeMeansVariances(__global float * means,
 				mean += input[iMapBeginning+iWithinMap];
 			}
 			
-			iMapBeginning += inputVolume;
+			iMapBeginning += inputVolume; // go to the beginning of this map in the next example
 		}
 		mean /= (miniBatchSize * inputArea);
 		
@@ -71,7 +70,7 @@ BNConvComputeMeansVariances(__global float * means,
 		
 		float centeredInput = 0.0f;
 		
-		iMapBeginning = iFeatureMap * inputArea;
+		iMapBeginning = iFeatureMap * inputArea; // go back to the beginning of this map in example 0
 		
 		for (int iExample = 0; iExample < miniBatchSize; iExample++)
 		{
@@ -80,8 +79,9 @@ BNConvComputeMeansVariances(__global float * means,
 				centeredInput = input[iMapBeginning+iWithinMap] - mean;
 				variance += centeredInput * centeredInput;
 			}
+			iMapBeginning += inputVolume; // go to the beginning of this map in the next example
 		}
-		variance /= (miniBatchSize * inputArea - 1);
+		variance /= miniBatchSize * inputArea;
 		
 		// Save variance
 		variances[iFeatureMap] = variance;		
@@ -240,85 +240,6 @@ BNConvUpdateSpeeds(	__global float * gammaSpeed,
 
 
 
-
-
-/* ==================================================================================================================================== */
-
-/* BNCONVUPDATESPEEDS()
- * Computes gradients of loss function with respect to learnable parameters gamma and beta.
- * The gradients are then saved and used to update parameter change speed.
- 
- 
- // ONESTEP (BACKUP... PROBABLY BUGGY!)
-__kernel void 
-BNConvUpdateSpeeds(	__global float * gammaSpeed,
-					__global float * betaSpeed,
-					__global float * deltaGamma,
-					__global float * deltaBeta,
-					__global float * deltaOutput,
-					__global float * normalizedInput,
-					const int inputDepth,
-					const int inputArea,
-					const int inputVolume,
-					const int miniBatchSize,
-					const float momCoeff,
-					const float learningRate
-				)
-{
-	// Global work size = number of parameters = 2 * inputDepth (should be a bit more efficient)
-	const int i = get_global_id(0);
-	
-	if(i < 2 * inputDepth)
-	{
-		if ( (i & 1) == 0) // even indices => gradient wrt gamma (this is the same as computing the modulo 2, but faster)
-		{
-			
-			int iFeatureMap = i /2; // retrieve correct index of parameter / feature map
-			int iMapBeginning = iFeatureMap * inputArea; // beginning of this map in example 0
-			int iActivation = 0;
-			
-			float gammaGrad = 0.0F;
-
-			for (int iExample = 0; iExample < miniBatchSize; iExample++)
-			{
-				for (int iWithinMap = 0; iWithinMap < inputArea; iWithinMap++)
-				{
-					iActivation = iMapBeginning + iWithinMap;
-					//gammaGrad += deltaOutput[iActivation] * normalizedInput[iActivation];
-					gammaGrad = fma(deltaOutput[iActivation], normalizedInput[iActivation], gammaGrad);
-				}
-				iMapBeginning += inputVolume;
-			}
-			// Save gradient
-			deltaGamma[iFeatureMap] = gammaGrad;
-			// And then update parameter update speed
-			gammaSpeed[iFeatureMap] = (momCoeff * gammaSpeed[iFeatureMap]) - learningRate * gammaGrad;
-		}
-		else // odd indices => gradient wrt beta
-		{
-			
-			int iFeatureMap = i / 2; // retrieve correct index of parameter / feature map
-			int iMapBeginning = iFeatureMap * inputArea; // beginning of this map in example 0
-			
-			float betaGrad = 0.0F;
-
-			for (int iExample = 0; iExample < miniBatchSize; iExample++)
-			{
-				for (int iWithinMap = 0; iWithinMap < inputArea; iWithinMap++)
-				{
-					betaGrad += deltaOutput[iMapBeginning + iWithinMap];
-				}
-				iMapBeginning += inputVolume;
-			}
-			// Save gradient
-			deltaBeta[iFeatureMap] = betaGrad;
-			// And then update parameter update speed
-			betaSpeed[iFeatureMap] = (momCoeff * betaSpeed[iFeatureMap]) - learningRate * betaGrad;
-			
-		}
-		
-	}
-}
 
 
 /* ==================================================================================================================================== */

@@ -98,14 +98,14 @@ namespace JaNet
             
 #if OPENCL_ENABLED
             this.activationsGPU = (Mem)Cl.CreateBuffer( OpenCLSpace.Context,
-                                                        MemFlags.ReadWrite,
+                                                        MemFlags.ReadWrite | MemFlags.AllocHostPtr,
                                                         (IntPtr)(sizeof(float) * NumberOfUnits * MiniBatchSize),
                                                         out OpenCLSpace.ClError);
             OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.CreateBuffer Neurons.activationsGPU");
             OpenCLSpace.WipeBuffer(activationsGPU, NumberOfUnits * MiniBatchSize, typeof(float));
 
             this.deltaGPU = (Mem)Cl.CreateBuffer(   OpenCLSpace.Context,
-                                                    MemFlags.ReadWrite,
+                                                    MemFlags.ReadWrite | MemFlags.AllocHostPtr,
                                                     (IntPtr)(sizeof(float) * NumberOfUnits * MiniBatchSize),
                                                     out OpenCLSpace.ClError);
             OpenCLSpace.WipeBuffer(activationsGPU, NumberOfUnits * MiniBatchSize, typeof(float));

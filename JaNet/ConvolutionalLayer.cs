@@ -144,7 +144,7 @@ namespace JaNet
                 // 1) Padded input buffer (and wipe it, just in case)
 
                 this.paddedInputBatchGPU = (Mem)Cl.CreateBuffer(OpenCLSpace.Context,
-                                                                MemFlags.ReadWrite,
+                                                                MemFlags.ReadWrite | MemFlags.AllocHostPtr,
                                                                 (IntPtr)(sizeof(float) * paddedVolume * inputNeurons.MiniBatchSize),
                                                                 out OpenCLSpace.ClError);
                 OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.CreateBuffer paddedInputBatchGPU");
@@ -153,7 +153,7 @@ namespace JaNet
                 // 2) Zero-padding lookup table buffer (and wipe it, just in case)
 
                 this.paddingLookupTableGPU = (Mem)Cl.CreateBuffer(OpenCLSpace.Context,
-                                                                    MemFlags.ReadWrite,
+                                                                    MemFlags.ReadWrite | MemFlags.AllocHostPtr,
                                                                     (IntPtr)(sizeof(int) * inputDepth * inputHeight * inputWidth),
                                                                     out OpenCLSpace.ClError);
                 OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.CreateBuffer paddingLookupTableGPU");
@@ -164,7 +164,7 @@ namespace JaNet
             // 3) Receptive fields lookup table buffer (and wipe it, just in case)
 
             this.recFieldsLookupTableGPU = (Mem)Cl.CreateBuffer(OpenCLSpace.Context,
-                                                                MemFlags.ReadWrite,
+                                                                MemFlags.ReadWrite | MemFlags.AllocHostPtr,
                                                                 (IntPtr)(sizeof(int) * receptiveFieldSize * nReceptiveFields),
                                                                 out OpenCLSpace.ClError);
             OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.CreateBuffer receptiveFieldsLookupTableGPU");
@@ -350,14 +350,14 @@ namespace JaNet
             int biasesBufferSize = sizeof(float) * nFilters;
 
             this.weightsGPU = (Mem)Cl.CreateBuffer( OpenCLSpace.Context,
-                                                    MemFlags.ReadWrite | MemFlags.CopyHostPtr,
+                                                    MemFlags.ReadWrite | MemFlags.CopyHostPtr | MemFlags.AllocHostPtr,
                                                     (IntPtr)weightBufferSize,
                                                     weightsHost,
                                                     out OpenCLSpace.ClError);
             OpenCLSpace.CheckErr(OpenCLSpace.ClError, "InitializeParameters(): Cl.CreateBuffer");
 
             this.biasesGPU = (Mem)Cl.CreateBuffer(  OpenCLSpace.Context,
-                                                    MemFlags.ReadWrite | MemFlags.CopyHostPtr,
+                                                    MemFlags.ReadWrite | MemFlags.CopyHostPtr | MemFlags.AllocHostPtr,
                                                     (IntPtr)biasesBufferSize,
                                                     biasesHost,
                                                     out OpenCLSpace.ClError);
@@ -365,14 +365,14 @@ namespace JaNet
 
             // Also create weightsGradients and biasesGradients buffers and initialize them to zero
             this.weightsGradientsGPU = (Mem)Cl.CreateBuffer(OpenCLSpace.Context,
-                                                            MemFlags.ReadWrite,
+                                                            MemFlags.ReadWrite | MemFlags.AllocHostPtr,
                                                             (IntPtr)weightBufferSize,
                                                             out OpenCLSpace.ClError);
             OpenCLSpace.CheckErr(OpenCLSpace.ClError, "InitializeParameters(): Cl.CreateBuffer");
             OpenCLSpace.WipeBuffer(weightsGradientsGPU, nFilters * receptiveFieldSize, typeof(float));
 
             this.biasesGradientsGPU = (Mem)Cl.CreateBuffer( OpenCLSpace.Context,
-                                                            MemFlags.ReadWrite,
+                                                            MemFlags.ReadWrite | MemFlags.AllocHostPtr,
                                                             (IntPtr)biasesBufferSize,
                                                             out OpenCLSpace.ClError);
             OpenCLSpace.CheckErr(OpenCLSpace.ClError, "InitializeParameters(): Cl.CreateBuffer");
@@ -380,14 +380,14 @@ namespace JaNet
 
             // Also create weightsSpeed and biasesSpeed buffers and initialize them to zero
             this.weightsSpeedGPU = (Mem)Cl.CreateBuffer(OpenCLSpace.Context,
-                                                        MemFlags.ReadWrite,
+                                                        MemFlags.ReadWrite | MemFlags.AllocHostPtr,
                                                         (IntPtr)weightBufferSize,
                                                         out OpenCLSpace.ClError);
             OpenCLSpace.CheckErr(OpenCLSpace.ClError, "InitializeParameters(): Cl.CreateBuffer");
             OpenCLSpace.WipeBuffer(weightsSpeedGPU, nFilters * receptiveFieldSize, typeof(float));
 
             this.biasesSpeedGPU = (Mem)Cl.CreateBuffer( OpenCLSpace.Context,
-                                                        MemFlags.ReadWrite,
+                                                        MemFlags.ReadWrite | MemFlags.AllocHostPtr,
                                                         (IntPtr)biasesBufferSize,
                                                         out OpenCLSpace.ClError);
             OpenCLSpace.CheckErr(OpenCLSpace.ClError, "InitializeParameters(): Cl.CreateBuffer");

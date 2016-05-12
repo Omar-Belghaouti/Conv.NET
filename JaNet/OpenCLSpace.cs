@@ -97,6 +97,10 @@ namespace JaNet
         public static Kernel MaxPoolingForward;
         public static Kernel MaxPoolingBackward;
 
+        // AveragePooling layer
+        public static Kernel AveragePoolingForward;
+        public static Kernel AveragePoolingBackward;
+
         // Fully connected layer
         public static Kernel FCUpdateParameters;
         public static Kernel FCForward;
@@ -268,11 +272,14 @@ namespace JaNet
             ConvUpdateSpeeds = LoadAndBuildKernel(kernelsPath + "/Convolutional.cl", "ConvUpdateSpeeds");
             ConvUpdateParameters = LoadAndBuildKernel(kernelsPath + "/Convolutional.cl", "ConvUpdateParameters");
 
-            // Pooling layer
+            // MaxPooling layer
             CreateMaxPoolingTable = LoadAndBuildKernel(kernelsPath + "/MaxPooling.cl", "CreateMaxPoolingTable");
             MaxPoolingForward = LoadAndBuildKernel(kernelsPath + "/MaxPooling.cl", "MaxPoolingForward");
             MaxPoolingBackward = LoadAndBuildKernel(kernelsPath + "/MaxPooling.cl", "MaxPoolingBackward");
 
+            // AveragePooling layer
+            AveragePoolingForward = LoadAndBuildKernel(kernelsPath + "/AveragePooling.cl", "AveragePoolingForward");
+            AveragePoolingBackward = LoadAndBuildKernel(kernelsPath + "/AveragePooling.cl", "AveragePoolingBackward");
 
             // Fully connected layer
             FCUpdateParameters = LoadAndBuildKernel(kernelsPath + "/FullyConnected.cl", "FCUpdateParameters");

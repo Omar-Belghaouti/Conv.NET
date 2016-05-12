@@ -124,7 +124,7 @@ namespace JaNet
 
                         weightsHost[iRow * nInputUnits + iCol] = (float)tmp;
                     }
-                    biasesHost[iRow] = 0.001f;
+                    biasesHost[iRow] = 0.00f;
                 }
             }
             // else Option must be ''load'' => do not sample parameters, just load them from host to device

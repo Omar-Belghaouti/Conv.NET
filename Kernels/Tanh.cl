@@ -1,20 +1,21 @@
 __kernel void 
-TanhForward(__global float * activations, // arg 0
-			__global float * preActivations, // arg 1
+TanhForward(__global float * activations, 
+			__global float * preActivations, 
 			const float beta,
-			const int nUnits) 		// arg 2
+			const int nActivations
+			) 		
 {
-	int iUnit = get_global_id(0);
+	int iActivation = get_global_id(0);
 	
 	// Because of how the local work sizes is set, the global work size can be larger than the output array, 
 	// therefore it is important to check that global indexes are within the array. The computational cost 
 	// of this comparison is greatly compensated by the increased efficiency of using a local work size
 	// that is a multiple of WARP (Nvidia) / WAVEFRONT (AMD).
 	
-	if(iUnit < nUnits)
+	if(iActivation < nActivations)
 	{
-		float tmp = exp(2 * beta * preActivations[iUnit]);
-		activations[iUnit] = (tmp - 1) / (tmp + 1);
+		float tmp = exp(2 * beta * preActivations[iActivation]);
+		activations[iActivation] = native_divide(tmp - 1, tmp + 1);
 	}
 }
 
@@ -24,17 +25,18 @@ TanhBackward(	__global float * deltaX,
 				__global float * deltaY,
 				__global float * y,
 				const float beta,
-				const int nUnits) 
+				const int nActivations
+				) 
 {
-	int iUnit = get_global_id(0);
+	int iActivation = get_global_id(0);
 	
 	// Because of how the local work sizes is set, the global work size can be larger than the output array, 
 	// therefore it is important to check that global indexes are within the array. The computational cost 
 	// of this comparison is greatly compensated by the increased efficiency of using a local work size
 	// that is a multiple of WARP (Nvidia) / WAVEFRONT (AMD).
 	
-	if(iUnit < nUnits)
+	if(iActivation < nActivations)
 	{
-		deltaX[iUnit] = deltaY[iUnit] * (1 - pown(y[iUnit], 2) );
+		deltaX[iActivation] = deltaY[iActivation] * (1 - pown(y[iActivation], 2) );
 	}
 }

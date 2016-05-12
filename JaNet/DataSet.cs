@@ -139,7 +139,7 @@ namespace JaNet
                 }
                 int datumBytesSize = sizeof(float) * dataPoint.Length;
                 Mem tmpBuffer = (Mem)Cl.CreateBuffer(  OpenCLSpace.Context,
-                                                            MemFlags.ReadOnly | MemFlags.CopyHostPtr,
+                                                            MemFlags.ReadOnly | MemFlags.CopyHostPtr | MemFlags.AllocHostPtr,
                                                             (IntPtr)datumBytesSize,
                                                             dataPoint,
                                                             out OpenCLSpace.ClError);

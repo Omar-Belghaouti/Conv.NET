@@ -317,6 +317,7 @@ namespace JaNet
                     miniBatchIndices[i] = data[iRandom];
                 }
                 // TODO: find a better solution! This is not an issue while training, but affects evaluation!
+                // ...no, it doesn't! As long as the "extra" examples are not taken into account when computing the loss, that is.
             }
             else
             {

@@ -48,29 +48,28 @@ namespace JaNet
 
             
             NeuralNetwork network = new NeuralNetwork();
-            network.Name = "testBNC";
+            network.Name = "FlagTests";
              
             
             network.AddLayer(new InputLayer(1, 32, 32));
 
             network.AddLayer(new ConvolutionalLayer(3, 8, 1, 1));
-            //network.AddLayer(new BatchNormConv());
-            network.AddLayer(new ReLU());
+            network.AddLayer(new ELU(1.0f));
 
             network.AddLayer(new MaxPooling(2, 2));
 
             network.AddLayer(new ConvolutionalLayer(3, 16, 1, 1));
-            network.AddLayer(new BatchNormConv());
-            network.AddLayer(new ReLU());
+            network.AddLayer(new ELU(1.0f));
 
             network.AddLayer(new MaxPooling(2, 2));
-
             
-            network.AddLayer(new FullyConnectedLayer(128));
-            network.AddLayer(new ReLU());
+            network.AddLayer(new ConvolutionalLayer(3, 32, 1, 1));
+            network.AddLayer(new ELU(1.0f));
+
+            network.AddLayer(new MaxPooling(2, 2));
+            //network.AddLayer(new AveragePooling());
 
             network.AddLayer(new FullyConnectedLayer(43));
-            //network.AddLayer(new BatchNormFC());
             network.AddLayer(new SoftMax());
 
 
@@ -103,7 +102,7 @@ namespace JaNet
             string GTSRBvalidationDataGS = "C:/Users/jacopo/Dropbox/Chalmers/MSc thesis/GTSRB/Preprocessed/08_validation_images.dat";
             string GTSRBvalidationLabelsGS = "C:/Users/jacopo/Dropbox/Chalmers/MSc thesis/GTSRB/Preprocessed/08_validation_classes.dat";
 
-            // GTSRB test set (grayscale)
+            // GTSRB test set (grayscale)1
             string GTSRBtestDataGS = "C:/Users/jacopo/Dropbox/Chalmers/MSc thesis/GTSRB/Preprocessed/08_test_images.dat";
             string GTSRBtestLabelsGS = "C:/Users/jacopo/Dropbox/Chalmers/MSc thesis/GTSRB/Preprocessed/test_labels_full.dat";
 
@@ -123,18 +122,18 @@ namespace JaNet
             toySet.ReadLabels(MNISTreducedLabels);
             */
 
-            /*
+            
             Console.WriteLine("Importing training set...");
             DataSet trainingSet = new DataSet(43);
             trainingSet.ReadData(GTSRBtrainingDataGS);
             trainingSet.ReadLabels(GTSRBtrainingLabelsGS);
-            */
-
+            
+            
             Console.WriteLine("Importing validation set...");
             DataSet validationSet = new DataSet(43);
             validationSet.ReadData(GTSRBvalidationDataGS);
             validationSet.ReadLabels(GTSRBvalidationLabelsGS);
-
+            
             
             Console.WriteLine("Importing test set...");
             DataSet testSet = new DataSet(43);
@@ -167,11 +166,11 @@ namespace JaNet
             networkTrainer.WeightDecayCoeff = 0.0001;
             networkTrainer.MaxTrainingEpochs = 50;
             networkTrainer.EpochsBeforeRegularization = 0;
-            networkTrainer.MiniBatchSize = 32;
+            networkTrainer.MiniBatchSize = 64;
             networkTrainer.ConsoleOutputLag = 1; // 1 = print every epoch, N = print every N epochs
             networkTrainer.EvaluateBeforeTraining = true;
             networkTrainer.DropoutFullyConnected = 1.0;
-            networkTrainer.Patience = 10;
+            networkTrainer.Patience = 5;
 
             // Set output files save paths
             string trainingSavePath = @"C:\Users\jacopo\Dropbox\Chalmers\MSc thesis\Results\LossError\";
@@ -181,13 +180,13 @@ namespace JaNet
             networkTrainer.NetworkOutputFilePath = @"C:\Users\jacopo\Dropbox\Chalmers\MSc thesis\Results\Networks\";
              
             
-            //networkTrainer.Train(network, trainingSet, validationSet);
-            networkTrainer.Train(network, testSet, validationSet);
+            networkTrainer.Train(network, trainingSet, validationSet);
+            //networkTrainer.Train(network, testSet, validationSet);
             
 
             /*****************************************************
              * (5) Test network
-             *****************************************************
+             *****************************************************/
             Console.WriteLine("\nFINAL EVALUATION:");
 
             //string summaryFilePath = @"C:\Users\jacopo\Dropbox\Chalmers\MSc thesis\Results\Summaries\";
@@ -195,7 +194,7 @@ namespace JaNet
             // Load best network from file
 
             NeuralNetwork bestNetwork = Utils.LoadNetworkFromFile(@"C:\Users\jacopo\Dropbox\Chalmers\MSc thesis\Results\Networks\", network.Name);
-            bestNetwork.Set("MiniBatchSize", 32); // this SHOULDN'T matter!
+            bestNetwork.Set("MiniBatchSize", 64); // this SHOULDN'T matter!
             bestNetwork.InitializeParameters("load");
 
             NetworkEvaluator networkEvaluator = new NetworkEvaluator();

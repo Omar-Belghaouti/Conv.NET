@@ -34,7 +34,7 @@
     <DebugType>full</DebugType>
     <Optimize>true</Optimize>
     <OutputPath>bin\Debug\</OutputPath>
-    <DefineConstants>TRACE;DEBUG;OPENCL_ENABLED</DefineConstants>
+    <DefineConstants>TRACE;DEBUG;OPENCL_ENABLED TIMING_LAYERS</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
@@ -61,6 +61,7 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="AveragePooling.cs" />
     <Compile Include="BatchNormConv.cs" />
     <Compile Include="BatchNormFC.cs" />
     <Compile Include="BinarySerialization.cs" />
@@ -69,7 +70,7 @@
     <Compile Include="OpenCLSpace.cs" />
     <Compile Include="InputLayer.cs" />
     <Compile Include="Neurons.cs" />
-    <Compile Include="PoolingLayer.cs" />
+    <Compile Include="MaxPooling.cs" />
     <Compile Include="ReLU.cs" />
     <Compile Include="SoftMax.cs" />
     <Compile Include="Utils.cs" />

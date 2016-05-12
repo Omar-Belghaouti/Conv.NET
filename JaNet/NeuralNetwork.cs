@@ -324,7 +324,7 @@ namespace JaNet
             {
 
 #if DEBUGGING_STEPBYSTEP
-                /* ------------------------- DEBUGGING ---------------------------------------------
+                /* ------------------------- DEBUGGING ---------------------------------------------*/
                 int miniBatchSize = layers[0].OutputNeurons.MiniBatchSize;
                 if (l < nLayers - 1)
                 {
@@ -366,7 +366,7 @@ namespace JaNet
                 /* ------------------------- DEBUGGING --------------------------------------------- */
 
                 // Display output layer-by-layer
-                int miniBatchSize = layers[0].OutputNeurons.MiniBatchSize;
+                //int miniBatchSize = layers[0].OutputNeurons.MiniBatchSize;
 
                 if (l < nLayers-1)
                 {
@@ -404,6 +404,24 @@ namespace JaNet
 #endif
 
             }
+
+            /*
+            using (System.IO.StreamWriter classScoresFile = new System.IO.StreamWriter(@"C:\Users\jacopo\Desktop\ClassScores.txt", true))
+            {
+
+                for (int m = 0; m < layers[0].OutputNeurons.MiniBatchSize; m++)
+                {
+                    double[] outputScores = outputLayer.OutputClassScores[m];
+
+                    for (int j = 0; j < outputScores.Length; j++)
+                        classScoresFile.Write(outputScores[j].ToString() + "\t");
+                    classScoresFile.WriteLine();
+                }
+            }
+            */
+            
+            
+
 
 #if DEBUGGING_STEPBYSTEP
             Console.WriteLine("Class scores (softmax activation):");

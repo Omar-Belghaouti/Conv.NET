@@ -287,6 +287,7 @@ namespace JaNet
 
         #endregion
 
+
         #region Methods
 
         public void ForwardPass(object StartPoint, object EndPoint)
@@ -323,7 +324,7 @@ namespace JaNet
             {
 
 #if DEBUGGING_STEPBYSTEP
-                /* ------------------------- DEBUGGING --------------------------------------------- */
+                /* ------------------------- DEBUGGING ---------------------------------------------
                 int miniBatchSize = layers[0].OutputNeurons.MiniBatchSize;
                 if (l < nLayers - 1)
                 {
@@ -474,12 +475,8 @@ namespace JaNet
                 /* ------------------------- END DEBUGGING --------------------------------------------- */
 #endif
 
-#if GRADIENT_CHECK
-                // do nothing
-#else
                 // 3. Update layer's parameters
                 layers[l].UpdateParameters(weightDecayCoeff);
-#endif
             }
         }
 

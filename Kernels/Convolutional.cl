@@ -252,7 +252,7 @@ ConvBackPropagate(	__global float * deltaInputBatch,
 	if(iRow < receptiveFieldSize * miniBatchSize && iReceptiveField < nReceptiveFields)
 	{
 		const int iExample = iRow / receptiveFieldSize;
-		const int iElement = iRow - receptiveFieldSize * iExample; // equivalent to iRow % receptiveFieldSize
+		const int iRecFieldElement = iRow - receptiveFieldSize * iExample; // equivalent to iRow % receptiveFieldSize
 		
 		const int iExampleBeginningInDeltaOutput = iExample * (nFilters * nReceptiveFields);
 		
@@ -267,14 +267,14 @@ ConvBackPropagate(	__global float * deltaInputBatch,
 			iDeltaOutput = iExampleBeginningInDeltaOutput + iFilter * nReceptiveFields + iReceptiveField;
 			
 			// Multiply & cumulate in tmpDeltaInput
-			tmpDeltaInput = fma(weights[iFilter * receptiveFieldSize + iElement], deltaOutputBatch[iDeltaOutput], tmpDeltaInput);
+			tmpDeltaInput += weights[iFilter * receptiveFieldSize + iRecFieldElement] * deltaOutputBatch[iDeltaOutput];
 		}
 		
-		// Now cumulate this piece of gradient into the correct position of paddedDeltaX (using lookup table)
+		// Now cumulate this portion of gradient into the correct position of paddedDeltaX (using lookup table)
 		// This way, error signals coming from different receptive field positions (but corresponding to the
-		// same input position) will be summed, as it should be. (Can be proven on paper.)
+		// same input position) will be added up, as it should be. (Can be proven on paper.)
 		const int iExampleBeginningInDeltaInput = iExample * inputVolume;
-		const int iFromLookupTable = recFieldslookupTable[iElement * nReceptiveFields + iReceptiveField];
+		const int iFromLookupTable = recFieldslookupTable[iRecFieldElement * nReceptiveFields + iReceptiveField];
 		const int iDeltaInput = iExampleBeginningInDeltaInput + iFromLookupTable;
 		deltaInputBatch[iDeltaInput] += tmpDeltaInput;
 		
@@ -291,6 +291,8 @@ ConvBackPropagate(	__global float * deltaInputBatch,
 
 __kernel void ConvUpdateSpeeds(	__global float * wSpeeds,
 								__global float * bSpeeds,
+								__global float * wGrad,
+								__global float * bGrad,
 								__global float * deltaOutputBatch,
 								__global float * inputBatch,		// either padded or unpadded! Set argument accordingly
 								const int inputVolume, 				// either padded or unpadded! Set argument accordingly
@@ -342,7 +344,6 @@ __kernel void ConvUpdateSpeeds(	__global float * wSpeeds,
 		int iExampleBeginningInInput = 0;
 		int iBeginningDeltaOutputRow = 0;
 		
-		int iDeltaOutput = 0;
 		float deltaElement = 0.0F;
 		
 		int iInput = 0;
@@ -359,8 +360,7 @@ __kernel void ConvUpdateSpeeds(	__global float * wSpeeds,
 			{
 				// Get error signal corresponding to this filter and this receptiveField in this example:
 				// first move to the correct example, then pick the right "row and column"
-				iDeltaOutput = iBeginningDeltaOutputRow + iReceptiveField;
-				deltaElement = deltaOutputBatch[iDeltaOutput];
+				deltaElement = deltaOutputBatch[iBeginningDeltaOutputRow + iReceptiveField];
 				
 				// Get input value needed, reading it from transpose(input): first move to the correct example, 
 				// then pick the right "row and column" using the pre-constructed receptive field lookup table
@@ -381,12 +381,15 @@ __kernel void ConvUpdateSpeeds(	__global float * wSpeeds,
 		gradientWeight /= miniBatchSize;
 		gradientBias /= miniBatchSize;
 		
-		// Now update weight speed
+		// Save gradient
+		wGrad[iWeight] = gradientWeight;
+		// Update weight speed
 		wSpeeds[iWeight] = (momCoeff * wSpeeds[iWeight]) - learningRate * gradientWeight;
 		
-		// And bias speed (again, only do this once per filter)
+		// And bias gradient/speed (again, only do this once per filter)
 		if (iElement == 0)
 		{
+			bGrad[iBias] = gradientBias; // save gradient
 			bSpeeds[iBias] = (momCoeff * bSpeeds[iBias]) - learningRate * gradientBias;
 		}
 		

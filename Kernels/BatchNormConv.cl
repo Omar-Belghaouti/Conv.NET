@@ -373,13 +373,15 @@ BNConvBackPropagate(__global float * deltaInput,
 	{
 		// Retrieve index of feature map that this input activation belongs to
 		int iFeatureMap = (iActivation % inputVolume) / inputArea;
+		int iMapBeginning = iFeatureMap * inputArea;
+		int iWithinMap = iActivation % inputArea;
 		
 		float tmpDeltaX = 0.0F;
 		
 		// See backprop expression for how deltaX is computed...
 		
-		tmpDeltaX = miniBatchSize * inputArea * deltaOutput[iActivation] - deltaBeta[iFeatureMap] - deltaGamma[iFeatureMap] * normalizedInput[iActivation];
-		tmpDeltaX *= native_divide(gamma[iFeatureMap] * native_rsqrt(variance[iFeatureMap] + EPSILON), (miniBatchSize*inputArea) ); 
+		tmpDeltaX = deltaOutput[iActivation] - deltaBeta[iMapBeginning+iWithinMap] / inputArea - deltaGamma[iFeatureMap] * normalizedInput[iActivation] / inputArea;
+		tmpDeltaX *= ( gamma[iFeatureMap] * native_rsqrt(variance[iFeatureMap] + EPSILON) ); 
 		
 		// Write gradient
 		deltaInput[iActivation] = tmpDeltaX;

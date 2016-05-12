@@ -3,13 +3,13 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using System.Diagnostics;
 
 namespace JaNet
 {
-#if GRADIENT_CHECK
     static class GradientChecker
     {
-        //const string typeToCheck = "BatchNormFC";
+        const string typeToCheck = "BatchNormConv";
 
         const int miniBatchSize = 4;
 
@@ -42,13 +42,19 @@ namespace JaNet
                 trueLabels.Add(dataSet.Labels[miniBatch[m]]);
             network.CrossEntropyGradient(dataSet, miniBatch);
             network.BackwardPass(0.0, 0.0, 0.0); // no momentum, no learning rate, no weight decay
-            
+
+            // Re-forward pass (in case there are batch-norm layer)
+            network.Set("PreInference", true);
+            network.ForwardPass("beginning", "end");
+            network.Set("Inference", true);
 
             for (int iLayer = 1; iLayer < network.NumberOfLayers; iLayer++)
             {
-                if (network.Layers[iLayer].Type != "Input" && network.Layers[iLayer].Type != "MaxPooling" && network.Layers[iLayer].Type != "ReLU" &&
-                    network.Layers[iLayer].Type != "SoftMax" && network.Layers[iLayer].Type != "Convolutional" && network.Layers[iLayer].Type != "FullyConnected")
-                {
+                //if (network.Layers[iLayer].Type != "Input" && network.Layers[iLayer].Type != "MaxPooling" && network.Layers[iLayer].Type != "ReLU" &&
+                //    network.Layers[iLayer].Type != "SoftMax" && network.Layers[iLayer].Type != "Convolutional" && network.Layers[iLayer].Type != "FullyConnected" 
+                //    && network.Layers[iLayer].Type != "ELU")
+                if (network.Layers[iLayer].Type == typeToCheck)
+                {   
                     Console.WriteLine("\nChecking gradients in layer {0} ({1})...", iLayer, network.Layers[iLayer].Type);
                     int nChecks = 0;
                     int nErrors = 0;
@@ -95,31 +101,40 @@ namespace JaNet
                         }
                         lossPlus /= miniBatchSize;
 
-                        // compute gradient numerically
+                        // compute gradient numerically, trying to limit loss of significance!
+                        //double orderOfMagnitude = Math.Floor(Math.Log10(lossPlus));
+                        //lossPlus *= Math.Pow(10, -orderOfMagnitude);
+                        //lossMinus *= Math.Pow(10, -orderOfMagnitude);
                         double gradientNumerical = (lossPlus - lossMinus) / (2*EPSILON);
+                        //gradientNumerical *= Math.Pow(10, orderOfMagnitude);
 
                         // retrieve gradient computed with backprop
                         double gradientBackprop = parameterGradients[j];
 
-                        if (Math.Abs(gradientNumerical) > EPSILON || Math.Abs(gradientBackprop) > EPSILON) // when the gradient is very small, finite arithmetics effects are too large => don't check
-                        {
+                        //if (Math.Abs(gradientNumerical) > EPSILON || Math.Abs(gradientBackprop) > EPSILON) // when the gradient is very small, finite arithmetics effects are too large => don't check
+                        //{
                             nChecks++;
 
-                            // compare the gradients
-                            double relativeError = Math.Abs(gradientNumerical - gradientBackprop) / Math.Max(Math.Abs(gradientNumerical), Math.Abs(gradientBackprop));
+                            // compare the gradients, again trying to limit loss of significance!
+                            //orderOfMagnitude = Math.Floor(Math.Log10(Math.Abs(gradientNumerical)));
+                            //double gradientNumericalRescaled = gradientNumerical * Math.Pow(10, -orderOfMagnitude);
+                            //double gradientBackpropRescaled = gradientBackprop * Math.Pow(10, -orderOfMagnitude);
+                            //double error = Math.Abs(gradientNumericalRescaled - gradientBackpropRescaled) * Math.Pow(10, orderOfMagnitude);
+                            double error = Math.Abs(gradientNumerical - gradientBackprop);
+                            double relativeError = error / Math.Max(Math.Abs(gradientNumerical), Math.Abs(gradientBackprop));
                             if (relativeError > MAX_RELATIVE_ERROR)
                             {
-                                /*
+                                
                                 Console.Write("\nGradient check failed for parameter {0}\n", j);
                                 Console.WriteLine("\tBackpropagation gradient: {0}", gradientBackprop);
                                 Console.WriteLine("\tFinite difference gradient: {0}", gradientNumerical);
                                 Console.WriteLine("\tRelative error: {0}", relativeError);
-                                */
+                                
                                 nErrors++;
                             }
                             cumulativeError = (relativeError + (nChecks - 1) * cumulativeError) / nChecks;
-                        }
-
+                        //}
+                        
                         // restore original weights before checking next gradient
                         network.Layers[iLayer].SetParameters(parametersBackup);
 
@@ -128,17 +143,22 @@ namespace JaNet
                     if (nChecks == 0)
                         Console.Write("\nAll gradients are zero... Something is probably wrong!");
                     else if (nErrors == 0)
+                    {
                         Console.Write("\nGradient check 100% passed!");
+                        Console.Write("\nAverage error = {0}", cumulativeError);
+                    }
                     else
                     {
                         Console.Write("\n{0} errors out of {1} checks.", nErrors, nChecks);
                         Console.Write("\nAverage error = {0}", cumulativeError);
                     }
                     Console.Write("\n\n");
-
+                    Console.Write("Press any key to continue...");
+                    Console.Write("\n\n");
+                    Console.ReadKey();
 
                     // Now inputs
-                    
+                    /*
                     nChecks = 0;
                     nErrors = 0;
                     cumulativeError = 0.0;
@@ -185,11 +205,13 @@ namespace JaNet
                         // compute gradient numerically
                         double gradientNumerical = (lossPlus - lossMinus) / (2*EPSILON);
 
+
                         // retrieve gradient computed with backprop
                         double gradientBackprop = inputGradients[j]/miniBatchSize;
+                        // NOTE: it is divided by miniBatchSize because HERE the loss is defined as Loss / miniBatchSize
 
-                        if (Math.Abs(gradientNumerical) > EPSILON || Math.Abs(gradientBackprop) > EPSILON) // when the gradient is very small, finite arithmetics effects are too large => don't check
-                        {
+                        //if (Math.Abs(gradientNumerical) > EPSILON || Math.Abs(gradientBackprop) > EPSILON) // when the gradient is very small, finite arithmetics effects are too large => don't check
+                        //{
                             nChecks++;
 
                             // compare the gradients
@@ -205,7 +227,7 @@ namespace JaNet
                                 nErrors++;
                             }
                             cumulativeError = (relativeError + (nChecks - 1) * cumulativeError) / nChecks;
-                        }
+                        //}
 
                         // restore original input before checking next gradient
                         network.Layers[iLayer].SetInput(inputBackup);
@@ -215,19 +237,20 @@ namespace JaNet
                     if (nChecks == 0)
                         Console.Write("\nAll gradients are zero... Something is probably wrong!");
                     else if (nErrors == 0)
+                    {
                         Console.Write("\nGradient check 100% passed!");
+                        Console.Write("\nAverage error = {0}", cumulativeError);
+                    }
                     else
                     {
                         Console.Write("\n{0} errors out of {1} checks.", nErrors, nChecks);
                         Console.Write("\nAverage error = {0}", cumulativeError);
                     }
                     Console.Write("\n\n");
-                    
+                    */
                 }
             }
         }
     }
-
-#endif
 
 }

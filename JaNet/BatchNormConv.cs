@@ -22,7 +22,7 @@ namespace JaNet
         private int iCumulativeAverage;
         private int inputArea;
 
-        // Host
+        // Host parameters
 
         private float[] gammaHost;
         private float[] betaHost;
@@ -625,7 +625,7 @@ namespace JaNet
 
             OpenCLSpace.ClError = Cl.Finish(OpenCLSpace.Queue);
             OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.Finish");
-
+            
 
             /* ------------------------- DEBUGGING ---------------------------------------------
             
@@ -672,40 +672,6 @@ namespace JaNet
 
            /* ------------------------- END DEBUGGING --------------------------------------------- */
 
-
-            // ALL IN ONE STEP 
-            /*
-            OpenCLSpace.ClError  = Cl.SetKernelArg(OpenCLSpace.BNConvUpdateSpeeds, 0, gammaSpeedGPU);
-            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.BNConvUpdateSpeeds, 1, betaSpeedGPU);
-            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.BNConvUpdateSpeeds, 2, deltaGammaGPU);
-            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.BNConvUpdateSpeeds, 3, deltaBetaGPU);
-            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.BNConvUpdateSpeeds, 4, outputNeurons.DeltaGPU);
-            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.BNConvUpdateSpeeds, 5, normalizedInputGPU);
-            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.BNConvUpdateSpeeds, 6, (IntPtr)sizeof(int), inputDepth);
-            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.BNConvUpdateSpeeds, 7, (IntPtr)sizeof(int), inputArea);
-            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.BNConvUpdateSpeeds, 8, (IntPtr)sizeof(int), nInputUnits);
-            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.BNConvUpdateSpeeds, 9, (IntPtr)sizeof(int), inputNeurons.MiniBatchSize);
-            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.BNConvUpdateSpeeds, 10, (IntPtr)sizeof(float), (float)momentumMultiplier);
-            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.BNConvUpdateSpeeds, 11, (IntPtr)sizeof(float), (float)learningRate);
-            OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.SetKernelArg");
-
-            OpenCLSpace.ClError = Cl.EnqueueNDRangeKernel(  OpenCLSpace.Queue,
-                                                            OpenCLSpace.BNConvUpdateSpeeds,
-                                                            1,
-                                                            null,
-                                                            nParametersGlobalWorkSizePtr,
-                                                            baseLocalWorkSizePtr,
-                                                            0,
-                                                            null,
-                                                            out OpenCLSpace.ClEvent);
-            OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.EnqueueNDRangeKernel");
-
-            OpenCLSpace.ClError = Cl.ReleaseEvent(OpenCLSpace.ClEvent);
-            OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.ReleaseEvent");
-
-            OpenCLSpace.ClError = Cl.Finish(OpenCLSpace.Queue);
-            OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.Finish");
-            */
             
 
 #if TIMING_LAYERS

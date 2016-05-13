@@ -184,10 +184,7 @@ namespace JaNet
                             // 3. Allocate memory (if CPU) / buffers (if OpenCL) according to mini-batch size
                             layers[l].OutputNeurons.SetupBuffers(miniBatchSize);
 
-                            // 4. Initialize layer's parameters
-                            //layers[l].InitializeParameters();
-
-                            // 5. (extra) If using OpenCL, set global / local work group sizes for kernels
+                            // 4. (extra) If using OpenCL, set global / local work group sizes for kernels
                             layers[l].SetWorkGroups();
                         }
 
@@ -403,10 +400,14 @@ namespace JaNet
                 /* ------------------------- END DEBUGGING --------------------------------------------- */
 #endif
 
+                
+
             }
 
+
+
             /*
-            using (System.IO.StreamWriter classScoresFile = new System.IO.StreamWriter(@"C:\Users\jacopo\Desktop\ClassScores.txt", true))
+            using (System.IO.StreamWriter classScoresFile = new System.IO.StreamWriter(@"C:\Users\jacopo\Desktop\ClassScores_08.txt", true))
             {
 
                 for (int m = 0; m < layers[0].OutputNeurons.MiniBatchSize; m++)
@@ -419,8 +420,6 @@ namespace JaNet
                 }
             }
             */
-            
-            
 
 
 #if DEBUGGING_STEPBYSTEP

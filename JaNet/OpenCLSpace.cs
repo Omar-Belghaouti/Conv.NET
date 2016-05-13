@@ -92,6 +92,10 @@ namespace JaNet
         public static Kernel ConvUpdateSpeeds;
         public static Kernel ConvUpdateParameters;
 
+        // Residual module
+        public static Kernel SkipForward;
+        public static Kernel SkipBackward;
+
         // MaxPooling layer
         public static Kernel CreateMaxPoolingTable;
         public static Kernel MaxPoolingForward;
@@ -271,6 +275,10 @@ namespace JaNet
             ConvBackPropagate = LoadAndBuildKernel(kernelsPath + "/Convolutional.cl", "ConvBackPropagate");
             ConvUpdateSpeeds = LoadAndBuildKernel(kernelsPath + "/Convolutional.cl", "ConvUpdateSpeeds");
             ConvUpdateParameters = LoadAndBuildKernel(kernelsPath + "/Convolutional.cl", "ConvUpdateParameters");
+
+            // Residual module
+            SkipForward = LoadAndBuildKernel(kernelsPath + "/ResidualModule.cl", "SkipForward");
+            SkipBackward = LoadAndBuildKernel(kernelsPath + "/ResidualModule.cl", "SkipBackward");
 
             // MaxPooling layer
             CreateMaxPoolingTable = LoadAndBuildKernel(kernelsPath + "/MaxPooling.cl", "CreateMaxPoolingTable");

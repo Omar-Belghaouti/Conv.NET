@@ -54,6 +54,7 @@ namespace JaNet
         public int NInputUnits
         {
             get { return nInputUnits; }
+            set { this.nInputUnits = value; }
         }
 
         public int NOutputUnits
@@ -75,16 +76,19 @@ namespace JaNet
         public int InputDepth // allows setup of next layer
         {
             get { return inputDepth; }
+            set { inputDepth = value; }
         }
 
         public int InputHeight // allows setup of next layer
         {
             get { return inputHeight; }
+            set { inputHeight = value; }
         }
 
         public int InputWidth // allows setup of next layer
         {
             get { return inputWidth; }
+            set { inputWidth = value; }
         }
 
         public int OutputDepth // allows setup of next layer

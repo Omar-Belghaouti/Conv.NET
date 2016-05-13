@@ -48,26 +48,31 @@ namespace JaNet
 
             
             NeuralNetwork network = new NeuralNetwork();
-            network.Name = "FlagTests";
+            network.Name = "testResidual";
              
             
             network.AddLayer(new InputLayer(1, 32, 32));
 
-            network.AddLayer(new ConvolutionalLayer(3, 8, 1, 1));
-            network.AddLayer(new ELU(1.0f));
+            network.AddLayer(new ConvolutionalLayer(3, 8, 1, 1) );
+            network.AddLayer(new ReLU());
+
+            network.AddLayer(new ResidualModule(3, 8, 1, 1, "ReLU"));
+
+            //network.AddLayer(new ResidualModule(3, 16, 1, 1, "ReLU"));
 
             network.AddLayer(new MaxPooling(2, 2));
 
             network.AddLayer(new ConvolutionalLayer(3, 16, 1, 1));
-            network.AddLayer(new ELU(1.0f));
+            network.AddLayer(new ReLU());
+
+            network.AddLayer(new ResidualModule(3, 16, 1, 1, "ReLU"));
+
+            //network.AddLayer(new ResidualModule(3, 32, 1, 1, "ReLU"));
 
             network.AddLayer(new MaxPooling(2, 2));
-            
-            network.AddLayer(new ConvolutionalLayer(3, 32, 1, 1));
-            network.AddLayer(new ELU(1.0f));
 
-            network.AddLayer(new MaxPooling(2, 2));
-            //network.AddLayer(new AveragePooling());
+            network.AddLayer(new FullyConnectedLayer(128));
+            network.AddLayer(new ReLU());
 
             network.AddLayer(new FullyConnectedLayer(43));
             network.AddLayer(new SoftMax());
@@ -102,7 +107,7 @@ namespace JaNet
             string GTSRBvalidationDataGS = "C:/Users/jacopo/Dropbox/Chalmers/MSc thesis/GTSRB/Preprocessed/08_validation_images.dat";
             string GTSRBvalidationLabelsGS = "C:/Users/jacopo/Dropbox/Chalmers/MSc thesis/GTSRB/Preprocessed/08_validation_classes.dat";
 
-            // GTSRB test set (grayscale)1
+            // GTSRB test set (grayscale)
             string GTSRBtestDataGS = "C:/Users/jacopo/Dropbox/Chalmers/MSc thesis/GTSRB/Preprocessed/08_test_images.dat";
             string GTSRBtestLabelsGS = "C:/Users/jacopo/Dropbox/Chalmers/MSc thesis/GTSRB/Preprocessed/test_labels_full.dat";
 

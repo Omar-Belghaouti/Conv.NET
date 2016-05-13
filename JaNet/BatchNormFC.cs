@@ -344,6 +344,53 @@ namespace JaNet
                     iCumulativeAverage++; // increase cumulative average counter
             }
 
+
+
+            /* ------------------------- DEBUGGING ---------------------------------------------
+
+                    Console.WriteLine("\nPRE-INFERENCE MINI-BATCH {0}\n", iCumulativeAverage);
+                    // Display cum means
+
+                    float[] cumMeans = new float[nInputUnits];
+
+                    OpenCLSpace.ClError = Cl.EnqueueReadBuffer(OpenCLSpace.Queue,
+                                                                cumulativeMeanGPU, // source
+                                                                Bool.True,
+                                                                (IntPtr)0,
+                                                                (IntPtr)(nInputUnits * sizeof(float)),
+                                                                cumMeans,  // destination
+                                                                0,
+                                                                null,
+                                                                out OpenCLSpace.ClEvent);
+                    OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.clEnqueueReadBuffer");
+
+                    Console.WriteLine("\nCumulative means:\n");
+                    for (int i = 0; i < nInputUnits; i++)
+                        Console.Write("{0}  ", cumMeans[i]);
+                    //Console.ReadKey();
+
+                    // Display cum var
+                    float[] cumVar = new float[nInputUnits];
+
+                    OpenCLSpace.ClError = Cl.EnqueueReadBuffer(OpenCLSpace.Queue,
+                                                                cumulativeVarianceGPU, // source
+                                                                Bool.True,
+                                                                (IntPtr)0,
+                                                                (IntPtr)(nInputUnits * sizeof(float)),
+                                                                cumVar,  // destination
+                                                                0,
+                                                                null,
+                                                                out OpenCLSpace.ClEvent);
+                    OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.clEnqueueReadBuffer");
+
+                    Console.WriteLine("\n\nCumulative variance:\n");
+                    for (int i = 0; i < nInputUnits; i++)
+                        Console.Write("{0}  ", cumVar[i]);
+                    Console.ReadKey();
+
+
+                    /* ------------------------- END DEBUGGING --------------------------------------------- */
+
             
             //Normalize input, scale and shift
 

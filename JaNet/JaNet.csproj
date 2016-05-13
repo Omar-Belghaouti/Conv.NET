@@ -34,7 +34,7 @@
     <DebugType>full</DebugType>
     <Optimize>true</Optimize>
     <OutputPath>bin\Debug\</OutputPath>
-    <DefineConstants>TRACE;DEBUG;OPENCL_ENABLED TIMING_LAYERS</DefineConstants>
+    <DefineConstants>TRACE;DEBUG;OPENCL_ENABLED</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
@@ -72,6 +72,7 @@
     <Compile Include="Neurons.cs" />
     <Compile Include="MaxPooling.cs" />
     <Compile Include="ReLU.cs" />
+    <Compile Include="ResidualModule.cs" />
     <Compile Include="SoftMax.cs" />
     <Compile Include="Utils.cs" />
     <Compile Include="DataSet.cs" />

@@ -198,8 +198,8 @@ namespace JaNet
                      **************/
 
                     // Pre-inference pass: Computes cumulative averages in BatchNorm layers (needed for evaluation)
-                    network.Set("PreInference", true);
-                    networkEvaluator.PreEvaluateNetwork(network, trainingSet);
+                    //network.Set("PreInference", true);
+                    //networkEvaluator.PreEvaluateNetwork(network, trainingSet);
             
 
                     // Evaluate on training set...

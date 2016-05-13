@@ -106,7 +106,7 @@ namespace JaNet
                 this.weightsHost = new float[nOutputUnits * nInputUnits];
                 this.biasesHost = new float[nOutputUnits];
 
-                double weightsStdDev = Math.Sqrt(2.0 / nInputUnits);
+                double weightsStdDev = Math.Sqrt(2.0 / (10 * nInputUnits));
                 double uniformRand1;
                 double uniformRand2;
                 double tmp;

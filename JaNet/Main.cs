@@ -48,24 +48,24 @@ namespace JaNet
 
             
             NeuralNetwork network = new NeuralNetwork();
-            network.Name = "testResidual";
+            network.Name = "testResidual2";
              
             
             network.AddLayer(new InputLayer(1, 32, 32));
 
-            network.AddLayer(new ConvolutionalLayer(3, 8, 1, 1) );
+            network.AddLayer(new ConvolutionalLayer(3, 16, 1, 1) );
             network.AddLayer(new ReLU());
 
-            network.AddLayer(new ResidualModule(3, 8, 1, 1, "ReLU"));
+            network.AddLayer(new ResidualModule(3, 16, 1, 1, "ReLU"));
 
             //network.AddLayer(new ResidualModule(3, 16, 1, 1, "ReLU"));
 
             network.AddLayer(new MaxPooling(2, 2));
 
-            network.AddLayer(new ConvolutionalLayer(3, 16, 1, 1));
+            network.AddLayer(new ConvolutionalLayer(3, 32, 1, 1));
             network.AddLayer(new ReLU());
 
-            network.AddLayer(new ResidualModule(3, 16, 1, 1, "ReLU"));
+            network.AddLayer(new ResidualModule(3, 32, 1, 1, "ReLU"));
 
             //network.AddLayer(new ResidualModule(3, 32, 1, 1, "ReLU"));
 
@@ -166,15 +166,15 @@ namespace JaNet
 
             NetworkTrainer networkTrainer = new NetworkTrainer();
 
-            networkTrainer.LearningRate = 0.005;
+            networkTrainer.LearningRate = 0.002;
             networkTrainer.MomentumMultiplier = 0.9;
-            networkTrainer.WeightDecayCoeff = 0.0001;
+            networkTrainer.WeightDecayCoeff = 0.00001;
             networkTrainer.MaxTrainingEpochs = 50;
             networkTrainer.EpochsBeforeRegularization = 0;
             networkTrainer.MiniBatchSize = 64;
             networkTrainer.ConsoleOutputLag = 1; // 1 = print every epoch, N = print every N epochs
             networkTrainer.EvaluateBeforeTraining = true;
-            networkTrainer.DropoutFullyConnected = 1.0;
+            networkTrainer.DropoutFullyConnected = 0.5;
             networkTrainer.Patience = 5;
 
             // Set output files save paths

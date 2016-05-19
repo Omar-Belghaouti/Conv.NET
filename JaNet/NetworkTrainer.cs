@@ -8,76 +8,76 @@ using OpenCL.Net;
 
 namespace JaNet
 { 
-    class NetworkTrainer
+    static class NetworkTrainer
     {
         #region Fields
 
         // Hyperparameters
-        private double learningRate;
-        private double momentumMultiplier;
-        private double weightDecayCoeff;
-        private int maxTrainingEpochs;
-        private int miniBatchSize;
-        private double errorTolerance;
-        private int consoleOutputLag;
-        private bool evaluateBeforeTraining;
-        private bool earlyStopping;
-        private double dropoutFC;
-        private int epochsBeforeRegularization;
-        private int patience;
+        private static double learningRate;
+        private static double momentumMultiplier;
+        private static double weightDecayCoeff;
+        private static int maxTrainingEpochs;
+        private static int miniBatchSize;
+        private static double errorTolerance;
+        private static int consoleOutputLag;
+        private static bool evaluateBeforeTraining;
+        private static bool earlyStopping;
+        private static double dropoutFC;
+        private static int epochsBeforeRegularization;
+        private static int patience;
 
         // Losses/Errors
-        private double lossTraining;
-        private double minLossValidation = double.PositiveInfinity;
-        private double newLossValidation;
-        private double errorTraining;
-        private double errorValidation;
-        private double newErrorValidation;
+        private static double lossTraining;
+        private static double minLossValidation = double.PositiveInfinity;
+        private static double newLossValidation;
+        private static double errorTraining;
+        private static double errorValidation;
+        private static double newErrorValidation;
         
         // auxiliary fields
-        private int nBadEpochs = 0;
+        private static int nBadEpochs = 0;
 
         // Paths for saving data
-        private string trainingEpochSavePath;
-        private string validationEpochSavePath;
-        private string networkOutputFilePath;
+        private static string trainingEpochSavePath;
+        private static string validationEpochSavePath;
+        private static string networkOutputFilePath;
 
         #endregion
 
 
         #region Properties
 
-        public double LearningRate
+        public static double LearningRate
         {
             get { return learningRate; }
             set { learningRate = value; }
         }
 
-        public double MomentumMultiplier
+        public static double MomentumMultiplier
         {
             get { return momentumMultiplier; }
             set { momentumMultiplier = value; }
         }
 
-        public double WeightDecayCoeff
+        public static double WeightDecayCoeff
         {
             get { return weightDecayCoeff; }
             set { weightDecayCoeff = value; }
         }
 
-        public int MaxTrainingEpochs
+        public static int MaxTrainingEpochs
         {
             get { return maxTrainingEpochs; }
             set { maxTrainingEpochs = value; }
         }
 
-        public int EpochsBeforeRegularization
+        public static int EpochsBeforeRegularization
         {
             get { return epochsBeforeRegularization; }
             set { epochsBeforeRegularization = value; }
         }
 
-        public int MiniBatchSize
+        public static int MiniBatchSize
         {
             get { return miniBatchSize; }
             set 
@@ -90,70 +90,70 @@ namespace JaNet
             }
         }
 
-        public double ErrorTolerance
+        public static double ErrorTolerance
         {
             get { return errorTolerance; }
             set { errorTolerance = value; }
         }
 
-        public int ConsoleOutputLag
+        public static int ConsoleOutputLag
         {
             get { return consoleOutputLag; }
             set { consoleOutputLag = value; }
         }
 
-        public double LossTraining
+        public static double LossTraining
         {
             get { return lossTraining; }
         }
 
-        public double LossValidation
+        public static double LossValidation
         {
             get { return minLossValidation; }
         }
 
-        public double ErrorTraining
+        public static double ErrorTraining
         {
             get { return errorTraining; }
         }
 
-        public double ErrorValidation
+        public static double ErrorValidation
         {
             get { return errorValidation; }
         }
 
-        public bool EvaluateBeforeTraining
+        public static bool EvaluateBeforeTraining
         {
             set { evaluateBeforeTraining = value; }
         }
 
-        public bool EarlyStopping
+        public static bool EarlyStopping
         {
             set { earlyStopping = value; }
         }
 
-        public double DropoutFullyConnected
+        public static double DropoutFullyConnected
         {
             get { return dropoutFC; }
             set { dropoutFC = value; }
         }
 
-        public string TrainingEpochSavePath
+        public static string TrainingEpochSavePath
         {
             set { trainingEpochSavePath = value; }
         }
 
-        public string ValidationEpochSavePath
+        public static string ValidationEpochSavePath
         {
             set { validationEpochSavePath = value; }
         }
 
-        public string NetworkOutputFilePath
+        public static string NetworkOutputFilePath
         {
             set { networkOutputFilePath = value; }
         }
 
-        public int Patience
+        public static int Patience
         {
             set { patience = value; }
         }
@@ -161,7 +161,7 @@ namespace JaNet
         #endregion
 
 
-        public void Train(NeuralNetwork network, DataSet trainingSet, DataSet validationSet)
+        public static void Train(NeuralNetwork network, DataSet trainingSet, DataSet validationSet)
         {
             // Setup miniBatchSize
             network.Set("MiniBatchSize", miniBatchSize);
@@ -170,12 +170,10 @@ namespace JaNet
             network.InitializeParameters("random");
 
             // Set dropout
-            network.Set("DropoutFC", this.dropoutFC);
+            network.Set("DropoutFC", dropoutFC);
 
             Sequence indicesSequence = new Sequence(trainingSet.Size);
             int[] miniBatch = new int[miniBatchSize];
-
-            NetworkEvaluator networkEvaluator = new NetworkEvaluator();
 
             // Timers
             Stopwatch stopwatch = Stopwatch.StartNew();
@@ -206,7 +204,7 @@ namespace JaNet
                     network.Set("Inference", true);
                     Console.WriteLine("Evaluating on TRAINING set...");
                     stopwatch.Restart();
-                    networkEvaluator.EvaluateNetwork(network, trainingSet, out lossTraining, out errorTraining);
+                    NetworkEvaluator.EvaluateNetwork(network, trainingSet, out lossTraining, out errorTraining);
                     Console.WriteLine("\tLoss = {0}\n\tError = {1}\n\tEval runtime = {2}ms\n",
                                         lossTraining, errorTraining, stopwatch.ElapsedMilliseconds);
                     // ...and save loss and error to file
@@ -218,11 +216,9 @@ namespace JaNet
                     // Evaluate on validation set...
                     if (validationSet != null)
                     {
-                        NetworkEvaluator anotherNetworkEvaluator = new NetworkEvaluator();
-
                         Console.WriteLine("Evaluating on VALIDATION set...");
                         stopwatch.Restart();
-                        anotherNetworkEvaluator.EvaluateNetwork(network, validationSet, out newLossValidation, out newErrorValidation);
+                        NetworkEvaluator.EvaluateNetwork(network, validationSet, out newLossValidation, out newErrorValidation);
                         Console.WriteLine("\tLoss = {0}\n\tError = {1}\n\tEval runtime = {2}ms\n",
                                             newLossValidation, newErrorValidation, stopwatch.ElapsedMilliseconds);
                         // ...save loss and error to file

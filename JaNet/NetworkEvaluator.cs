@@ -7,23 +7,9 @@ using OpenCL.Net;
 
 namespace JaNet
 {
-    class NetworkEvaluator
+    static class NetworkEvaluator
     {
 
-        #region Fields
-
-        #endregion
-
-        #region Constructor
-
-        // The constructor does nothing at the moment
-        public NetworkEvaluator()
-        {
-
-        }
-        #endregion
-
-        
 
         /// <summary>
         /// Run this method before evaluation, passing the TRAINING set as second argument.
@@ -31,7 +17,7 @@ namespace JaNet
         /// </summary>
         /// <param name="network"></param>
         /// <param name="dataSet"></param>
-        public void PreEvaluateNetwork(NeuralNetwork network, DataSet dataSet)
+        public static void PreEvaluateNetwork(NeuralNetwork network, DataSet dataSet)
         {
             // Set network for pre-inference (needed for BatchNorm layers)
             network.Set("PreInference", true);
@@ -58,7 +44,7 @@ namespace JaNet
             }
         }
 
-        public void EvaluateNetwork(NeuralNetwork network, DataSet dataSet, out double loss, out double error)
+        public static void EvaluateNetwork(NeuralNetwork network, DataSet dataSet, out double loss, out double error)
         {
             // Set network for inference (needed for BatchNorm layers)
             network.Set("Inference", true);
@@ -104,7 +90,7 @@ namespace JaNet
         }
 
 
-        public void ComputeBatchLossError(NeuralNetwork network, DataSet dataSet, int[] miniBatch, out double loss, out double error)
+        public static void ComputeBatchLossError(NeuralNetwork network, DataSet dataSet, int[] miniBatch, out double loss, out double error)
         {
             loss = 0.0;
             error = 0.0;

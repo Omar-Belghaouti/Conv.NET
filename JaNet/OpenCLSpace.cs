@@ -10,7 +10,6 @@ using OpenCL.Net.Extensions;
 
 namespace JaNet
 {
-#if OPENCL_ENABLED
 
     static class OpenCLSpace
     {
@@ -395,6 +394,5 @@ namespace JaNet
         #endregion
 
     }
-#endif
 
 }

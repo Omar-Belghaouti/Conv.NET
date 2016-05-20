@@ -36,6 +36,7 @@ namespace JaNet
         
         // auxiliary fields
         private static int nBadEpochs = 0;
+        private static string trainingMode;
 
         // Paths for saving data
         private static string trainingEpochSavePath;
@@ -158,6 +159,11 @@ namespace JaNet
             set { patience = value; }
         }
 
+        public static string TrainingMode
+        {
+            set { trainingMode = value; }
+        }
+
         #endregion
 
 
@@ -166,9 +172,13 @@ namespace JaNet
             // Setup miniBatchSize
             network.Set("MiniBatchSize", miniBatchSize);
 
-            // Initialize parameters
-            network.InitializeParameters("random");
-
+            // Initialize parameters or load them
+            if (trainingMode == "new" || trainingMode == "New")
+                network.InitializeParameters("random");
+            else if (trainingMode == "resume" || trainingMode == "Resume")
+                network.InitializeParameters("load");
+            else
+                throw new InvalidOperationException("Please set TrainingMode to either ''New'' or ''Resume''.");
             // Set dropout
             network.Set("DropoutFC", dropoutFC);
 

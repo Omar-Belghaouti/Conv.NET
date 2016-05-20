@@ -114,5 +114,56 @@ namespace JaNet
         }
 
 
+        public static void SaveMisclassifiedExamples(NeuralNetwork network, DataSet dataSet, string outputFilePath)
+        {
+            List<int> misclassifiedExamplesList = new List<int>();
+
+            // Set network for inference (needed for BatchNorm layers)
+            network.Set("Inference", true);
+
+            // Turn off dropout
+            network.Set("DropoutFC", 1.0);
+
+            int miniBatchSize = network.Layers[0].OutputNeurons.MiniBatchSize;
+
+            Sequence indicesSequence = new Sequence(dataSet.Size);
+
+            // Run over mini-batches (in order, no shuffling here)
+            for (int iStartMiniBatch = 0; iStartMiniBatch < dataSet.Size; iStartMiniBatch += miniBatchSize)
+            {
+                // Feed a mini-batch to the network
+                int[] miniBatch = indicesSequence.GetMiniBatchIndices(iStartMiniBatch, miniBatchSize);
+                network.InputLayer.FeedData(dataSet, miniBatch);
+
+                // Run network forward
+                network.ForwardPass("beginning", "end");
+
+                for (int m = 0; m < Math.Min(miniBatchSize, dataSet.Size - iStartMiniBatch); m++) // In case dataSet.Size doesn't divide miniBatchSize, the last miniBatch contains copies! Don't want to re-evaluate them
+                {
+                    double[] outputScores = network.OutputLayer.OutputClassScores[m];
+
+                    int assignedLabel = Utils.IndexOfMax(outputScores);
+                    int trueLabel = dataSet.Labels[miniBatch[m]];
+
+                    if (assignedLabel != trueLabel)
+                        misclassifiedExamplesList.Add(miniBatch[m]);
+
+                } // end loop within a mini-batch
+
+            } // end loop over mini-batches
+
+            // Save the list to file
+            using (System.IO.StreamWriter outputFile = new System.IO.StreamWriter(outputFilePath))
+            {
+                foreach (float misclassifiedExample in misclassifiedExamplesList)
+                {
+                    outputFile.WriteLine(misclassifiedExample.ToString());
+                }
+                Console.WriteLine("Misclassified examples saved in file " + outputFilePath);
+            }
+
+        }
+
+
     }
 }

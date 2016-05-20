@@ -71,6 +71,17 @@ namespace JaNet
         /// <summary>
         /// NeuralNetwork class constructor.
         /// </summary>
+        public NeuralNetwork()
+        {
+            Console.WriteLine("New empty network created.");
+            this.layers = new List<Layer>(); // empty list of layers
+            this.nLayers = 0;
+        }
+
+        /// <summary>
+        /// NeuralNetwork class constructor.
+        /// </summary>
+        /// <param name="NetworkName"></param>
         public NeuralNetwork(string NetworkName)
         {
             Console.WriteLine("New empty network created.");

@@ -196,7 +196,7 @@ namespace JaNet
             int epochsRemainingToOutput = (evaluateBeforeTraining == true) ? 0 : consoleOutputLag;
             
 
-            while (epoch < maxTrainingEpochs && !stopFlag) // loop over training epochs
+            while (!stopFlag) // begin loop over training epochs
             {
                 
                 if (epochsRemainingToOutput == 0)
@@ -270,6 +270,11 @@ namespace JaNet
                     epochsRemainingToOutput = consoleOutputLag;
                 }
                 epochsRemainingToOutput--;
+
+                epoch++;
+
+                if (epoch > maxTrainingEpochs)
+                    break;
 
                 /************
                 * Training *
@@ -348,7 +353,7 @@ namespace JaNet
 
                 Utils.ResetTimers();
 #endif
-                epoch++;
+                
 
                 if (Console.KeyAvailable)
                 {

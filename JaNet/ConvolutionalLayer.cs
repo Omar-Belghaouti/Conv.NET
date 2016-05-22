@@ -122,8 +122,8 @@ namespace JaNet
             if (filterSize > inputWidth)
                 throw new System.ArgumentException("Filter size is larger than input spatial dimension!");
             double tmp = (double)(inputWidth - filterSize + 2 * zeroPadding) / (double)strideLength + 1;
-            if (Math.Abs(tmp % 1) > Global.EPSILON) 
-                throw new System.ArgumentException("Output size is non-integer. Check input size, filter size, padding and stride.");
+            //if (Math.Abs(tmp % 1) > Global.EPSILON) 
+            //    throw new System.ArgumentException("Output size is non-integer. Check input size, filter size, padding and stride.");
             this.outputWidth = (int)tmp;
             this.outputHeight = (int)tmp;
             this.outputDepth = nFilters;

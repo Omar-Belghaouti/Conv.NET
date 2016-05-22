@@ -12,14 +12,15 @@ namespace JaNet
         #region Fields
 
         private ConvolutionalLayer convolutionalLayer1;
-        private ReLU nonlinearity; //TODO: generalize "Nonlinearity" layer
+        private ReLU nonlinearityReLU; //TODO: generalize "Nonlinearity" layer
+        private ELU nonlinearityELU;
         private ConvolutionalLayer convolutionalLayer2;
-        
+
         private int filterSize;
         private int nFilters;
         private int strideLength;
         private int zeroPadding;
-        private string nonlinarityType;
+        private string nonlinearityType;
 
         private IntPtr[] globalWorkSizePtr;
         private IntPtr[] localWorkSizePtr;
@@ -48,17 +49,20 @@ namespace JaNet
             strideLength = StrideLength;
             zeroPadding = ZeroPadding;
 
-            if (NonlinearityType != "ReLU")
-                throw new ArgumentException("Only ReLU nonlinearities are currently supported in ResidualModules");
+            if (NonlinearityType != "ReLU" && NonlinearityType != "ELU")
+                throw new ArgumentException("Only ReLU or ELU nonlinearities are currently supported in ResidualModules");
 
-            nonlinarityType = NonlinearityType;
+            nonlinearityType = NonlinearityType;
 
             convolutionalLayer1 = new ConvolutionalLayer(filterSize, nFilters, strideLength, zeroPadding);
-            nonlinearity = new ReLU();
+            if (NonlinearityType == "ReLU")
+                nonlinearityReLU = new ReLU();
+            else if (NonlinearityType == "ELU")
+                nonlinearityELU = new ELU(1.0f);
             convolutionalLayer2 = new ConvolutionalLayer(filterSize, nFilters, strideLength, zeroPadding);
         }
 
-        
+
         public override void SetupOutput()
         {
             // TODO: should include ConnectTo() , SetupOutput(), OutputNeurons.SetupBuffers(miniBatchSize), and SetWorkGroups() of member layers
@@ -78,16 +82,27 @@ namespace JaNet
 
             //______________________________________________________________________________________________________
             // Setup nonlinearity
+            if (nonlinearityType == "ReLU")
+            {
+                nonlinearityReLU.ConnectTo(convolutionalLayer1);
+                nonlinearityReLU.SetupOutput();
+                nonlinearityReLU.OutputNeurons.SetupBuffers(nonlinearityReLU.InputNeurons.MiniBatchSize);
+                nonlinearityReLU.SetWorkGroups();
 
-            nonlinearity.ConnectTo(convolutionalLayer1);
-            nonlinearity.SetupOutput();
-            nonlinearity.OutputNeurons.SetupBuffers(nonlinearity.InputNeurons.MiniBatchSize);
-            nonlinearity.SetWorkGroups();
+                convolutionalLayer2.ConnectTo(nonlinearityReLU);
+            }
+            else if (nonlinearityType == "ELU")
+            {
+                nonlinearityELU.ConnectTo(convolutionalLayer1);
+                nonlinearityELU.SetupOutput();
+                nonlinearityELU.OutputNeurons.SetupBuffers(nonlinearityELU.InputNeurons.MiniBatchSize);
+                nonlinearityELU.SetWorkGroups();
 
+                convolutionalLayer2.ConnectTo(nonlinearityELU);
+            }
             //______________________________________________________________________________________________________
             // Setup second convolutional layer
 
-            convolutionalLayer2.ConnectTo(nonlinearity);
             convolutionalLayer2.SetupOutput();
             //convolutionalLayer2.OutputNeurons.SetupBuffers(convolutionalLayer2.InputNeurons.MiniBatchSize);
             convolutionalLayer2.SetWorkGroups();
@@ -121,7 +136,7 @@ namespace JaNet
 
             // Global
             int smallestMultiple = (int)(OpenCLSpace.OPTIMAL_GROUP_SIZE * Math.Ceiling((double)(nInputUnits * inputNeurons.MiniBatchSize) / (double)OpenCLSpace.OPTIMAL_GROUP_SIZE));
-            this.globalWorkSizePtr = new IntPtr[] { (IntPtr)smallestMultiple};
+            this.globalWorkSizePtr = new IntPtr[] { (IntPtr)smallestMultiple };
         }
 
         public override void InitializeParameters(string Option)
@@ -129,7 +144,6 @@ namespace JaNet
             base.InitializeParameters(Option); // makes sure this method is only call AFTER "SetupOutput()"
 
             convolutionalLayer1.InitializeParameters(Option);
-            nonlinearity.InitializeParameters(Option);
             convolutionalLayer2.InitializeParameters(Option);
         }
 
@@ -177,7 +191,11 @@ namespace JaNet
                 Console.ReadKey();
             }
             */
-            nonlinearity.FeedForward();
+            if (nonlinearityType == "ReLU")
+                nonlinearityReLU.FeedForward();
+            else if (nonlinearityType == "ELU")
+                nonlinearityELU.FeedForward();
+
 
             /*
             float[] nonlinOutputAll = new float[nonlinearity.OutputNeurons.NumberOfUnits * inputNeurons.MiniBatchSize];
@@ -265,7 +283,7 @@ namespace JaNet
 
         public override void BackPropagate()
         {
-            // Errors have already been backpropagated to input of first convolutional layer
+            // Errors have already been backpropagated to input of first convolutional layer (see method UpdateSpeeds)
             // Now just cumulate the gradients coming from the skip connection
 
             OpenCLSpace.ClError = Cl.SetKernelArg(OpenCLSpace.SkipBackward, 0, inputNeurons.DeltaGPU);
@@ -275,7 +293,7 @@ namespace JaNet
             OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.SetKernelArg");
 
             // Run kernel
-            OpenCLSpace.ClError = Cl.EnqueueNDRangeKernel(  OpenCLSpace.Queue,
+            OpenCLSpace.ClError = Cl.EnqueueNDRangeKernel(OpenCLSpace.Queue,
                                                             OpenCLSpace.SkipBackward,
                                                             1,
                                                             null,
@@ -302,7 +320,10 @@ namespace JaNet
             convolutionalLayer2.UpdateSpeeds(learningRate, momentumCoefficient);
             convolutionalLayer2.BackPropagate();
 
-            nonlinearity.BackPropagate();
+            if (nonlinearityType == "ReLU")
+                nonlinearityReLU.BackPropagate();
+            else if (nonlinearityType == "ELU")
+                nonlinearityELU.BackPropagate();
 
             convolutionalLayer1.UpdateSpeeds(learningRate, momentumCoefficient);
             convolutionalLayer1.BackPropagate();
@@ -314,7 +335,7 @@ namespace JaNet
             convolutionalLayer2.UpdateParameters(weightDecayCoeff);
             convolutionalLayer1.UpdateParameters(weightDecayCoeff);
         }
-        
+
         #endregion
 
     }

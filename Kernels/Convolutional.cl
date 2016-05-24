@@ -170,7 +170,10 @@ ConvForward(__global float * outputBatch,
 			const int receptiveFieldSize,
 			const int nReceptiveFields,
 			const int inputVolume,
-			const int miniBatchSize
+			const int miniBatchSize,
+			__global bool * dropoutMask,
+			const float dropoutParameter,
+			const ulong randomSeed
 				)
 {
 
@@ -196,23 +199,54 @@ ConvForward(__global float * outputBatch,
 		float sum = 0.0;
 		int iInput = 0;
 		
-		for(int iElement = 0; iElement < receptiveFieldSize; ++iElement)
+		// Dropout here (more efficient: no matrix multiplication if unit is deactivated)
+		bool isUnitOn;
+		if (dropoutParameter < 1.0F)
 		{
-			// Get receptive field element needed, reading it from inputBatch using the lookup table
-			iInput = iInputMiniBatchItemBeginning + lookupTable[iElement * nReceptiveFields + iReceptiveField];
-			
-			// Multiply & cumulate in sum
-			sum = fma(weights[iFilterRowBeginning + iElement], inputBatch[iInput], sum);
+			// generate a pseudo-random number here, mimicking Java RNG
+			ulong thisSeed = randomSeed + iOutput;
+			thisSeed = (thisSeed * 0x5DEECE66DL + 0xBL) & ((1L << 48) - 1);
+			uint pseudoRandomInt = thisSeed >> 16;
+			for (int j = 0; j < 6; ++j)
+			{
+				thisSeed = pseudoRandomInt;
+				thisSeed = (thisSeed * 0x5DEECE66DL + 0xBL) & ((1L << 48) - 1);
+				pseudoRandomInt = thisSeed >> 16;
+			}
+			float pseudoRandFloat = (float)pseudoRandomInt/(float)4294967295;
+			// this is not a very good pseudo random number, but hopefully it's good enough
+			isUnitOn = pseudoRandFloat < dropoutParameter;
 		}
+		else
+		{
+			isUnitOn = true;
+		}
+		// save unit state
+		dropoutMask[iOutput] = isUnitOn;
 		
-		// Add bias
-		sum += biases[iFilter];
 		
-		// Finally, write resulting sum into outputBatch buffer
-		outputBatch[iOutput] = sum;
-		
+		if (isUnitOn)
+		{
+			for(int iElement = 0; iElement < receptiveFieldSize; ++iElement)
+			{
+				// Get receptive field element needed, reading it from inputBatch using the lookup table
+				iInput = iInputMiniBatchItemBeginning + lookupTable[iElement * nReceptiveFields + iReceptiveField];
+				
+				// Multiply & cumulate in sum
+				sum = fma(weights[iFilterRowBeginning + iElement], inputBatch[iInput], sum);
+			}
+			
+			// Add bias
+			sum += biases[iFilter];
+			
+			// Finally, write resulting sum into outputBatch buffer
+			outputBatch[iOutput] = sum/dropoutParameter;
+		}
+		else // unit is dropped out
+		{
+			outputBatch[iOutput] = 0.0f;
+		}
 	}
-	
 }
 
 
@@ -250,7 +284,8 @@ ConvBackPropagate(	__global float * deltaInputBatch,
 					const int nFilters, 		
 					const int receptiveFieldSize,
 					const int nReceptiveFields,
-					const int miniBatchSize
+					const int miniBatchSize,
+					__global bool * dropoutMask
 					)
 {
 
@@ -282,8 +317,11 @@ ConvBackPropagate(	__global float * deltaInputBatch,
 			// first move to the beginning of this example, then pick the right "row and column"
 			iDeltaOutput = iExampleBeginningInDeltaOutput + iFilter * nReceptiveFields + iReceptiveField;
 			
-			// Multiply & cumulate in tmpDeltaInput
-			tmpDeltaInput += weights[iFilter * receptiveFieldSize + iRecFieldElement] * deltaOutputBatch[iDeltaOutput];
+			if (dropoutMask[iDeltaOutput] == true) // if output unit is active
+			{
+				// Multiply & cumulate in tmpDeltaInput
+				tmpDeltaInput += weights[iFilter * receptiveFieldSize + iRecFieldElement] * deltaOutputBatch[iDeltaOutput];
+			}
 		}
 		
 		// Now cumulate this portion of gradient into the correct position of paddedDeltaX (using lookup table)
@@ -321,7 +359,8 @@ __kernel void ConvUpdateSpeeds(	__global float * wSpeeds,
 								const int nReceptiveFields,
 								const float momCoeff,
 								const float learningRate,
-								const int miniBatchSize
+								const int miniBatchSize,
+								__global bool * dropoutMask
 								)
 {
 
@@ -363,6 +402,7 @@ __kernel void ConvUpdateSpeeds(	__global float * wSpeeds,
 		int iExampleBeginningInInput = 0;
 		int iBeginningDeltaOutputRow = 0;
 		
+		int iOutputDeltaElement = 0;
 		float deltaElement = 0.0F;
 		
 		int iInput = 0;
@@ -379,20 +419,25 @@ __kernel void ConvUpdateSpeeds(	__global float * wSpeeds,
 			{
 				// Get error signal corresponding to this filter and this receptiveField in this example:
 				// first move to the correct example, then pick the right "row and column"
-				deltaElement = deltaOutputBatch[iBeginningDeltaOutputRow + iReceptiveField];
+				iOutputDeltaElement = iBeginningDeltaOutputRow + iReceptiveField;
 				
-				// Get input value needed, reading it from transpose(input): first move to the correct example, 
-				// then pick the right "row and column" using the pre-constructed receptive field lookup table
-				iInput = iExampleBeginningInInput + recFieldsLookupTable[iInputTransposeColumn + iReceptiveField];
-				
-				// Multiply & cumulate in gradientWeight
-				//gradientWeight += deltaElement * inputBatch[iInput];
-				gradientWeight = fma(deltaElement, inputBatch[iInput], gradientWeight);
-				
-				// Once per filter, also cumulate error signals in gradientBias
-				if (iElement == 0)
+				if (dropoutMask[iOutputDeltaElement]) // if output unit is active
 				{
-					gradientBias += deltaElement;
+					deltaElement = deltaOutputBatch[iOutputDeltaElement];
+					
+					// Get input value needed, reading it from transpose(input): first move to the correct example, 
+					// then pick the right "row and column" using the pre-constructed receptive field lookup table
+					iInput = iExampleBeginningInInput + recFieldsLookupTable[iInputTransposeColumn + iReceptiveField];
+					
+					// Multiply & cumulate in gradientWeight
+					//gradientWeight += deltaElement * inputBatch[iInput];
+					gradientWeight = fma(deltaElement, inputBatch[iInput], gradientWeight);
+					
+					// Once per filter, also cumulate error signals in gradientBias
+					if (iElement == 0)
+					{
+						gradientBias += deltaElement;
+					}
 				}
 			}
 		}

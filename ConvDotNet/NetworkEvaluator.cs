@@ -24,6 +24,7 @@ namespace JaNet
 
             // Turn off dropout
             network.Set("DropoutFC", 1.0);
+            network.Set("DropoutConv", 1.0);
 
             int miniBatchSize = network.Layers[0].OutputNeurons.MiniBatchSize;
             
@@ -54,6 +55,7 @@ namespace JaNet
 
             // Turn off dropout
             network.Set("DropoutFC", 1.0);
+            network.Set("DropoutConv", 1.0);
 
             int miniBatchSize = network.Layers[0].OutputNeurons.MiniBatchSize;
             
@@ -123,6 +125,7 @@ namespace JaNet
 
             // Turn off dropout
             network.Set("DropoutFC", 1.0);
+            network.Set("DropoutConv", 1.0);
 
             int miniBatchSize = network.Layers[0].OutputNeurons.MiniBatchSize;
 

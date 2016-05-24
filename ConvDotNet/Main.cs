@@ -54,7 +54,7 @@ namespace JaNet
 
                 // OPTION 1: Create a new network
                 
-                NeuralNetwork network = new NeuralNetwork("simpletest");
+                NeuralNetwork network = new NeuralNetwork("testDropoutConv");
 
                 network.AddLayer(new InputLayer(1, 32, 32));
 
@@ -157,6 +157,7 @@ namespace JaNet
                 NetworkTrainer.ConsoleOutputLag = 1; // 1 = print every epoch, N = print every N epochs
                 NetworkTrainer.EvaluateBeforeTraining = true;
                 NetworkTrainer.DropoutFullyConnected = 0.5;
+                NetworkTrainer.DropoutConvolutional = 0.9;
                 NetworkTrainer.Patience = 10;
 
                 NetworkTrainer.LearningRate = 0.01;//eta[iEta];

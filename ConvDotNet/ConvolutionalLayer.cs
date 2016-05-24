@@ -22,6 +22,8 @@ namespace JaNet
         private int receptiveFieldSize; // i.e. [outputDepth * filterSize^2]
         private int nReceptiveFields; // i.e. output depth
 
+        private double dropoutParameter;
+
         // aux
         private int unpaddedVolume;
         private int paddedVolume;
@@ -55,6 +57,9 @@ namespace JaNet
         [NonSerialized]
         private Mem biasesSpeedGPU;
 
+        [NonSerialized]
+        private Mem dropoutMaskGPU;
+
         // Global and local work-group sizes (for OpenCL kernels) - will be set in SetWorkGroupSizes();
 
         private IntPtr[] paddingGlobalWorkSizePtr;
@@ -83,6 +88,11 @@ namespace JaNet
         public override int FilterSize
         {
             get { return filterSize; }
+        }
+
+        public override double DropoutParameter
+        {
+            set { this.dropoutParameter = value; }
         }
 
         #endregion
@@ -171,6 +181,13 @@ namespace JaNet
             OpenCLSpace.WipeBuffer(recFieldsLookupTableGPU, receptiveFieldSize * nReceptiveFields, typeof(int));
             // Note that this is the same for every input example, no need to create miniBatchSize copies of it!
 
+            // 4) Dropout mask
+            this.dropoutMaskGPU = (Mem)Cl.CreateBuffer(OpenCLSpace.Context,
+                                                        MemFlags.ReadWrite,
+                                                        (IntPtr)(sizeof(bool) * nOutputUnits * inputNeurons.MiniBatchSize),
+                                                        out OpenCLSpace.ClError);
+            OpenCLSpace.CheckErr(OpenCLSpace.ClError, "InitializeParameters(): Cl.CreateBuffer");
+            OpenCLSpace.WipeBuffer(dropoutMaskGPU, nOutputUnits * inputNeurons.MiniBatchSize, typeof(bool));
 
             // Create lookup tables once and for all  ____________________________________________________________________________________
 
@@ -496,6 +513,9 @@ namespace JaNet
             OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.ConvForward, 7, (IntPtr)sizeof(int), nReceptiveFields);
             OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.ConvForward, 8, (IntPtr)sizeof(int), paddedVolume);
             OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.ConvForward, 9, (IntPtr)sizeof(int), inputNeurons.MiniBatchSize);
+            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.ConvForward, 10, dropoutMaskGPU);
+            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.ConvForward, 11, (IntPtr)sizeof(float), (float)dropoutParameter);
+            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.ConvForward, 12, (IntPtr)sizeof(ulong), (ulong)Guid.NewGuid().GetHashCode());
             OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.SetKernelArg ConvForwardBatch");
 
             // Run kernel
@@ -568,6 +588,7 @@ namespace JaNet
             OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.ConvBackPropagate, 6, (IntPtr)sizeof(int), receptiveFieldSize);
             OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.ConvBackPropagate, 7, (IntPtr)sizeof(int), nReceptiveFields);
             OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.ConvBackPropagate, 8, (IntPtr)sizeof(int), inputNeurons.MiniBatchSize);
+            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.ConvBackPropagate, 9, dropoutMaskGPU);
             OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.SetKernelArg ConvBackPropagateBatch");
 
             // Run kernel
@@ -684,6 +705,7 @@ namespace JaNet
             OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.ConvUpdateSpeeds, 11, (IntPtr)sizeof(float), (float)momentumCoefficient);
             OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.ConvUpdateSpeeds, 12, (IntPtr)sizeof(float), (float)learningRate);
             OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.ConvUpdateSpeeds, 13, (IntPtr)sizeof(int), inputNeurons.MiniBatchSize);
+            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.ConvUpdateSpeeds, 14, dropoutMaskGPU);
             OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Convolutional.UpdateSpeeds(): Cl.SetKernelArg ConvUpdateSpeedsBatch");
 
             // Run kernel

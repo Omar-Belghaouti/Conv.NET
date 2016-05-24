@@ -23,6 +23,7 @@ namespace JaNet
         private static bool evaluateBeforeTraining;
         private static bool earlyStopping;
         private static double dropoutFC;
+        private static double dropoutConv;
         private static int epochsBeforeRegularization;
         private static int patience;
 
@@ -139,6 +140,12 @@ namespace JaNet
             set { dropoutFC = value; }
         }
 
+        public static double DropoutConvolutional
+        {
+            get { return dropoutConv; }
+            set { dropoutConv = value; }
+        }
+
         public static string TrainingEpochSavePath
         {
             set { trainingEpochSavePath = value; }
@@ -181,6 +188,7 @@ namespace JaNet
                 throw new InvalidOperationException("Please set TrainingMode to either ''New'' or ''Resume''.");
             // Set dropout
             network.Set("DropoutFC", dropoutFC);
+            network.Set("DropoutConv", dropoutConv);
 
             Sequence indicesSequence = new Sequence(trainingSet.Size);
             int[] miniBatch = new int[miniBatchSize];
@@ -266,6 +274,7 @@ namespace JaNet
 
                     // Restore dropout
                     network.Set("DropoutFC", dropoutFC);
+                    network.Set("DropoutConv", dropoutConv);
 
                     epochsRemainingToOutput = consoleOutputLag;
                 }

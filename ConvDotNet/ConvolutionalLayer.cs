@@ -186,10 +186,11 @@ namespace JaNet
                 OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.SetKernelArg CreatePaddingLookupTable");
 
                 // These work group sizes have a limited scope and therefore they are not class fields
-                IntPtr[] tmp1DLocalWorkSizePtr = new IntPtr[] { (IntPtr)OpenCLSpace.OPTIMAL_GROUP_SIZE };
-                int smallestMultiple = (int)(OpenCLSpace.OPTIMAL_GROUP_SIZE *
-                    Math.Ceiling((double)(inputDepth * inputHeight * inputWidth) / (double)OpenCLSpace.OPTIMAL_GROUP_SIZE));
-                IntPtr[] tmp1DGlobalWorkSizePtr = new IntPtr[] { (IntPtr)smallestMultiple };
+                //IntPtr[] tmp1DLocalWorkSizePtr = new IntPtr[] { (IntPtr)OpenCLSpace.OPTIMAL_GROUP_SIZE };
+                //int smallestMultiple = (int)(OpenCLSpace.OPTIMAL_GROUP_SIZE *
+                //    Math.Ceiling((double)(inputDepth * inputHeight * inputWidth) / (double)OpenCLSpace.OPTIMAL_GROUP_SIZE));
+                //IntPtr[] tmp1DGlobalWorkSizePtr = new IntPtr[] { (IntPtr)smallestMultiple };
+                IntPtr[] tmp1DGlobalWorkSizePtr = new IntPtr[] { (IntPtr)nInputUnits };
 
                 // Run kernel
                 OpenCLSpace.ClError = Cl.EnqueueNDRangeKernel(OpenCLSpace.Queue,
@@ -197,7 +198,7 @@ namespace JaNet
                                                                 1,
                                                                 null,
                                                                 tmp1DGlobalWorkSizePtr,
-                                                                tmp1DLocalWorkSizePtr,
+                                                                null,
                                                                 0,
                                                                 null,
                                                                 out OpenCLSpace.ClEvent);
@@ -219,11 +220,12 @@ namespace JaNet
             OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.SetKernelArg CreateRecFieldsLookupTable");
 
             // These work sizes have a limited scope and therefore they are not class fields
-            int baseToOptimalFactor = OpenCLSpace.OPTIMAL_GROUP_SIZE / OpenCLSpace.BASE_GROUP_SIZE;
-            IntPtr[] tmp2DLocalWorkSizePtr = new IntPtr[] { (IntPtr)baseToOptimalFactor, (IntPtr)OpenCLSpace.BASE_GROUP_SIZE };
-            int smallestMultipleReceptiveFieldSize = (int)(baseToOptimalFactor * Math.Ceiling((double)receptiveFieldSize / (double)baseToOptimalFactor));
-            int smallestMultipleNReceptiveFields = (int)(OpenCLSpace.BASE_GROUP_SIZE * Math.Ceiling((double)nReceptiveFields / (double)OpenCLSpace.BASE_GROUP_SIZE));
-            IntPtr[] tmp2DGlobalWorkSizePtr = new IntPtr[] { (IntPtr)smallestMultipleReceptiveFieldSize, (IntPtr)smallestMultipleNReceptiveFields };
+            //int baseToOptimalFactor = OpenCLSpace.OPTIMAL_GROUP_SIZE / OpenCLSpace.BASE_GROUP_SIZE;
+            //IntPtr[] tmp2DLocalWorkSizePtr = new IntPtr[] { (IntPtr)baseToOptimalFactor, (IntPtr)OpenCLSpace.BASE_GROUP_SIZE };
+            //int smallestMultipleReceptiveFieldSize = (int)(baseToOptimalFactor * Math.Ceiling((double)receptiveFieldSize / (double)baseToOptimalFactor));
+            //int smallestMultipleNReceptiveFields = (int)(OpenCLSpace.BASE_GROUP_SIZE * Math.Ceiling((double)nReceptiveFields / (double)OpenCLSpace.BASE_GROUP_SIZE));
+            //IntPtr[] tmp2DGlobalWorkSizePtr = new IntPtr[] { (IntPtr)smallestMultipleReceptiveFieldSize, (IntPtr)smallestMultipleNReceptiveFields };
+            IntPtr[] tmp2DGlobalWorkSizePtr = new IntPtr[] { (IntPtr)receptiveFieldSize, (IntPtr)nReceptiveFields };
 
             // Run kernel
             OpenCLSpace.ClError = Cl.EnqueueNDRangeKernel(  OpenCLSpace.Queue,
@@ -231,7 +233,7 @@ namespace JaNet
                                                             2,
                                                             null,
                                                             tmp2DGlobalWorkSizePtr,
-                                                            tmp2DLocalWorkSizePtr,
+                                                            null,
                                                             0,
                                                             null,
                                                             out OpenCLSpace.ClEvent);
@@ -262,24 +264,22 @@ namespace JaNet
             if (zeroPadding > 0)
             {
                 // Local
-                int localWorkSize = OpenCLSpace.OPTIMAL_GROUP_SIZE;
-                this.paddingLocalWorkSizePtr = new IntPtr[] { (IntPtr)localWorkSize };
+                this.paddingLocalWorkSizePtr = new IntPtr[] { (IntPtr)OpenCLSpace.OPTIMAL_GROUP_SIZE };
 
                 // Global
-                int smallestMultiple = (int)(OpenCLSpace.OPTIMAL_GROUP_SIZE *
-                    Math.Ceiling((double)(inputDepth * inputHeight * inputWidth * inputNeurons.MiniBatchSize) / (double)OpenCLSpace.OPTIMAL_GROUP_SIZE));
+                int smallestMultiple = (int)(OpenCLSpace.OPTIMAL_GROUP_SIZE * Math.Ceiling((double)(nInputUnits * inputNeurons.MiniBatchSize) / (double)OpenCLSpace.OPTIMAL_GROUP_SIZE));
                 this.paddingGlobalWorkSizePtr = new IntPtr[] { (IntPtr)smallestMultiple };
             }
 
             // Forward kernel (2D workspace) ___________________________________________________________________________________________
 
             // Local
-            int optimalToBaseFactor = OpenCLSpace.OPTIMAL_GROUP_SIZE / OpenCLSpace.BASE_GROUP_SIZE;
-            this.forwardLocalWorkSizePtr = new IntPtr[] { (IntPtr)optimalToBaseFactor, (IntPtr)OpenCLSpace.BASE_GROUP_SIZE }; // product is optimal
+            int optimalToBaseRatio = OpenCLSpace.OPTIMAL_GROUP_SIZE / OpenCLSpace.BASE_GROUP_SIZE;
+            this.forwardLocalWorkSizePtr = new IntPtr[] { (IntPtr)optimalToBaseRatio, (IntPtr)OpenCLSpace.BASE_GROUP_SIZE }; // product is optimal
 
             // Global
             int nRowsOutput = inputNeurons.MiniBatchSize * nFilters;
-            int smallestMultipleOutputDepthBatch = (int)(optimalToBaseFactor * Math.Ceiling((double)(nRowsOutput) / (double)optimalToBaseFactor));
+            int smallestMultipleOutputDepthBatch = (int)(optimalToBaseRatio * Math.Ceiling((double)(nRowsOutput) / (double)optimalToBaseRatio));
             int smallestMultipleNReceptiveFields = (int)(OpenCLSpace.BASE_GROUP_SIZE * Math.Ceiling((double)nReceptiveFields / (double)OpenCLSpace.BASE_GROUP_SIZE ) );
             this.forwardGlobalWorkSizePtr = new IntPtr[] { (IntPtr)smallestMultipleOutputDepthBatch, (IntPtr)smallestMultipleNReceptiveFields };
 
@@ -287,21 +287,20 @@ namespace JaNet
             // Backward kernel (2D workspace) __________________________________________________________________________________________
 
             // Local
-            this.backwardLocalWorkSizePtr = new IntPtr[] { (IntPtr)optimalToBaseFactor, (IntPtr)OpenCLSpace.BASE_GROUP_SIZE };
+            this.backwardLocalWorkSizePtr = new IntPtr[] { (IntPtr)optimalToBaseRatio, (IntPtr)OpenCLSpace.BASE_GROUP_SIZE };
 
             // Global
             int nRowsDeltaX = inputNeurons.MiniBatchSize * receptiveFieldSize;
-            int smallestMultipleRowsDeltaX = (int)(optimalToBaseFactor * Math.Ceiling((double)(nRowsDeltaX) / (double)optimalToBaseFactor));
+            int smallestMultipleRowsDeltaX = (int)(optimalToBaseRatio * Math.Ceiling((double)(nRowsDeltaX) / (double)optimalToBaseRatio));
             this.backwardGlobalWorkSizePtr = new IntPtr[] { (IntPtr)smallestMultipleRowsDeltaX, (IntPtr)smallestMultipleNReceptiveFields };
-            
-
+           
             // Update parameters kernel (2D workspace) ___________________________________________________________________________________
             
             // Local
-            this.updateParametersLocalWorkSizePtr = new IntPtr[] { (IntPtr)optimalToBaseFactor, (IntPtr)OpenCLSpace.BASE_GROUP_SIZE };
+            this.updateParametersLocalWorkSizePtr = new IntPtr[] { (IntPtr)optimalToBaseRatio, (IntPtr)OpenCLSpace.BASE_GROUP_SIZE };
 
             // Global
-            int smallestMultipleNFilters = (int)(optimalToBaseFactor * Math.Ceiling( (double)(nFilters) / (double)optimalToBaseFactor) );
+            int smallestMultipleNFilters = (int)(optimalToBaseRatio * Math.Ceiling( (double)(nFilters) / (double)optimalToBaseRatio) );
             int smallestMultipleReceptiveFieldSize = (int)(OpenCLSpace.BASE_GROUP_SIZE * Math.Ceiling( (double)(receptiveFieldSize) / (double)OpenCLSpace.BASE_GROUP_SIZE ) );
             this.updateParametersGlobalWorkSizePtr = new IntPtr[] { (IntPtr)smallestMultipleNFilters, (IntPtr)smallestMultipleReceptiveFieldSize };
 #endif
@@ -705,7 +704,6 @@ namespace JaNet
             OpenCLSpace.ClError = Cl.Finish(OpenCLSpace.Queue);
             OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.Finish");
 
-            //Console.WriteLine("Checkpoint B");
 #else
 
             for (int m = 0; m < inputNeurons.MiniBatchSize; m++)

@@ -20,14 +20,14 @@ CreateRecFieldsLookupTable (__global int* recFieldLookupTable,
 		int iInput = 0; // will be incremented as we "zoom in" step by step
 		const int iOutput = iReceptiveFieldElement * nReceptiveFields + iReceptiveField; // destination index
 		
-		// 1. move to the beginning of channel that we are working on (using i)
+		// 1, move to the beginning of channel that we are working on (using i)
 		const int iChannel = i / (filterSize * filterSize);
 		const int elementsPerChannel = inputWidth*inputWidth;
 		const int iBeginningOfChannel = elementsPerChannel * iChannel;
 		
 		iInput += iBeginningOfChannel;
 		
-		// 2. now move to the beginning of the receptive field that we are working on (using j)
+		// 2, now move to the beginning of the receptive field that we are working on (using j)
 		// (remember that we are already at the beginning of the correct channel!) 
 		const int iOutputRow = j / outputWidth;
 		const int iOutputCol = j % outputWidth;
@@ -35,7 +35,7 @@ CreateRecFieldsLookupTable (__global int* recFieldLookupTable,
 		
 		iInput += iBeginningOfReceptiveField;
 		
-		// 3. now move to the correct position within the current receptive field (again, using i)
+		// 3, now move to the correct position within the current receptive field (again, using i)
 		// (remember that we are already in the correct channel and receptive field!)
 		const int iFilterRow = (i % (filterSize * filterSize)) / filterSize;
 		const int iReceptiveFieldCol = i % filterSize;
@@ -58,7 +58,7 @@ CreatePaddingLookupTable (	__global int* paddingLookupTable,
 {
 	const int iUnpadded = get_global_id(0); // index of input element within current example
 	
-	// 0. Compute some useful quantities
+	// 0, Compute some useful quantities
 		const int unpaddedArea = unpaddedWidth * unpaddedWidth;
 		const int unpaddedVolume = unpaddedDepth * unpaddedArea;
 		const int nZerosTopRows = padding * (2 * padding + unpaddedWidth);
@@ -66,20 +66,20 @@ CreatePaddingLookupTable (	__global int* paddingLookupTable,
 		
 	if (iUnpadded < unpaddedVolume) // this is important because of how local/global work sizes are set (more efficient)
 	{	
-		// 1. Initialize iPadded equal to iUnpadded
+		// 1, Initialize iPadded equal to iUnpadded
 		int iPadded = iUnpadded;
 		
-		// 2. Find index of unpadded slice/channel that we are working on...
+		// 2, Find index of unpadded slice/channel that we are working on,,,
 		int iChannel = (iUnpadded % unpaddedVolume) / unpaddedArea;
-		/// ...and add the number of zeros padding all channels before this one
+		/// ,,,and add the number of zeros padding all channels before this one
 		iPadded += nZerosPerChannel * iChannel;
 		
-		// 3. Find index of row that we are working on...
+		// 3, Find index of row that we are working on,,,
 		int iRow = (iUnpadded % unpaddedArea) / unpaddedWidth;
-		// ...and add the number of zeros padding all rows before this one
+		// ,,,and add the number of zeros padding all rows before this one
 		iPadded += nZerosTopRows + padding * (2*iRow + 1);
 		
-		// 4. Finally, write the resulting index in the lookup table
+		// 4, Finally, write the resulting index in the lookup table
 		paddingLookupTable[iUnpadded] = iPadded;
 	}
 
@@ -88,7 +88,7 @@ CreatePaddingLookupTable (	__global int* paddingLookupTable,
 
 /* 
  * OpenCL kernel for zero-padding an input vector containing a mini-batch
- * Entries of the input arrays are rewritten to a new position, accounting for padding.
+ * Entries of the input arrays are rewritten to a new position, accounting for padding,
  */
  
  __kernel void 
@@ -121,7 +121,7 @@ CreatePaddingLookupTable (	__global int* paddingLookupTable,
 
 
 /* 
- * OpenCL kernel for UNpadding vector "paddedArrayBatch".
+ * OpenCL kernel for UNpadding vector "paddedArrayBatch",
  */
  
  __kernel void 
@@ -156,8 +156,8 @@ CreatePaddingLookupTable (	__global int* paddingLookupTable,
 /* 
  * OpenCL kernel for forward pass of ConvolutionalLayer class,
  * implemented as a matrix multiplication between a filter matrix and a matrix of input receptive fields,
- * constructed on-the-fly using a pre-constructed "lookup table". Then biases are added. 
- * Input/output arrays actually contain a mini-batch of i/o examples.
+ * constructed on-the-fly using a pre-constructed "lookup table", Then biases are added, 
+ * Input/output arrays actually contain a mini-batch of i/o examples,
  */
 
 __kernel void 
@@ -178,9 +178,9 @@ ConvForward(__global float * outputBatch,
 	const int iReceptiveField = get_global_id(1); // index of output col (corresponds to a receptive field)
 	
 	// Because of how the local work sizes is set, the global work size can be larger than the output matrix, 
-	// therefore it is important to check that global indexes are within the matrix. The computational cost 
+	// therefore it is important to check that global indexes are within the matrix, The computational cost 
 	// of these comparisons is greatly compensated by the increased efficiency of using a local work size
-	// that is a multiple of WARP (Nvidia) / WAVEFRONT (AMD).
+	// that is a multiple of WARP (Nvidia) / WAVEFRONT (AMD),
 	
 	if(iRow < nFilters * miniBatchSize && iReceptiveField < nReceptiveFields)
 	{
@@ -218,13 +218,29 @@ ConvForward(__global float * outputBatch,
 
 /* 
  * OpenCL kernel for gradient backpropagation in convolutional layers (deltaY to deltaX)
- * implemented as a matrix multiplication between transpose(weights) and deltaY. Results 
+ * implemented as a matrix multiplication between transpose(weights) and deltaY, Results 
  * are written directly into deltaX (and not into a deltaReceptiveFields matrix), using
- * the pre-computed lookup table. For this reason, it is IMPORTANT to remember to wipe off
- * deltaX (write zeros) before calling this kernel. 
- * All of this is done in parallel across a mini-batch of output gradients.
+ * the pre-computed lookup table, For this reason, it is IMPORTANT to remember to wipe off
+ * deltaX (write zeros) before calling this kernel, 
+ * All of this is done in parallel across a mini-batch of output gradients,
  */
 
+ // Atomic addition for floats (needed in kernel)
+inline void AtomicAdd(volatile __global float *addr, float val)
+   {
+       union{
+           unsigned int u32;
+           float        f32;
+       } next, expected, current;
+   	current.f32    = *addr;
+       do{
+   	   expected.f32 = current.f32;
+           next.f32     = expected.f32 + val;
+   		current.u32  = atomic_cmpxchg( (volatile __global unsigned int *)addr, 
+                               expected.u32, next.u32);
+       } while( current.u32 != expected.u32 );
+   }
+   
 __kernel void 
 ConvBackPropagate(	__global float * deltaInputBatch,
 					const int inputVolume,				// this already includes padding, if any!!
@@ -243,16 +259,16 @@ ConvBackPropagate(	__global float * deltaInputBatch,
 	
 	/*
      *	Because of how the local work sizes is set, the global work size can be larger than the output matrix, 
-	 *	therefore it is important to check that global indexes are within the matrix. The computational cost 
+	 *	therefore it is important to check that global indexes are within the matrix, The computational cost 
 	 *	of these comparisons is greatly compensated by the increased efficiency of using a local work size
-	 * 	that is a multiple of WARP (Nvidia) / WAVEFRONT (AMD).
+	 * 	that is a multiple of WARP (Nvidia) / WAVEFRONT (AMD),
 	 */
 	 
 	
 	if(iRow < receptiveFieldSize * miniBatchSize && iReceptiveField < nReceptiveFields)
 	{
 		const int iExample = iRow / receptiveFieldSize;
-		const int iRecFieldElement = iRow - receptiveFieldSize * iExample; // equivalent to iRow % receptiveFieldSize
+		const int iRecFieldElement = iRow % receptiveFieldSize; // equivalent to iRow % receptiveFieldSize
 		
 		const int iExampleBeginningInDeltaOutput = iExample * (nFilters * nReceptiveFields);
 		
@@ -272,21 +288,24 @@ ConvBackPropagate(	__global float * deltaInputBatch,
 		
 		// Now cumulate this portion of gradient into the correct position of paddedDeltaX (using lookup table)
 		// This way, error signals coming from different receptive field positions (but corresponding to the
-		// same input position) will be added up, as it should be. (Can be proven on paper.)
+		// same input position) will be added up, as it should be, (Can be proven on paper,)
 		const int iExampleBeginningInDeltaInput = iExample * inputVolume;
 		const int iFromLookupTable = recFieldslookupTable[iRecFieldElement * nReceptiveFields + iReceptiveField];
 		const int iDeltaInput = iExampleBeginningInDeltaInput + iFromLookupTable;
-		deltaInputBatch[iDeltaInput] += tmpDeltaInput;
-		
+		//deltaInputBatch[iDeltaInput] += tmpDeltaInput;
+		AtomicAdd(&deltaInputBatch[iDeltaInput], tmpDeltaInput);
 	}
 	
 }
 
 
+
+
+
 /* 
  * OpenCL kernel for updating weights/biases speed in Convolutional layers
  * using the gradient computed with backpropagation, for a mini-batch
- * of inputs / delta signals.
+ * of inputs / delta signals,
  */
 
 __kernel void ConvUpdateSpeeds(	__global float * wSpeeds,
@@ -311,9 +330,9 @@ __kernel void ConvUpdateSpeeds(	__global float * wSpeeds,
 	
 	/*
 	 * Because of how the work group sizes are set, the global work size can be larger than the output matrix, 
-	 * therefore it is important to check that global indexes are within the matrix. The computational cost 
+	 * therefore it is important to check that global indexes are within the matrix, The computational cost 
 	 * of these comparisons is greatly compensated by the increased efficiency of using a local work size
-	 * that is a multiple of WARP (Nvidia) / WAVEFRONT (AMD).
+	 * that is a multiple of WARP (Nvidia) / WAVEFRONT (AMD),
 	 */
 	 
 	if(iFilter < nFilters && iElement < receptiveFieldSize)
@@ -332,13 +351,13 @@ __kernel void ConvUpdateSpeeds(	__global float * wSpeeds,
 		 *
 		 *    -	WEIGHTS gradients are obtained by multiplying the matrix of error signals deltaOutput 
 		 *		with the transpose of the input receptive field matrix (which we will create on-the-fly
-		 * 		by accessing input array using the lookupTable create in the beginning). 
+		 * 		by accessing input array using the lookupTable create in the beginning), 
 		 *
 		 *    -	BIASES gradients are obtained by simply summing all columns of the matrix of 
-		 *		error signals deltaOutput, thus obtaining a 1D vector of length nFilters.
+		 *		error signals deltaOutput, thus obtaining a 1D vector of length nFilters,
 		 *
 		 * All these gradients must be computed for all examples in the mini-batch, and the resulting 
-		 * values should be averaged and then used to update speeds.
+		 * values should be averaged and then used to update speeds,
 		 */
 		 
 		int iExampleBeginningInInput = 0;
@@ -412,9 +431,9 @@ ConvUpdateParameters(	__global float * w,				// arg 0
 	const int iElement = get_global_id(1); // index of output col (corresponds to an element of receptive field iFilter)
 	
 	// Because of how the local work sizes is set, the global work size can be larger than the output matrix, 
-	// therefore it is important to check that global indexes are within the matrix. The computational cost 
+	// therefore it is important to check that global indexes are within the matrix, The computational cost 
 	// of these comparisons is greatly compensated by the increased efficiency of using a local work size
-	// that is a multiple of WARP (Nvidia) / WAVEFRONT (AMD).
+	// that is a multiple of WARP (Nvidia) / WAVEFRONT (AMD),
 	
 	if(iFilter < nFilters && iElement < receptiveFieldSize)
 	{

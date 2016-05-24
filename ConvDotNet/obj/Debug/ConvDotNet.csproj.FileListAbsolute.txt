@@ -1,0 +1,14 @@
+C:\Users\jacopo\Dropbox\Chalmers\MSc thesis\ConvDotNet\JaNet\bin\Debug\ConvDotNet.exe.config
+C:\Users\jacopo\Dropbox\Chalmers\MSc thesis\ConvDotNet\JaNet\bin\Debug\ConvDotNet.exe
+C:\Users\jacopo\Dropbox\Chalmers\MSc thesis\ConvDotNet\JaNet\bin\Debug\ConvDotNet.pdb
+C:\Users\jacopo\Dropbox\Chalmers\MSc thesis\ConvDotNet\JaNet\bin\Debug\OpenCL.Net.dll
+C:\Users\jacopo\Dropbox\Chalmers\MSc thesis\ConvDotNet\JaNet\obj\Debug\ConvDotNet.csprojResolveAssemblyReference.cache
+C:\Users\jacopo\Dropbox\Chalmers\MSc thesis\ConvDotNet\JaNet\obj\Debug\ConvDotNet.exe
+C:\Users\jacopo\Dropbox\Chalmers\MSc thesis\ConvDotNet\JaNet\obj\Debug\ConvDotNet.pdb
+C:\Users\jacopo\Dropbox\Chalmers\MSc thesis\ConvDotNet\ConvDotNet\bin\Debug\ConvDotNet.exe.config
+C:\Users\jacopo\Dropbox\Chalmers\MSc thesis\ConvDotNet\ConvDotNet\bin\Debug\ConvDotNet.exe
+C:\Users\jacopo\Dropbox\Chalmers\MSc thesis\ConvDotNet\ConvDotNet\bin\Debug\ConvDotNet.pdb
+C:\Users\jacopo\Dropbox\Chalmers\MSc thesis\ConvDotNet\ConvDotNet\bin\Debug\OpenCL.Net.dll
+C:\Users\jacopo\Dropbox\Chalmers\MSc thesis\ConvDotNet\ConvDotNet\obj\Debug\ConvDotNet.csprojResolveAssemblyReference.cache
+C:\Users\jacopo\Dropbox\Chalmers\MSc thesis\ConvDotNet\ConvDotNet\obj\Debug\ConvDotNet.exe
+C:\Users\jacopo\Dropbox\Chalmers\MSc thesis\ConvDotNet\ConvDotNet\obj\Debug\ConvDotNet.pdb

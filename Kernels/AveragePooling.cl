@@ -11,9 +11,9 @@ AveragePoolingForward(	__global float * output,
 	const int iFeatureMap = get_global_id(1);
 	
 	// Because of how the work sizes are set, the global work size can be larger than the output array, 
-	// therefore it is important to check that global indexes are within the array. The computational cost 
+	// therefore it is important to check that global indexes are within the array, The computational cost 
 	// of this comparison is greatly compensated by the increased efficiency of using a local work size
-	// that is a multiple of WARP (Nvidia) / WAVEFRONT (AMD).
+	// that is a multiple of WARP (Nvidia) / WAVEFRONT (AMD),
 	
 	if(iExample < miniBatchSize && iFeatureMap < nFeatureMaps)
 	{
@@ -49,9 +49,9 @@ AveragePoolingBackward(	__global float * deltaInput,
 	const int iUnit = get_global_id(1);
 	
 	// Because of how the work sizes are set, the global work size can be larger than the output array, 
-	// therefore it is important to check that global indexes are within the array. The computational cost 
+	// therefore it is important to check that global indexes are within the array, The computational cost 
 	// of this comparison is greatly compensated by the increased efficiency of using a local work size
-	// that is a multiple of WARP (Nvidia) / WAVEFRONT (AMD).
+	// that is a multiple of WARP (Nvidia) / WAVEFRONT (AMD),
 	
 	if(iExample < miniBatchSize && iUnit < inputVolume)
 	{

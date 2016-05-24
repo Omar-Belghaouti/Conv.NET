@@ -12,9 +12,8 @@ namespace JaNet
     public static class Global
     {
         public const double EPSILON = 0.000001;
-        //public const int SEED = 2016;
 
-        public static Random rng = new Random(2016); //(SEED);
+        public static Random rng = new Random(); //(2016);
 
         public static double RandomDouble()
         {

@@ -9,7 +9,7 @@ namespace JaNet
 {
     static class GradientChecker
     {
-        const string typeToCheck = "BatchNormConv";
+        const string typeToCheck = "Convolutional";
 
         const int miniBatchSize = 4;
 
@@ -247,6 +247,9 @@ namespace JaNet
                         Console.Write("\nAverage error = {0}", cumulativeError);
                     }
                     Console.Write("\n\n");
+                    Console.Write("Press any key to continue...");
+                    Console.Write("\n\n");
+                    Console.ReadKey();
                     
                 }
             }

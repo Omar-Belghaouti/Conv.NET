@@ -364,7 +364,7 @@ namespace JaNet
                     }
                     else if (Console.ReadKey(true).Key == ConsoleKey.L)
                     {
-                        learningRate /= 10;
+                        learningRate /= Math.Sqrt(10.0);
                         Console.WriteLine("Key 'L' pressed! \n\tReducing learning rate by a factor of 10.\n\tWas{0}, now is {1}", 10 * learningRate, learningRate);
                     }
                     else

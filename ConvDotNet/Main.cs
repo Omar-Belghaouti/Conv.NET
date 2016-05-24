@@ -54,23 +54,23 @@ namespace JaNet
 
                 // OPTION 1: Create a new network
                 
-                NeuralNetwork network = new NeuralNetwork("testDropoutConv");
+                NeuralNetwork network = new NeuralNetwork("tryingToGetNiceFilters");
 
                 network.AddLayer(new InputLayer(1, 32, 32));
-
-                network.AddLayer(new ConvolutionalLayer(5, 8, 1, 0));
+                
+                network.AddLayer(new ConvolutionalLayer(5, 32, 1, 0));
                 network.AddLayer(new ELU(1.0f));
 
                 network.AddLayer(new MaxPooling(2, 2));
 
-                network.AddLayer(new ConvolutionalLayer(5, 16, 1, 0));
+                network.AddLayer(new ConvolutionalLayer(5, 64, 1, 0));
                 network.AddLayer(new ELU(1.0f));
 
                 network.AddLayer(new MaxPooling(2, 2));
 
-                network.AddLayer(new FullyConnectedLayer(64));
+                network.AddLayer(new FullyConnectedLayer(128));
                 network.AddLayer(new ELU(1.0f));
-
+            
                 network.AddLayer(new FullyConnectedLayer(43));
                 network.AddLayer(new SoftMax());
 
@@ -158,7 +158,7 @@ namespace JaNet
                 NetworkTrainer.EvaluateBeforeTraining = true;
                 NetworkTrainer.DropoutFullyConnected = 0.5;
                 NetworkTrainer.DropoutConvolutional = 0.9;
-                NetworkTrainer.Patience = 10;
+                NetworkTrainer.Patience = 20;
 
                 NetworkTrainer.LearningRate = 0.01;//eta[iEta];
                 NetworkTrainer.Train(network, trainingSet, validationSet);
@@ -214,7 +214,8 @@ namespace JaNet
             //NetworkEvaluator.SaveMisclassifiedExamples(bestNetwork, testSet, "../../../../Results/MisclassifiedExamples/" + network.Name + "_test.txt");
             
             // Save filters of first conv layer
-            Utils.SaveFilters(bestNetwork, "../../../../Results/Filters/" + network.Name + "_filters.txt");
+            if (bestNetwork.Layers[1].Type == "Convolutional")
+                Utils.SaveFilters(bestNetwork, "../../../../Results/Filters/" + network.Name + "_filters.txt");
             
             /*****************************************************/
         }

@@ -213,9 +213,9 @@ namespace JaNet
                      * Evaluation *
                      **************/
 
-                    // Pre-inference pass: Computes cumulative averages in BatchNorm layers (needed for evaluation)
+                    //Pre-inference pass: Computes cumulative averages in BatchNorm layers (needed for evaluation)
                     //network.Set("PreInference", true);
-                    //networkEvaluator.PreEvaluateNetwork(network, trainingSet);
+                    //NetworkEvaluator.PreEvaluateNetwork(network, trainingSet);
             
 
                     // Evaluate on training set...
@@ -292,7 +292,7 @@ namespace JaNet
                 network.Set("Training", true);
                 network.Set("EpochBeginning", true);
 
-                Console.Write("\nEpoch {0}...", epoch);
+                Console.WriteLine("\nEpoch {0}...", epoch);
 
 
                 stopwatch.Restart();
@@ -326,6 +326,10 @@ namespace JaNet
                     stopwatchBwd.Stop();
 
                     iMiniBatch++;
+
+                    CheckForKeyPress(ref stopFlag);
+
+
                 } // end of training epoch
 
                 Console.Write(" Training runtime = {0}ms\n", stopwatch.ElapsedMilliseconds);
@@ -364,21 +368,7 @@ namespace JaNet
 #endif
                 
 
-                if (Console.KeyAvailable)
-                {
-                    if (Console.ReadKey(true).Key == ConsoleKey.S)
-                    {
-                        Console.WriteLine("Key 'S' pressed! Stopping training...");
-                        stopFlag = true;
-                    }
-                    else if (Console.ReadKey(true).Key == ConsoleKey.L)
-                    {
-                        learningRate /= Math.Sqrt(10.0);
-                        Console.WriteLine("Key 'L' pressed! \n\tReducing learning rate by a factor of 10.\n\tWas{0}, now is {1}", 10 * learningRate, learningRate);
-                    }
-                    else
-                        Console.WriteLine("That key has no effect... Press 'S' to stop training.");
-                }
+                
 
             }
 
@@ -386,6 +376,63 @@ namespace JaNet
 
         
         }
+
+
+        private static void CheckForKeyPress(ref bool stopFlag)
+        {
+            ConsoleKeyInfo key = new ConsoleKeyInfo();
+
+            if (Console.KeyAvailable)
+            {
+                key = Console.ReadKey(true);
+                if (key.Key == ConsoleKey.Escape)
+                {
+                    Console.WriteLine("\nEscape key pressed! Press it again to STOP training. Press any other key to resume.");
+                    ConsoleKeyInfo oneMoreKey = Console.ReadKey();
+                    if (oneMoreKey.Key == ConsoleKey.Escape)
+                    {
+                        Console.WriteLine("You pressed Escape again. Training will stop.");
+                        stopFlag = true;
+                    }
+                }
+                else if (key.Key == ConsoleKey.L)
+                {
+                    Console.Write("\nKey 'L' pressed! \n\tCurrent learning rate: {0}\n\tEnter new learning rate: ", learningRate);
+                    string userInput = Console.ReadLine();
+                    double newLearningRate;
+                    if (double.TryParse(userInput, out newLearningRate))
+                    {
+                        learningRate = newLearningRate;
+                        Console.WriteLine("\n\nLearning rate is now {0}", learningRate);
+                    }
+                    else
+                    {
+                        Console.WriteLine("Not a valid learning rate.");
+                    }
+                }
+                else if (key.Key == ConsoleKey.W)
+                {
+                    Console.Write("\nKey 'W' pressed! \n\tCurrent weight decay coefficient: {0}\n\tEnter new weight decay coefficient: ", weightDecayCoeff);
+                    string userInput = Console.ReadLine();
+                    double newWeightDecayCoeff;
+                    if (double.TryParse(userInput, out newWeightDecayCoeff))
+                    {
+                        weightDecayCoeff = newWeightDecayCoeff;
+                        Console.WriteLine("\n\nWeight decay coefficient is now {0}", weightDecayCoeff);
+                    }
+                    else
+                    {
+                        Console.WriteLine("Not a valid weight decay coefficient.");
+                    }
+                }
+                else
+                    Console.WriteLine("That key has no effect...\n\tPress Escape to stop training.\n\tPress 'L' to change the learning rate.\n\tPress 'W' to change the weight decay coefficient.");
+            }
+
+        }
+
+
+
 
         #region Deprecated methods
 

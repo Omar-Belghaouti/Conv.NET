@@ -1,3 +1,3 @@
-# JaNet
-Implementation of a **Convolutional Neural Network** for traffic sign classification in **C#**.
-Accelerated with **OpenCL**.
+# ConvDotNet
+A **C#** class library for training deep **Convolutional Neural Networks** for image classification.
+Accelerated with **OpenCL** (OpenCL.Net).

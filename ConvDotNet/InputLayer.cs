@@ -22,8 +22,25 @@ namespace JaNet
         private int imageHeight;
         private int imageWidth;
 
+        private double dropoutParameter = 1.0;
+
+        private IntPtr[] dropoutGlobalWorkSizePtr;
+        private IntPtr[] dropoutLocalWorkSizePtr;
+
         #endregion
 
+
+        #region Properties
+
+        public override double DropoutParameter
+        {
+            set { this.dropoutParameter = value; }
+        }
+
+        #endregion
+
+
+        #region Setup methods
 
         /// <summary>
         /// InputLayer class standard constructor.
@@ -55,6 +72,25 @@ namespace JaNet
             this.outputNeurons = new Neurons(this.nOutputUnits);
         }
 
+        public override void SetWorkGroups()
+        {
+            
+            int miniBatchSize = outputNeurons.MiniBatchSize;
+            
+            // Dropout (1D) ________________________________________________________________________________
+
+            // Local
+            this.dropoutLocalWorkSizePtr = new IntPtr[] { (IntPtr)OpenCLSpace.OPTIMAL_GROUP_SIZE };
+
+            // Global
+            int smallestMultiple = (int)(OpenCLSpace.OPTIMAL_GROUP_SIZE * Math.Ceiling((double)(nOutputUnits * miniBatchSize) / (double)OpenCLSpace.OPTIMAL_GROUP_SIZE));
+            this.dropoutGlobalWorkSizePtr = new IntPtr[] { (IntPtr)smallestMultiple };
+
+        }
+
+        #endregion
+
+
         public void FeedData(DataSet dataSet, int[] iExamples)
         {
 
@@ -81,6 +117,38 @@ namespace JaNet
 
                 OpenCLSpace.ClError = Cl.ReleaseEvent(OpenCLSpace.ClEvent);
                 OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.ReleaseEvent");
+
+                // Dropout!
+
+                if (dropoutParameter < 1.0)
+                {
+                    // Set kernel arguments
+                    OpenCLSpace.ClError = Cl.SetKernelArg(OpenCLSpace.InputDropout, 0, outputNeurons.ActivationsGPU);
+                    OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.InputDropout, 1, (IntPtr)sizeof(int), nOutputUnits * outputNeurons.MiniBatchSize);
+                    OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.InputDropout, 2, (IntPtr)sizeof(float), (float)dropoutParameter);
+                    OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.InputDropout, 3, (IntPtr)sizeof(ulong), (ulong)Guid.NewGuid().GetHashCode());
+                    OpenCLSpace.CheckErr(OpenCLSpace.ClError, "InputDropout: Cl.SetKernelArg");
+
+                    // Run kernel
+                    OpenCLSpace.ClError = Cl.EnqueueNDRangeKernel(OpenCLSpace.Queue,
+                                                                    OpenCLSpace.InputDropout,
+                                                                    1,
+                                                                    null,
+                                                                    dropoutGlobalWorkSizePtr,
+                                                                    dropoutLocalWorkSizePtr,
+                                                                    0,
+                                                                    null,
+                                                                    out OpenCLSpace.ClEvent);
+                    OpenCLSpace.CheckErr(OpenCLSpace.ClError, "InputDropout: Cl.EnqueueNDRangeKernel");
+
+                    OpenCLSpace.ClError = Cl.ReleaseEvent(OpenCLSpace.ClEvent);
+                    OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.ReleaseEvent");
+
+                    OpenCLSpace.ClError = Cl.Finish(OpenCLSpace.Queue);
+                    OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.Finish");
+                }
+
+
 #else
                 outputNeurons.SetHost(m, dataSet.Data[iExamples[m]]);
 #endif

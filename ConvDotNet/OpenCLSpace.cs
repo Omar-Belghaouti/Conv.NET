@@ -81,6 +81,9 @@ namespace JaNet
 
         #region Kernels
 
+        // InputLayer
+        public static Kernel InputDropout;
+
         // Convolutional layer
         public static Kernel CreateRecFieldsLookupTable;
         public static Kernel CreatePaddingLookupTable;
@@ -264,6 +267,9 @@ namespace JaNet
         {
             if (kernelsPath == null)
                 throw new MissingFieldException("Path to kernels' source must be specified before calling LoadKernels()");
+
+            // Input layer
+            InputDropout = LoadAndBuildKernel(kernelsPath + "/Input.cl", "Dropout");
 
             // Convolutional layer
             CreateRecFieldsLookupTable = LoadAndBuildKernel(kernelsPath + "/Convolutional.cl", "CreateRecFieldsLookupTable");

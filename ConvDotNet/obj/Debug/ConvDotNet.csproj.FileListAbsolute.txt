@@ -12,3 +12,10 @@ C:\Users\jacopo\Dropbox\Chalmers\MSc thesis\ConvDotNet\ConvDotNet\bin\Debug\Open
 C:\Users\jacopo\Dropbox\Chalmers\MSc thesis\ConvDotNet\ConvDotNet\obj\Debug\ConvDotNet.csprojResolveAssemblyReference.cache
 C:\Users\jacopo\Dropbox\Chalmers\MSc thesis\ConvDotNet\ConvDotNet\obj\Debug\ConvDotNet.exe
 C:\Users\jacopo\Dropbox\Chalmers\MSc thesis\ConvDotNet\ConvDotNet\obj\Debug\ConvDotNet.pdb
+C:\Users\Luca\Desktop\Jacopo\May25\ConvDotNet\ConvDotNet\bin\Debug\ConvDotNet.exe.config
+C:\Users\Luca\Desktop\Jacopo\May25\ConvDotNet\ConvDotNet\bin\Debug\ConvDotNet.exe
+C:\Users\Luca\Desktop\Jacopo\May25\ConvDotNet\ConvDotNet\bin\Debug\ConvDotNet.pdb
+C:\Users\Luca\Desktop\Jacopo\May25\ConvDotNet\ConvDotNet\bin\Debug\OpenCL.Net.dll
+C:\Users\Luca\Desktop\Jacopo\May25\ConvDotNet\ConvDotNet\obj\Debug\ConvDotNet.csprojResolveAssemblyReference.cache
+C:\Users\Luca\Desktop\Jacopo\May25\ConvDotNet\ConvDotNet\obj\Debug\ConvDotNet.exe
+C:\Users\Luca\Desktop\Jacopo\May25\ConvDotNet\ConvDotNet\obj\Debug\ConvDotNet.pdb

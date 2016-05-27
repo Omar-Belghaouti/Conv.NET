@@ -24,6 +24,7 @@ namespace JaNet
 
         private double dropoutFC;
         private double dropoutConv;
+        private double dropoutInput;
 
         #endregion
 
@@ -70,6 +71,11 @@ namespace JaNet
             set { throw new InvalidOperationException("Use method Set(''DropoutConv'', <value>) to set field 'dropoutConv'"); }
         }
 
+        public double DropoutInput
+        {
+            get { return dropoutInput; }
+            set { throw new InvalidOperationException("Use method Set(''DropoutInput'', <value>) to set field 'dropoutInput'"); }
+        }
         #endregion
 
 
@@ -189,6 +195,7 @@ namespace JaNet
                         // Input layer (only setup output and buffers)
                         layers[0].SetupOutput();
                         layers[0].OutputNeurons.SetupBuffers(miniBatchSize);
+                        layers[0].SetWorkGroups();
 
                         // Hidden layers and output layer
                         for (int l = 1; l < nLayers; l++)
@@ -235,6 +242,12 @@ namespace JaNet
                                 layers[l].DropoutParameter = dropoutConv;
                         }
 
+                        break;
+                    }
+                case "DropoutInput":
+                    {
+                        dropoutInput = (double)value;
+                        inputLayer.DropoutParameter = dropoutInput;
                         break;
                     }
                 case "EpochBeginning":

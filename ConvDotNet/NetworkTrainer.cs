@@ -24,8 +24,11 @@ namespace JaNet
         private static bool earlyStopping;
         private static double dropoutFC;
         private static double dropoutConv;
+        private static double dropoutInput;
         private static int epochsBeforeRegularization;
         private static int patience;
+        private static double learningRateDecayFactor;
+        private static int maxConsecutiveAnnealings;
 
         // Losses/Errors
         private static double lossTraining;
@@ -36,7 +39,6 @@ namespace JaNet
         private static double newErrorValidation;
         
         // auxiliary fields
-        private static int nBadEpochs = 0;
         private static string trainingMode;
 
         // Paths for saving data
@@ -53,6 +55,12 @@ namespace JaNet
         {
             get { return learningRate; }
             set { learningRate = value; }
+        }
+
+        public static double LearningRateDecayFactor
+        {
+            get { return learningRateDecayFactor; }
+            set { learningRateDecayFactor = value; }
         }
 
         public static double MomentumMultiplier
@@ -146,6 +154,12 @@ namespace JaNet
             set { dropoutConv = value; }
         }
 
+        public static double DropoutInput
+        {
+            get { return dropoutInput; }
+            set { dropoutInput = value; }
+        }
+
         public static string TrainingEpochSavePath
         {
             set { trainingEpochSavePath = value; }
@@ -166,6 +180,11 @@ namespace JaNet
             set { patience = value; }
         }
 
+        public static int MaxConsecutiveAnnealings
+        {
+            set { maxConsecutiveAnnealings = value; }
+        }
+        
         public static string TrainingMode
         {
             set { trainingMode = value; }
@@ -176,19 +195,24 @@ namespace JaNet
 
         public static void Train(NeuralNetwork network, DataSet trainingSet, DataSet validationSet)
         {
-            // Setup miniBatchSize
-            network.Set("MiniBatchSize", miniBatchSize);
+            
 
             // Initialize parameters or load them
             if (trainingMode == "new" || trainingMode == "New")
+            {
+                // Setup miniBatchSize
+                network.Set("MiniBatchSize", miniBatchSize);
                 network.InitializeParameters("random");
+            }
             else if (trainingMode == "resume" || trainingMode == "Resume")
                 network.InitializeParameters("load");
             else
                 throw new InvalidOperationException("Please set TrainingMode to either ''New'' or ''Resume''.");
+            
             // Set dropout
             network.Set("DropoutFC", dropoutFC);
             network.Set("DropoutConv", dropoutConv);
+            network.Set("DropoutInput", dropoutInput);
 
             Sequence indicesSequence = new Sequence(trainingSet.Size);
             int[] miniBatch = new int[miniBatchSize];
@@ -200,6 +224,8 @@ namespace JaNet
             Stopwatch stopwatchBwd = Stopwatch.StartNew();
 
             int epoch = 0;
+            int nBadEpochs = 0;
+            int consecutiveAnnealingCounter = 0;
             bool stopFlag = false;
             int epochsRemainingToOutput = (evaluateBeforeTraining == true) ? 0 : consoleOutputLag;
             
@@ -212,11 +238,6 @@ namespace JaNet
                     /**************
                      * Evaluation *
                      **************/
-
-                    //Pre-inference pass: Computes cumulative averages in BatchNorm layers (needed for evaluation)
-                    //network.Set("PreInference", true);
-                    //NetworkEvaluator.PreEvaluateNetwork(network, trainingSet);
-            
 
                     // Evaluate on training set...
                     network.Set("Inference", true);
@@ -256,6 +277,7 @@ namespace JaNet
 
                             // and keep training
                             nBadEpochs = 0;
+                            consecutiveAnnealingCounter = 0;
                         }
                         else
                         {
@@ -265,9 +287,34 @@ namespace JaNet
                                 Console.WriteLine("...I'll be patient for {0} more epoch(s)!", patience - nBadEpochs); // keep training
                             else
                             {
-                                Console.WriteLine("...and I've run out of patience! Training ends here.");
-                                stopFlag = true;
-                                break;
+                                //Console.WriteLine("...and I've run out of patience! Training ends here.");
+                                //stopFlag = true;
+                                //break;
+
+                                // Decrease learning rate
+                                Console.WriteLine("...and I've run out of patience!");
+
+                                if (consecutiveAnnealingCounter  > maxConsecutiveAnnealings)
+                                {
+                                    Console.WriteLine("\nReached the numner of maximum consecutive annealings without progress. \nTraining ends here.");
+                                    break;        
+                                }
+
+                                Console.WriteLine("\nI'm annealing the learning rate:\n\tWas {0}\n\tSetting it to {1}.", learningRate, learningRate/learningRateDecayFactor);
+                                learningRate /= learningRateDecayFactor;
+                                consecutiveAnnealingCounter++;
+
+                                Console.WriteLine("\nAnd I'm loading the network saved {0} epochs ago and resume the training from there.", patience);
+
+                                string networkName = network.Name;
+                                network = null; // this is BAD PRACTICE
+                                GC.Collect(); // this is BAD PRACTICE
+                                network = Utils.LoadNetworkFromFile("../../../../Results/Networks/", networkName);
+                                network.Set("MiniBatchSize", miniBatchSize);
+                                network.InitializeParameters("load");
+
+
+                                nBadEpochs = 0;
                             }
                         }
                     }
@@ -275,6 +322,7 @@ namespace JaNet
                     // Restore dropout
                     network.Set("DropoutFC", dropoutFC);
                     network.Set("DropoutConv", dropoutConv);
+                    network.Set("DropoutInput", dropoutInput);
 
                     epochsRemainingToOutput = consoleOutputLag;
                 }
@@ -328,7 +376,8 @@ namespace JaNet
                     iMiniBatch++;
 
                     CheckForKeyPress(ref stopFlag);
-
+                    if (stopFlag)
+                        break;
 
                 } // end of training epoch
 

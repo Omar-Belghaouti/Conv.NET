@@ -48,7 +48,8 @@ namespace JaNet
         private IntPtr[] backwardLocalWorkSizePtr;
         private IntPtr[] updateGlobalWorkSizePtr;
         private IntPtr[] updateLocalWorkSizePtr;
-
+        private IntPtr[] constrainNormGlobalWorkSizePtr;
+        private IntPtr[] constrainNormLocalWorkSizePtr;
         #endregion
 
 
@@ -227,6 +228,13 @@ namespace JaNet
             int smallestMultiple0 = (int)(optimalLocalWorkSize0 * Math.Ceiling((double)(nOutputUnits) / (double)optimalLocalWorkSize0));
             int smallestMultiple1 = (int)(OpenCLSpace.BASE_GROUP_SIZE * Math.Ceiling((double)(nInputUnits) / (double)OpenCLSpace.BASE_GROUP_SIZE));
             this.updateGlobalWorkSizePtr = new IntPtr[] { (IntPtr)smallestMultiple0, (IntPtr)smallestMultiple1 };
+
+
+            // Max norm constrain
+            this.constrainNormLocalWorkSizePtr = new IntPtr[] { (IntPtr)OpenCLSpace.BASE_GROUP_SIZE };
+            int smallestMultipleAux = (int)(OpenCLSpace.BASE_GROUP_SIZE * Math.Ceiling((double)(nOutputUnits) / (double)OpenCLSpace.BASE_GROUP_SIZE));
+            this.constrainNormGlobalWorkSizePtr = new IntPtr[] { (IntPtr)smallestMultipleAux };
+
         }
 
 
@@ -381,7 +389,7 @@ namespace JaNet
         }
 
 
-        public override void UpdateSpeeds(double learningRate, double momentumCoefficient)
+        public override void UpdateSpeeds(double learningRate, double momentumCoefficient, double weightDecayCoefficient)
         {
 #if TIMING_LAYERS
             Utils.FCUpdateSpeedsTimer.Start();
@@ -539,6 +547,8 @@ namespace JaNet
             OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.FCUpdateSpeeds, 9, (IntPtr)sizeof(float), (float)momentumCoefficient);
             OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.FCUpdateSpeeds, 10, (IntPtr)sizeof(float), (float)learningRate);
             OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.FCUpdateSpeeds, 11, (IntPtr)sizeof(int), inputNeurons.MiniBatchSize);
+            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.FCUpdateSpeeds, 12, weightsGPU);
+            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.FCUpdateSpeeds, 13, (IntPtr)sizeof(float), (float)weightDecayCoefficient);
             OpenCLSpace.CheckErr(OpenCLSpace.ClError, "FullyConnected.UpdateSpeeds(): Cl.SetKernelArg");
 
             // Run kernel
@@ -602,7 +612,7 @@ namespace JaNet
 
         }
 
-        public override void UpdateParameters(double weightDecayCoeff)
+        public override void UpdateParameters(double weightMaxNorm)
         {
 
 #if TIMING_LAYERS
@@ -617,7 +627,6 @@ namespace JaNet
                 OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.FCUpdateParameters, 3, biasesSpeedGPU);
                 OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.FCUpdateParameters, 4, (IntPtr)sizeof(int), nInputUnits);
                 OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.FCUpdateParameters, 5, (IntPtr)sizeof(int), nOutputUnits);
-                OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.FCUpdateParameters, 6, (IntPtr)sizeof(float), (float)weightDecayCoeff);
                 OpenCLSpace.CheckErr(OpenCLSpace.ClError, "FullyConnected.UpdateParameters(): Cl.SetKernelArg");
 
                 // Run kernel
@@ -632,11 +641,37 @@ namespace JaNet
                                                                 out OpenCLSpace.ClEvent);
                 OpenCLSpace.CheckErr(OpenCLSpace.ClError, "FullyConnected.UpdateParameters(): Cl.EnqueueNDRangeKernel");
 
-                OpenCLSpace.ClError = Cl.Finish(OpenCLSpace.Queue);
-                OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.Finish");
 
                 OpenCLSpace.ClError = Cl.ReleaseEvent(OpenCLSpace.ClEvent);
                 OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.ReleaseEvent");
+
+
+                // Now constrain norm of each weight vector
+
+                // Set kernel arguments
+                OpenCLSpace.ClError = Cl.SetKernelArg(OpenCLSpace.FCConstrainWeightNorm, 0, weightsGPU);
+                OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.FCConstrainWeightNorm, 1, (IntPtr)sizeof(int), nOutputUnits);
+                OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.FCConstrainWeightNorm, 2, (IntPtr)sizeof(int), nInputUnits);
+                OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.FCConstrainWeightNorm, 3, (IntPtr)sizeof(float), (float)weightMaxNorm);
+                OpenCLSpace.CheckErr(OpenCLSpace.ClError, "FCConstrainWeightNorm(): Cl.SetKernelArg");
+
+                // Run kernel
+                OpenCLSpace.ClError = Cl.EnqueueNDRangeKernel(  OpenCLSpace.Queue,
+                                                                OpenCLSpace.FCConstrainWeightNorm,
+                                                                1,
+                                                                null,
+                                                                constrainNormGlobalWorkSizePtr,
+                                                                constrainNormLocalWorkSizePtr,
+                                                                0,
+                                                                null,
+                                                                out OpenCLSpace.ClEvent);
+                OpenCLSpace.CheckErr(OpenCLSpace.ClError, "FCConstrainWeightNorm(): Cl.EnqueueNDRangeKernel");
+
+                OpenCLSpace.ClError = Cl.ReleaseEvent(OpenCLSpace.ClEvent);
+                OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.ReleaseEvent");
+
+                OpenCLSpace.ClError = Cl.Finish(OpenCLSpace.Queue);
+                OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.Finish");
 #else
                 
 

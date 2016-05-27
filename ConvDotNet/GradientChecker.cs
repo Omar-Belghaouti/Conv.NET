@@ -41,7 +41,7 @@ namespace JaNet
             for (int m = 0; m < miniBatchSize; m++)
                 trueLabels.Add(dataSet.Labels[miniBatch[m]]);
             network.CrossEntropyGradient(dataSet, miniBatch);
-            network.BackwardPass(0.0, 0.0, 0.0); // no momentum, no learning rate, no weight decay
+            network.BackwardPass(0.0, 0.0, 0.0, 1e10); // no momentum, no learning rate, no weight decay
 
             // Re-forward pass (in case there are batch-norm layer)
             network.Set("PreInference", true);

@@ -93,6 +93,7 @@ namespace JaNet
         public static Kernel ConvBackPropagate;
         public static Kernel ConvUpdateSpeeds;
         public static Kernel ConvUpdateParameters;
+        public static Kernel ConvConstrainWeightNorm;
 
         // Residual module
         public static Kernel SkipForward;
@@ -112,6 +113,7 @@ namespace JaNet
         public static Kernel FCForward;
         public static Kernel FCBackward;
         public static Kernel FCUpdateSpeeds;
+        public static Kernel FCConstrainWeightNorm;
 
         // ReLU layer
         public static Kernel ReLUForward;
@@ -280,6 +282,7 @@ namespace JaNet
             ConvBackPropagate = LoadAndBuildKernel(kernelsPath + "/Convolutional.cl", "ConvBackPropagate");
             ConvUpdateSpeeds = LoadAndBuildKernel(kernelsPath + "/Convolutional.cl", "ConvUpdateSpeeds");
             ConvUpdateParameters = LoadAndBuildKernel(kernelsPath + "/Convolutional.cl", "ConvUpdateParameters");
+            ConvConstrainWeightNorm = LoadAndBuildKernel(kernelsPath + "/Convolutional.cl", "ConvConstrainWeightNorm");
 
             // Residual module
             SkipForward = LoadAndBuildKernel(kernelsPath + "/ResidualModule.cl", "SkipForward");
@@ -299,6 +302,7 @@ namespace JaNet
             FCForward = LoadAndBuildKernel(kernelsPath + "/FullyConnected.cl", "FCForward");
             FCBackward = LoadAndBuildKernel(kernelsPath + "/FullyConnected.cl", "FCBackward");
             FCUpdateSpeeds = LoadAndBuildKernel(kernelsPath + "/FullyConnected.cl", "FCUpdateSpeeds");
+            FCConstrainWeightNorm = LoadAndBuildKernel(kernelsPath + "/FullyConnected.cl", "FCConstrainWeightNorm");
 
             // ReLU layer
             ReLUForward = LoadAndBuildKernel(kernelsPath + "/ReLU.cl", "ReLUForward");

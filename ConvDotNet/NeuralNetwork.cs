@@ -484,13 +484,13 @@ namespace JaNet
         /// Run network backwards, propagating the gradient backwards and also updating parameters. 
         /// Requires that gradient has ALREADY BEEN WRITTEN in network.Layers[nLayers-1].InputNeurons.Delta
         /// </summary>
-        public void BackwardPass(double learningRate, double momentumMultiplier, double weightDecayCoeff)
+        public void BackwardPass(double learningRate, double momentumMultiplier, double weightDecayCoeff, double weightMaxNorm)
         {
 
             for (int l = nLayers - 2; l > 0; l--) // propagate error signal backwards (layers L-2 to 1, i.e. second last to second)
             {
                 // 1. Update layer's parameters' change speed using gradient 
-                layers[l].UpdateSpeeds(learningRate, momentumMultiplier);
+                layers[l].UpdateSpeeds(learningRate, momentumMultiplier, weightDecayCoeff);
 
                 // 2. Backpropagate errors to previous layer (no need to do it for layer 1)
                 if (l > 1)
@@ -536,7 +536,7 @@ namespace JaNet
 #endif
 
                 // 3. Update layer's parameters
-                layers[l].UpdateParameters(weightDecayCoeff);
+                layers[l].UpdateParameters(weightMaxNorm);
             }
         }
 

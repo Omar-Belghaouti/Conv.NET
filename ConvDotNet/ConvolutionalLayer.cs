@@ -74,6 +74,9 @@ namespace JaNet
         private IntPtr[] updateParametersGlobalWorkSizePtr;
         private IntPtr[] updateParametersLocalWorkSizePtr;
 
+        private IntPtr[] constrainNormGlobalWorkSizePtr;
+        private IntPtr[] constrainNormLocalWorkSizePtr;
+
         #endregion
 
 
@@ -320,6 +323,11 @@ namespace JaNet
             int smallestMultipleNFilters = (int)(optimalToBaseRatio * Math.Ceiling( (double)(nFilters) / (double)optimalToBaseRatio) );
             int smallestMultipleReceptiveFieldSize = (int)(OpenCLSpace.BASE_GROUP_SIZE * Math.Ceiling( (double)(receptiveFieldSize) / (double)OpenCLSpace.BASE_GROUP_SIZE ) );
             this.updateParametersGlobalWorkSizePtr = new IntPtr[] { (IntPtr)smallestMultipleNFilters, (IntPtr)smallestMultipleReceptiveFieldSize };
+
+            // Max norm constrain
+            this.constrainNormLocalWorkSizePtr = new IntPtr[] { (IntPtr)OpenCLSpace.BASE_GROUP_SIZE };
+            int smallestMultipleAux = (int)(OpenCLSpace.BASE_GROUP_SIZE * Math.Ceiling((double)(nFilters) / (double)OpenCLSpace.BASE_GROUP_SIZE));
+            this.constrainNormGlobalWorkSizePtr = new IntPtr[] { (IntPtr)smallestMultipleAux };
 #endif
         }
 
@@ -674,7 +682,7 @@ namespace JaNet
         }
 
 
-        public override void UpdateSpeeds(double learningRate, double momentumCoefficient)
+        public override void UpdateSpeeds(double learningRate, double momentumCoefficient, double weightDecayCoeff)
         {
 
 #if TIMING_LAYERS
@@ -706,6 +714,8 @@ namespace JaNet
             OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.ConvUpdateSpeeds, 12, (IntPtr)sizeof(float), (float)learningRate);
             OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.ConvUpdateSpeeds, 13, (IntPtr)sizeof(int), inputNeurons.MiniBatchSize);
             OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.ConvUpdateSpeeds, 14, dropoutMaskGPU);
+            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.ConvUpdateSpeeds, 15, weightsGPU);
+            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.ConvUpdateSpeeds, 16, (IntPtr)sizeof(float), (float)weightDecayCoeff);
             OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Convolutional.UpdateSpeeds(): Cl.SetKernelArg ConvUpdateSpeedsBatch");
 
             // Run kernel
@@ -762,7 +772,7 @@ namespace JaNet
 #endif
         }
 
-        public override void UpdateParameters(double weightDecayCoeff)
+        public override void UpdateParameters(double weightMaxNorm)
         {
 
 #if TIMING_LAYERS
@@ -777,7 +787,6 @@ namespace JaNet
             OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.ConvUpdateParameters, 3, biasesSpeedGPU);
             OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.ConvUpdateParameters, 4, (IntPtr)sizeof(int), nFilters);
             OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.ConvUpdateParameters, 5, (IntPtr)sizeof(int), receptiveFieldSize);
-            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.ConvUpdateParameters, 6, (IntPtr)sizeof(float), (float)weightDecayCoeff);
             OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Convolutional.UpdateParameters(): Cl.SetKernelArg");
 
             // Run kernel
@@ -792,11 +801,37 @@ namespace JaNet
                                                             out OpenCLSpace.ClEvent);
             OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Convolutional.UpdateParameters(): Cl.EnqueueNDRangeKernel");
 
-            OpenCLSpace.ClError = Cl.Finish(OpenCLSpace.Queue);
-            OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.Finish");
+            OpenCLSpace.ClError = Cl.ReleaseEvent(OpenCLSpace.ClEvent);
+            OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.ReleaseEvent");
+
+            // Now constrain norm of each weight vector
+
+            // Set kernel arguments
+            OpenCLSpace.ClError = Cl.SetKernelArg(OpenCLSpace.ConvConstrainWeightNorm, 0, weightsGPU);
+            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.ConvConstrainWeightNorm, 1, (IntPtr)sizeof(int), nFilters);
+            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.ConvConstrainWeightNorm, 2, (IntPtr)sizeof(int), receptiveFieldSize);
+            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.ConvConstrainWeightNorm, 3, (IntPtr)sizeof(float), (float)weightMaxNorm);
+            OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Convolutional.ConvConstrainWeightNorm(): Cl.SetKernelArg");
+
+            // Run kernel
+            OpenCLSpace.ClError = Cl.EnqueueNDRangeKernel(OpenCLSpace.Queue,
+                                                            OpenCLSpace.ConvConstrainWeightNorm,
+                                                            1,
+                                                            null,
+                                                            constrainNormGlobalWorkSizePtr,
+                                                            constrainNormLocalWorkSizePtr,
+                                                            0,
+                                                            null,
+                                                            out OpenCLSpace.ClEvent);
+            OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Convolutional.ConvConstrainWeightNorm(): Cl.EnqueueNDRangeKernel");
 
             OpenCLSpace.ClError = Cl.ReleaseEvent(OpenCLSpace.ClEvent);
             OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.ReleaseEvent");
+
+
+            OpenCLSpace.ClError = Cl.Finish(OpenCLSpace.Queue);
+            OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.Finish");
+
 
 #else
             //double weightNorm = 0;

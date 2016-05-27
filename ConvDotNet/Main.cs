@@ -127,13 +127,25 @@ namespace JaNet
 
             // OPTION 1: Create a new network
             
-            NeuralNetwork network = new NeuralNetwork("test_simpLeNet_HighWeightDecay");
+            NeuralNetwork network = new NeuralNetwork("test_FixWD");
 
             network.AddLayer(new InputLayer(1, 32, 32));
+
+            network.AddLayer(new ConvolutionalLayer(3, 8, 1, 1));
+            network.AddLayer(new ELU(1.0f));
+
+            network.AddLayer(new MaxPooling(2, 2));
+
+            network.AddLayer(new ConvolutionalLayer(3, 16, 1, 1));
+            network.AddLayer(new ELU(1.0f));
+
+            network.AddLayer(new MaxPooling(2, 2));
 
             network.AddLayer(new ConvolutionalLayer(3, 32, 1, 1));
             network.AddLayer(new ELU(1.0f));
 
+            network.AddLayer(new MaxPooling(2, 2));
+            /*
             network.AddLayer(new ResidualModule(3, 32, 1, 1, "ELU"));
             network.AddLayer(new ELU(1.0f));
 
@@ -156,6 +168,10 @@ namespace JaNet
             network.AddLayer(new ELU(1.0f));
 
             network.AddLayer(new AveragePooling());
+           */
+
+            network.AddLayer(new FullyConnectedLayer(128));
+            network.AddLayer(new ELU(1.0f));
 
             network.AddLayer(new FullyConnectedLayer(43));
             network.AddLayer(new SoftMax());
@@ -197,21 +213,22 @@ namespace JaNet
             NetworkTrainer.NetworkOutputFilePath = dirPath + "/Results/Networks/";
 
             NetworkTrainer.MomentumMultiplier = 0.9;
-            NetworkTrainer.WeightDecayCoeff = 0.0;
+            NetworkTrainer.WeightDecayCoeff = 0.000;
             NetworkTrainer.MaxTrainingEpochs = 200;
             NetworkTrainer.EpochsBeforeRegularization = 0;
             NetworkTrainer.MiniBatchSize = 64;
             NetworkTrainer.ConsoleOutputLag = 1; // 1 = print every epoch, N = print every N epochs
             NetworkTrainer.EvaluateBeforeTraining = true;
-            NetworkTrainer.DropoutFullyConnected = 1.0;
+            NetworkTrainer.DropoutFullyConnected = 0.5;
             NetworkTrainer.DropoutConvolutional = 1.0;
             NetworkTrainer.DropoutInput = 1.0;
             NetworkTrainer.Patience = 10;
             NetworkTrainer.LearningRateDecayFactor = Math.Sqrt(10.0);
             NetworkTrainer.MaxConsecutiveAnnealings = 3;
+            NetworkTrainer.WeightMaxNorm = 3.0;
 
-            NetworkTrainer.LearningRate = 0.01;
-            NetworkTrainer.Train(network, validationSet, null);
+            NetworkTrainer.LearningRate = 0.001/64;
+            NetworkTrainer.Train(network, trainingSet, validationSet);
 
             #endregion
 

@@ -313,11 +313,11 @@ namespace JaNet
         }
 
 
-        public override void UpdateSpeeds(double learningRate, double momentumCoefficient)
+        public override void UpdateSpeeds(double learningRate, double momentumCoefficient, double weightDecayCoefficient)
         {
             // Should include backpropagation to input in all member layers
 
-            convolutionalLayer2.UpdateSpeeds(learningRate, momentumCoefficient);
+            convolutionalLayer2.UpdateSpeeds(learningRate, momentumCoefficient, weightDecayCoefficient);
             convolutionalLayer2.BackPropagate();
 
             if (nonlinearityType == "ReLU")
@@ -325,15 +325,15 @@ namespace JaNet
             else if (nonlinearityType == "ELU")
                 nonlinearityELU.BackPropagate();
 
-            convolutionalLayer1.UpdateSpeeds(learningRate, momentumCoefficient);
+            convolutionalLayer1.UpdateSpeeds(learningRate, momentumCoefficient, weightDecayCoefficient);
             convolutionalLayer1.BackPropagate();
 
         }
 
-        public override void UpdateParameters(double weightDecayCoeff)
+        public override void UpdateParameters(double weightMaxNorm)
         {
-            convolutionalLayer2.UpdateParameters(weightDecayCoeff);
-            convolutionalLayer1.UpdateParameters(weightDecayCoeff);
+            convolutionalLayer2.UpdateParameters(weightMaxNorm);
+            convolutionalLayer1.UpdateParameters(weightMaxNorm);
         }
 
         #endregion

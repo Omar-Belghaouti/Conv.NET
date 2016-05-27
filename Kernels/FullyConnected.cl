@@ -147,7 +147,9 @@ FCUpdateSpeeds(	__global float * wSpeed,
 				const int nOutputUnits,		
 				const float momCoeff,		
 				const float learningRate,		
-				const int miniBatchSize			
+				const int miniBatchSize,
+				__global float * weights,
+				const float weightDecayCoeff
 				)
 					
 {
@@ -162,6 +164,7 @@ FCUpdateSpeeds(	__global float * wSpeed,
 	if(iOutput < nOutputUnits && iInput < nInputUnits) 
 	{
 		const int iWeight = iOutput * nInputUnits + iInput;
+		const float thisWeightDecay = weightDecayCoeff*weights[iWeight];
 		const bool isFirstInputUnit = iInput == 0;
 		
 		float gradientWeight = 0.0;
@@ -180,8 +183,9 @@ FCUpdateSpeeds(	__global float * wSpeed,
 				// Get deltaY element
 				deltaYElement = deltaYbatch[iOutputElement];
 				
-				// Multiply and cumulate in weights gradient
-				gradientWeight += inputBatch[iMiniBatchItem * nInputUnits + iInput] * deltaYElement; 
+				// Multiply and cumulate in weights gradient, and also add gradient of L2 regularizer term
+				gradientWeight += inputBatch[iMiniBatchItem * nInputUnits + iInput] * deltaYElement + thisWeightDecay; 
+				
 				
 				// Just cumulate in biases gradient (but only do this once per output unit!)
 				if (isFirstInputUnit)
@@ -190,7 +194,6 @@ FCUpdateSpeeds(	__global float * wSpeed,
 				}
 			}
 		}
-		gradientWeight /= miniBatchSize;
 		
 		// Save weight gradient
 		wGradients[iWeight] = gradientWeight;
@@ -201,7 +204,6 @@ FCUpdateSpeeds(	__global float * wSpeed,
 		// Update biases speed (once per output unit)
 		if (isFirstInputUnit)
 		{
-			gradientBias /= miniBatchSize;
 			bGradients[iOutput] = gradientBias;
 			bSpeed[iOutput] = (momCoeff * bSpeed[iOutput]) - learningRate * gradientBias;
 		}
@@ -217,8 +219,7 @@ FCUpdateParameters(	__global float * w,
 					__global float * wSpeed, 	
 					__global float * bSpeed,
 					const int nInput,	
-					const int nOutput,
-					const float weightDecayCoeff
+					const int nOutput
 					)
 					
 {
@@ -233,11 +234,47 @@ FCUpdateParameters(	__global float * w,
 	if(i < nOutput && j < nInput)
 	{
 		int iWeight = i*nInput + j;
-		w[iWeight] += wSpeed[iWeight] - weightDecayCoeff * w[iWeight];
+		w[iWeight] += wSpeed[iWeight];
 		
 		if (j == 0) // this should be done once per output unit, NOT nInput times!
 		{
 			b[i] += bSpeed[i];
+		}
+	}
+}
+
+__kernel void 
+FCConstrainWeightNorm(__global float * w,				// arg 0
+						const int nOutputUnits,			// arg 4
+						const int nInputUnits,	// arg 5
+						const float weightMaxNorm
+					)
+					
+{
+	const int iOutputUnit = get_global_id(0);
+	
+	// Because of how the local work sizes is set, the global work size can be larger than the output matrix, 
+	// therefore it is important to check that global indexes are within the matrix, The computational cost 
+	// of these comparisons is greatly compensated by the increased efficiency of using a local work size
+	// that is a multiple of WARP (Nvidia) / WAVEFRONT (AMD),
+	
+	if(iOutputUnit < nOutputUnits)
+	{
+		float weightVectorNorm = 0.0F;
+		
+		for (int iWeightElement = 0; iWeightElement < nInputUnits; iWeightElement++)
+		{
+			weightVectorNorm += pow(w[iOutputUnit * nInputUnits + iWeightElement], 2);
+		}
+		weightVectorNorm = sqrt(weightVectorNorm);
+		
+		if (weightVectorNorm > weightMaxNorm)
+		{
+			float rescalingFactor = weightMaxNorm / nInputUnits;
+			for (int iWeightElement = 0; iWeightElement < nInputUnits; iWeightElement++)
+			{
+				w[iOutputUnit * nInputUnits + iWeightElement] *= rescalingFactor;
+			}
 		}
 	}
 }

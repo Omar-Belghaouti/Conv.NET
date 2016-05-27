@@ -29,6 +29,7 @@ namespace JaNet
         private static int patience;
         private static double learningRateDecayFactor;
         private static int maxConsecutiveAnnealings;
+        private static double weightMaxNorm;
 
         // Losses/Errors
         private static double lossTraining;
@@ -140,6 +141,12 @@ namespace JaNet
         public static bool EarlyStopping
         {
             set { earlyStopping = value; }
+        }
+
+        public static double WeightMaxNorm
+        {
+            get { return weightMaxNorm; }
+            set { weightMaxNorm = value; }
         }
 
         public static double DropoutFullyConnected
@@ -370,7 +377,7 @@ namespace JaNet
 
                     // Backpropagate gradient and update parameters
                     stopwatchBwd.Start();
-                    network.BackwardPass(learningRate, momentumMultiplier, weightDecayCoeff);
+                    network.BackwardPass(learningRate, momentumMultiplier, weightDecayCoeff, weightMaxNorm);
                     stopwatchBwd.Stop();
 
                     iMiniBatch++;

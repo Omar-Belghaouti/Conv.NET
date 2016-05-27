@@ -62,8 +62,8 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="AveragePooling.cs" />
-    <Compile Include="BatchNormConv.cs" />
-    <Compile Include="BatchNormFC.cs" />
+    <None Include="BatchNormConv.cs" />
+    <None Include="BatchNormFC.cs" />
     <Compile Include="BinarySerialization.cs" />
     <Compile Include="ELU.cs" />
     <Compile Include="GradientChecker.cs" />

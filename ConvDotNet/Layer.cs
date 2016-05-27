@@ -208,14 +208,14 @@ namespace JaNet
         /// <summary>
         /// Updates speed of layer's parameters change (if any)
         /// </summary>
-        public virtual void UpdateSpeeds(double learningRate, double momentumMultiplier)
+        public virtual void UpdateSpeeds(double learningRate, double momentumMultiplier, double weightDecayCoefficient)
         {
         }
 
         /// <summary>
         /// Updates layer parameters (if any)
         /// </summary>
-        public virtual void UpdateParameters(double weightDecayCoeff)
+        public virtual void UpdateParameters(double weightMaxNorm)
         {
         }
 

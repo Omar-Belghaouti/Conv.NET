@@ -360,7 +360,9 @@ __kernel void ConvUpdateSpeeds(	__global float * wSpeeds,
 								const float momCoeff,
 								const float learningRate,
 								const int miniBatchSize,
-								__global bool * dropoutMask
+								__global bool * dropoutMask,
+								__global float * weights,
+								const float weightDecayCoeff
 								)
 {
 
@@ -377,6 +379,7 @@ __kernel void ConvUpdateSpeeds(	__global float * wSpeeds,
 	if(iFilter < nFilters && iElement < receptiveFieldSize)
 	{
 		const int iWeight = iFilter * receptiveFieldSize + iElement;
+		const float thisWeightDecay = weightDecayCoeff*weights[iWeight];
 		const int iBias = iFilter;
 		
 		const int iDeltaOutputRow = iFilter * nReceptiveFields;
@@ -429,9 +432,8 @@ __kernel void ConvUpdateSpeeds(	__global float * wSpeeds,
 					// then pick the right "row and column" using the pre-constructed receptive field lookup table
 					iInput = iExampleBeginningInInput + recFieldsLookupTable[iInputTransposeColumn + iReceptiveField];
 					
-					// Multiply & cumulate in gradientWeight
-					//gradientWeight += deltaElement * inputBatch[iInput];
-					gradientWeight = fma(deltaElement, inputBatch[iInput], gradientWeight);
+					// Multiply & cumulate in gradientWeight, and also add gradient of L2 penalizer term
+					gradientWeight = fma(deltaElement, inputBatch[iInput], gradientWeight) + thisWeightDecay;
 					
 					// Once per filter, also cumulate error signals in gradientBias
 					if (iElement == 0)
@@ -441,9 +443,6 @@ __kernel void ConvUpdateSpeeds(	__global float * wSpeeds,
 				}
 			}
 		}
-		// Now we have the cumulated gradients: need to divide them by miniBatchSize;
-		gradientWeight /= miniBatchSize;
-		gradientBias /= miniBatchSize;
 		
 		// Save gradient
 		wGrad[iWeight] = gradientWeight;
@@ -456,7 +455,6 @@ __kernel void ConvUpdateSpeeds(	__global float * wSpeeds,
 			bGrad[iBias] = gradientBias; // save gradient
 			bSpeeds[iBias] = (momCoeff * bSpeeds[iBias]) - learningRate * gradientBias;
 		}
-		
 	}
 }
 
@@ -467,8 +465,7 @@ ConvUpdateParameters(	__global float * w,				// arg 0
 						__global float * wSpeed, 		// arg 2
 						__global float * bSpeed, 		// arg 3
 						const int nFilters,				// arg 4
-						const int receptiveFieldSize,	// arg 5
-						const float weightDecayCoeff	// arg 6
+						const int receptiveFieldSize
 					)
 					
 {
@@ -485,7 +482,7 @@ ConvUpdateParameters(	__global float * w,				// arg 0
 		const int iWeight = iFilter * receptiveFieldSize + iElement;
 		const int iBias = iFilter;
 		
-		w[iWeight] += wSpeed[iWeight] - weightDecayCoeff * w[iWeight];
+		w[iWeight] += wSpeed[iWeight];
 		
 		if (iElement == 0) // this must be done only once per filter
 		{
@@ -494,4 +491,39 @@ ConvUpdateParameters(	__global float * w,				// arg 0
 	}
 }
 
+__kernel void 
+ConvConstrainWeightNorm(__global float * w,				// arg 0
+						const int nFilters,				// arg 4
+						const int receptiveFieldSize,	// arg 5
+						const float weightMaxNorm
+					)
+					
+{
+	const int iFilter = get_global_id(0);
+	
+	// Because of how the local work sizes is set, the global work size can be larger than the output matrix, 
+	// therefore it is important to check that global indexes are within the matrix, The computational cost 
+	// of these comparisons is greatly compensated by the increased efficiency of using a local work size
+	// that is a multiple of WARP (Nvidia) / WAVEFRONT (AMD),
+	
+	if(iFilter < nFilters)
+	{
+		float weightVectorNorm = 0.0F;
+		
+		for (int iWeightElement = 0; iWeightElement < receptiveFieldSize; iWeightElement++)
+		{
+			weightVectorNorm += pow(w[iFilter * receptiveFieldSize + iWeightElement], 2);
+		}
+		weightVectorNorm = sqrt(weightVectorNorm);
+		
+		if (weightVectorNorm > weightMaxNorm)
+		{
+			float rescalingFactor = weightMaxNorm / receptiveFieldSize;
+			for (int iWeightElement = 0; iWeightElement < receptiveFieldSize; iWeightElement++)
+			{
+				w[iFilter * receptiveFieldSize + iWeightElement] *= rescalingFactor;
+			}
+		}
+	}
+}
 

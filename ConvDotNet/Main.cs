@@ -21,7 +21,7 @@ namespace JaNet
             Console.WriteLine("    OpenCL setup");
             Console.WriteLine("=========================================\n");
 
-            OpenCLSpace.SetupSpace();
+            OpenCLSpace.SetupSpace(4);
             OpenCLSpace.KernelsPath = dirPath + "/ConvDotNet/Kernels";
             OpenCLSpace.LoadKernels();
 
@@ -30,7 +30,7 @@ namespace JaNet
             * (1) Load data
             ******************************************************/
 
-            string imageColor = "GS";
+            string imageColor = "none";
 
             #region DataImport
 
@@ -103,6 +103,37 @@ namespace JaNet
                 testSet.ReadLabels(GTSRBtestLabelsRGB);
 
             }
+            else if (imageColor == "RGB_16")
+            {
+                // GTSRB training set (RGB)
+                string GTSRBtrainingDataRGB = dirPath + "/GTSRB/Preprocessed/22_training_images.dat";
+                string GTSRBtrainingLabelsRGB = dirPath + "/GTSRB/Preprocessed/22_training_classes.dat";
+
+
+                // GTSRB validation set (RGB)
+                string GTSRBvalidationDataRGB = dirPath + "/GTSRB/Preprocessed/22_validation_images.dat";
+                string GTSRBvalidationLabelsRGB = dirPath + "/GTSRB/Preprocessed/22_validation_classes.dat";
+
+
+                // GTSRB test set (RGB)
+                string GTSRBtestDataRGB = dirPath + "/GTSRB/Preprocessed/22_test_images.dat";
+                string GTSRBtestLabelsRGB = dirPath + "/GTSRB/Preprocessed/test_labels_full.dat";
+
+                Console.WriteLine("Importing training set...");
+                trainingSet.ReadData(GTSRBtrainingDataRGB);
+                trainingSet.ReadLabels(GTSRBtrainingLabelsRGB);
+
+
+                Console.WriteLine("Importing validation set...");
+                validationSet.ReadData(GTSRBvalidationDataRGB);
+                validationSet.ReadLabels(GTSRBvalidationLabelsRGB);
+
+
+                Console.WriteLine("Importing test set...");
+                testSet.ReadData(GTSRBtestDataRGB);
+                testSet.ReadLabels(GTSRBtestLabelsRGB);
+
+            }
             #endregion
 
             /*****************************************************
@@ -126,67 +157,42 @@ namespace JaNet
             Console.WriteLine("=========================================\n");
 
             // OPTION 1: Create a new network
-            
-            NeuralNetwork network = new NeuralNetwork("test_FixWD");
-
-            network.AddLayer(new InputLayer(1, 32, 32));
-
-            network.AddLayer(new ConvolutionalLayer(3, 8, 1, 1));
-            network.AddLayer(new ELU(1.0f));
-
-            network.AddLayer(new MaxPooling(2, 2));
-
-            network.AddLayer(new ConvolutionalLayer(3, 16, 1, 1));
-            network.AddLayer(new ELU(1.0f));
-
-            network.AddLayer(new MaxPooling(2, 2));
-
-            network.AddLayer(new ConvolutionalLayer(3, 32, 1, 1));
-            network.AddLayer(new ELU(1.0f));
-
-            network.AddLayer(new MaxPooling(2, 2));
             /*
-            network.AddLayer(new ResidualModule(3, 32, 1, 1, "ELU"));
+            NeuralNetwork network = new NeuralNetwork("LeNet_C64-C128-F100-F100_RGB16_Dropout");
+
+            network.AddLayer(new InputLayer(3, 16, 16));
+
+            network.AddLayer(new ConvolutionalLayer(3, 64, 1, 1));
             network.AddLayer(new ELU(1.0f));
 
-            network.AddLayer(new ResidualModule(3, 32, 1, 1, "ELU"));
+            network.AddLayer(new MaxPooling(2, 2));
+
+            network.AddLayer(new ConvolutionalLayer(3, 128, 1, 1));
             network.AddLayer(new ELU(1.0f));
 
-            network.AddLayer(new ConvolutionalLayer(3, 64, 2, 1));
+            network.AddLayer(new MaxPooling(2, 2));
+
+            network.AddLayer(new FullyConnectedLayer(100));
             network.AddLayer(new ELU(1.0f));
 
-            network.AddLayer(new ResidualModule(3, 64, 1, 1, "ELU"));
-            network.AddLayer(new ELU(1.0f));
-
-            network.AddLayer(new ResidualModule(3, 64, 1, 1, "ELU"));
-            network.AddLayer(new ELU(1.0f));
-
-            network.AddLayer(new ConvolutionalLayer(3, 128, 2, 1));
-            network.AddLayer(new ELU(1.0f));
-
-            network.AddLayer(new ResidualModule(3, 128, 1, 1, "ELU"));
-            network.AddLayer(new ELU(1.0f));
-
-            network.AddLayer(new AveragePooling());
-           */
-
-            network.AddLayer(new FullyConnectedLayer(128));
+            network.AddLayer(new FullyConnectedLayer(100));
             network.AddLayer(new ELU(1.0f));
 
             network.AddLayer(new FullyConnectedLayer(43));
             network.AddLayer(new SoftMax());
 
             NetworkTrainer.TrainingMode = "new";
-            
+           */
 
             // OPTION 2: Load a network from file
-            /*
-            NeuralNetwork network = Utils.LoadNetworkFromFile(dirPath + "/Results/Networks/", "ResNetV2_GS_ROIS_DropoutConv");
-            //network.Name = "VGG_GS_ROIS_NoDropout";
-            network.Set("MiniBatchSize", 64); // this SHOULDN'T matter!
-            network.InitializeParameters("load");
-            NetworkTrainer.TrainingMode = "resume";
-            */
+
+            NeuralNetwork network = Utils.LoadNetworkFromFile(dirPath + "/Results/Networks/", "FIXED_LeNet_RGB_DropoutFC+WD");
+            //network.Set("MiniBatchSize", 64); // this SHOULDN'T matter!
+            //network.InitializeParameters("load");
+            //NetworkTrainer.TrainingMode = "resume";
+            
+
+
 
             #endregion
 
@@ -199,7 +205,7 @@ namespace JaNet
             
             /*****************************************************
             * (4) Train network
-            ******************************************************/
+            ******************************************************
             Console.WriteLine("\n=========================================");
             Console.WriteLine("    Network training");
             Console.WriteLine("=========================================\n");
@@ -212,22 +218,22 @@ namespace JaNet
             NetworkTrainer.ValidationEpochSavePath = trainingSavePath + network.Name + "_validationEpochs.txt";
             NetworkTrainer.NetworkOutputFilePath = dirPath + "/Results/Networks/";
 
-            NetworkTrainer.MomentumMultiplier = 0.9;
-            NetworkTrainer.WeightDecayCoeff = 0.000;
+            NetworkTrainer.MomentumCoefficient = 0.9;
+            NetworkTrainer.WeightDecayCoeff = 0.0;
             NetworkTrainer.MaxTrainingEpochs = 200;
             NetworkTrainer.EpochsBeforeRegularization = 0;
-            NetworkTrainer.MiniBatchSize = 64;
+            NetworkTrainer.MiniBatchSize = 128;
             NetworkTrainer.ConsoleOutputLag = 1; // 1 = print every epoch, N = print every N epochs
             NetworkTrainer.EvaluateBeforeTraining = true;
             NetworkTrainer.DropoutFullyConnected = 0.5;
             NetworkTrainer.DropoutConvolutional = 1.0;
             NetworkTrainer.DropoutInput = 1.0;
-            NetworkTrainer.Patience = 10;
+            NetworkTrainer.Patience = 1000;
             NetworkTrainer.LearningRateDecayFactor = Math.Sqrt(10.0);
             NetworkTrainer.MaxConsecutiveAnnealings = 3;
-            NetworkTrainer.WeightMaxNorm = 3.0;
+            NetworkTrainer.WeightMaxNorm = Double.PositiveInfinity;
 
-            NetworkTrainer.LearningRate = 0.001/64;
+            NetworkTrainer.LearningRate = 0.00001;
             NetworkTrainer.Train(network, trainingSet, validationSet);
 
             #endregion
@@ -237,7 +243,7 @@ namespace JaNet
              *****************************************************/
 
             # region Testing
-            /*
+            
             Console.WriteLine("\nFINAL EVALUATION:");
 
             // Load best network from file
@@ -248,27 +254,27 @@ namespace JaNet
 
             double loss;
             double error;
-
+            
             //NetworkEvaluator.EvaluateNetwork(bestNetwork, trainingSet, out loss, out error);
             //Console.WriteLine("\nTraining set:\n\tLoss = {0}\n\tError = {1}", loss, error);
+            
+            //NetworkEvaluator.EvaluateNetwork(bestNetwork, validationSet, out loss, out error);
+            //Console.WriteLine("\nValidation set:\n\tLoss = {0}\n\tError = {1}\n\tAccuracy = {2}", loss, error, 100*(1-error));
 
-            NetworkEvaluator.EvaluateNetwork(bestNetwork, validationSet, out loss, out error);
-            Console.WriteLine("\nValidation set:\n\tLoss = {0}\n\tError = {1}", loss, error);
-
-            NetworkEvaluator.EvaluateNetwork(bestNetwork, testSet, out loss, out error);
-            Console.WriteLine("\nTest set:\n\tLoss = {0}\n\tError = {1}", loss, error);
-
+            //NetworkEvaluator.EvaluateNetwork(bestNetwork, testSet, out loss, out error);
+            //Console.WriteLine("\nTest set:\n\tLoss = {0}\n\tError = {1}\n\tAccuracy = {2}", loss, error, 100 * (1 - error));
+            
             // Save misclassified examples
             //NetworkEvaluator.SaveMisclassifiedExamples(bestNetwork, trainingSet, "../../../../Results/MisclassifiedExamples/" + network.Name + "_training.txt");
             //NetworkEvaluator.SaveMisclassifiedExamples(bestNetwork, validationSet, "../../../../Results/MisclassifiedExamples/" + network.Name + "_validation.txt");
             //NetworkEvaluator.SaveMisclassifiedExamples(bestNetwork, testSet, "../../../../Results/MisclassifiedExamples/" + network.Name + "_test.txt");
 
-            // Save filters of first conv layer
-            //if (bestNetwork.Layers[1].Type == "Convolutional")
-            //    Utils.SaveFilters(bestNetwork, "../../../../Results/Filters/" + network.Name + "_filters.txt");
-            */
-            #endregion
+            // Save filters to file
+            bestNetwork.SaveWeights("first", "../../../../Results/Filters/");
 
+            
+            
+            #endregion
             /*****************************************************/
         }
     }

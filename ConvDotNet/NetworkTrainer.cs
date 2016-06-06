@@ -14,7 +14,7 @@ namespace JaNet
 
         // Hyperparameters
         private static double learningRate;
-        private static double momentumMultiplier;
+        private static double momentumCoefficient;
         private static double weightDecayCoeff;
         private static int maxTrainingEpochs;
         private static int miniBatchSize;
@@ -64,10 +64,10 @@ namespace JaNet
             set { learningRateDecayFactor = value; }
         }
 
-        public static double MomentumMultiplier
+        public static double MomentumCoefficient
         {
-            get { return momentumMultiplier; }
-            set { momentumMultiplier = value; }
+            get { return momentumCoefficient; }
+            set { momentumCoefficient = value; }
         }
 
         public static double WeightDecayCoeff
@@ -246,6 +246,11 @@ namespace JaNet
                      * Evaluation *
                      **************/
 
+                    // Pre inference (for batch-norm)
+                    //network.Set("PreInference", true);
+                    //Console.WriteLine("Re-computing batch-norm means and variances...");
+                    //NetworkEvaluator.PreEvaluateNetwork(network, trainingSet);
+
                     // Evaluate on training set...
                     network.Set("Inference", true);
                     Console.WriteLine("Evaluating on TRAINING set...");
@@ -377,12 +382,12 @@ namespace JaNet
 
                     // Backpropagate gradient and update parameters
                     stopwatchBwd.Start();
-                    network.BackwardPass(learningRate, momentumMultiplier, weightDecayCoeff, weightMaxNorm);
+                    network.BackwardPass(learningRate, momentumCoefficient, weightDecayCoeff, weightMaxNorm);
                     stopwatchBwd.Stop();
 
                     iMiniBatch++;
 
-                    CheckForKeyPress(ref stopFlag);
+                    CheckForKeyPress(ref network, ref stopFlag);
                     if (stopFlag)
                         break;
 
@@ -434,7 +439,7 @@ namespace JaNet
         }
 
 
-        private static void CheckForKeyPress(ref bool stopFlag)
+        private static void CheckForKeyPress(ref NeuralNetwork network, ref bool stopFlag)
         {
             ConsoleKeyInfo key = new ConsoleKeyInfo();
 
@@ -481,8 +486,14 @@ namespace JaNet
                         Console.WriteLine("Not a valid weight decay coefficient.");
                     }
                 }
+                else if (key.Key == ConsoleKey.S)
+                {
+                    Console.Write("\nKey 'S' pressed! \n\tSaving the current state of the network to file.\n\tEnter file path: ");
+                    string outputFilePath = Console.ReadLine();
+                    Utils.SaveNetworkToFile(network, outputFilePath);
+                }
                 else
-                    Console.WriteLine("That key has no effect...\n\tPress Escape to stop training.\n\tPress 'L' to change the learning rate.\n\tPress 'W' to change the weight decay coefficient.");
+                    Console.WriteLine("That key has no effect...\n\tPress Escape to stop training.\n\tPress 'L' to change the learning rate.\n\tPress 'W' to change the weight decay coefficient.\n\tPress 'S' to save the current state of the network to file.");
             }
 
         }

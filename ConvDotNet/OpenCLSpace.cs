@@ -152,9 +152,9 @@ namespace JaNet
 
         #region OpenCL setup
 
-        public static void SetupSpace()
+        public static void SetupSpace(int deviceID)
         {
-            int deviceID; // will be asked to user
+            //int deviceID; // will be asked to user
 
             List<Device> devicesList = new List<Device>();
             List<string> deviceNames = new List<string>();
@@ -196,8 +196,8 @@ namespace JaNet
                 throw new PlatformNotSupportedException("No OpenCL-capable platform and/or devices were found on this system.");
             }
 
-            Console.Write("Enter ID of device to use: ");
-            deviceID = int.Parse(Console.ReadLine());
+            //Console.Write("Enter ID of device to use: ");
+            //deviceID = int.Parse(Console.ReadLine());
 
             // Select device according to user's choice
             device = devicesList[deviceID];

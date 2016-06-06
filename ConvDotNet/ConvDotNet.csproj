@@ -62,12 +62,13 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="AveragePooling.cs" />
-    <None Include="BatchNormConv.cs" />
+    <Compile Include="BatchNormConv.cs" />
     <None Include="BatchNormFC.cs" />
     <Compile Include="BinarySerialization.cs" />
     <Compile Include="ELU.cs" />
     <Compile Include="GradientChecker.cs" />
     <Compile Include="Main.cs" />
+    <None Include="MainEnsemble.cs" />
     <Compile Include="OpenCLSpace.cs" />
     <Compile Include="InputLayer.cs" />
     <Compile Include="Neurons.cs" />

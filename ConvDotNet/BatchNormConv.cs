@@ -563,7 +563,7 @@ namespace JaNet
 #endif
         }
 
-        public override void UpdateSpeeds(double learningRate, double momentumMultiplier)
+        public override void UpdateSpeeds(double learningRate, double momentumMultiplier, double weightDecayCoefficient)
         {
 
 #if TIMING_LAYERS

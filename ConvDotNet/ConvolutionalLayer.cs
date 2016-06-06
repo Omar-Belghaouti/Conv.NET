@@ -805,29 +805,77 @@ namespace JaNet
             OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.ReleaseEvent");
 
             // Now constrain norm of each weight vector
+            if (!double.IsInfinity(weightMaxNorm))
+            {
 
-            // Set kernel arguments
-            OpenCLSpace.ClError = Cl.SetKernelArg(OpenCLSpace.ConvConstrainWeightNorm, 0, weightsGPU);
-            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.ConvConstrainWeightNorm, 1, (IntPtr)sizeof(int), nFilters);
-            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.ConvConstrainWeightNorm, 2, (IntPtr)sizeof(int), receptiveFieldSize);
-            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.ConvConstrainWeightNorm, 3, (IntPtr)sizeof(float), (float)weightMaxNorm);
-            OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Convolutional.ConvConstrainWeightNorm(): Cl.SetKernelArg");
+                // Before constraining
+                /*
+                float[] weights = new float[nFilters*receptiveFieldSize];
 
-            // Run kernel
-            OpenCLSpace.ClError = Cl.EnqueueNDRangeKernel(OpenCLSpace.Queue,
-                                                            OpenCLSpace.ConvConstrainWeightNorm,
-                                                            1,
-                                                            null,
-                                                            constrainNormGlobalWorkSizePtr,
-                                                            constrainNormLocalWorkSizePtr,
+                OpenCLSpace.ClError = Cl.EnqueueReadBuffer(OpenCLSpace.Queue,
+                                                            weightsGPU, // source
+                                                            Bool.True,
+                                                            (IntPtr)0,
+                                                            (IntPtr)(nFilters * receptiveFieldSize * sizeof(float)),
+                                                            weights,  // destination
                                                             0,
                                                             null,
                                                             out OpenCLSpace.ClEvent);
-            OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Convolutional.ConvConstrainWeightNorm(): Cl.EnqueueNDRangeKernel");
+                OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.clEnqueueReadBuffer");
 
-            OpenCLSpace.ClError = Cl.ReleaseEvent(OpenCLSpace.ClEvent);
-            OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.ReleaseEvent");
+                OpenCLSpace.ClError = Cl.ReleaseEvent(OpenCLSpace.ClEvent);
+                OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.ReleaseEvent");
 
+                Console.WriteLine("\nBefore applying max norm:\n");
+                for (int i = 0; i < nFilters * receptiveFieldSize; i++)
+                    Console.Write("{0}  ", weights[i]);
+                Console.ReadKey();
+                */
+
+                // Set kernel arguments
+                OpenCLSpace.ClError = Cl.SetKernelArg(OpenCLSpace.ConvConstrainWeightNorm, 0, weightsGPU);
+                OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.ConvConstrainWeightNorm, 1, (IntPtr)sizeof(int), nFilters);
+                OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.ConvConstrainWeightNorm, 2, (IntPtr)sizeof(int), receptiveFieldSize);
+                OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.ConvConstrainWeightNorm, 3, (IntPtr)sizeof(float), (float)weightMaxNorm);
+                OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Convolutional.ConvConstrainWeightNorm(): Cl.SetKernelArg");
+
+                // Run kernel
+                OpenCLSpace.ClError = Cl.EnqueueNDRangeKernel(OpenCLSpace.Queue,
+                                                                OpenCLSpace.ConvConstrainWeightNorm,
+                                                                1,
+                                                                null,
+                                                                constrainNormGlobalWorkSizePtr,
+                                                                constrainNormLocalWorkSizePtr,
+                                                                0,
+                                                                null,
+                                                                out OpenCLSpace.ClEvent);
+                OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Convolutional.ConvConstrainWeightNorm(): Cl.EnqueueNDRangeKernel");
+
+                OpenCLSpace.ClError = Cl.ReleaseEvent(OpenCLSpace.ClEvent);
+                OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.ReleaseEvent");
+
+                // After constraining
+                /*
+                OpenCLSpace.ClError = Cl.EnqueueReadBuffer(OpenCLSpace.Queue,
+                                                            weightsGPU, // source
+                                                            Bool.True,
+                                                            (IntPtr)0,
+                                                            (IntPtr)(nFilters * receptiveFieldSize * sizeof(float)),
+                                                            weights,  // destination
+                                                            0,
+                                                            null,
+                                                            out OpenCLSpace.ClEvent);
+                OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.clEnqueueReadBuffer");
+
+                OpenCLSpace.ClError = Cl.ReleaseEvent(OpenCLSpace.ClEvent);
+                OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.ReleaseEvent");
+
+                Console.WriteLine("\nAfter applying max norm:\n");
+                for (int i = 0; i < nFilters * receptiveFieldSize; i++)
+                    Console.Write("{0}  ", weights[i]);
+                Console.ReadKey();
+                */
+            }
 
             OpenCLSpace.ClError = Cl.Finish(OpenCLSpace.Queue);
             OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.Finish");

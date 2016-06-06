@@ -55,6 +55,11 @@ namespace JaNet
 
         #region Properties
 
+        public override Mem WeightsGPU
+        {
+            get { return weightsGPU; }
+        }
+
         public override double DropoutParameter
         {
             set { this.dropoutParameter = value; }
@@ -200,33 +205,33 @@ namespace JaNet
             // FeedForward (2D) ________________________________________________________________________________
             
             // Local
-            int optimalLocalWorkSize0 = OpenCLSpace.OPTIMAL_GROUP_SIZE / miniBatchSize;
-            this.forwardLocalWorkSizePtr = new IntPtr[] { (IntPtr)(optimalLocalWorkSize0), (IntPtr)miniBatchSize };
+            int optimalToBaseRatio = OpenCLSpace.OPTIMAL_GROUP_SIZE / OpenCLSpace.BASE_GROUP_SIZE;
+            this.forwardLocalWorkSizePtr = new IntPtr[] { (IntPtr)OpenCLSpace.BASE_GROUP_SIZE, (IntPtr)optimalToBaseRatio };
 
             // Global
-            int smallestMultiple = (int)(optimalLocalWorkSize0 * Math.Ceiling((double)(nOutputUnits) / (double)optimalLocalWorkSize0));
-            this.forwardGlobalWorkSizePtr = new IntPtr[] { (IntPtr)smallestMultiple, (IntPtr)miniBatchSize };
+            int smallestMultiple0 = (int)(OpenCLSpace.BASE_GROUP_SIZE * Math.Ceiling((double)(nOutputUnits) / (double)OpenCLSpace.BASE_GROUP_SIZE));
+            int smallestMultiple1 = (int)(optimalToBaseRatio * Math.Ceiling((double)(miniBatchSize) / (double)optimalToBaseRatio));
+            this.forwardGlobalWorkSizePtr = new IntPtr[] { (IntPtr)smallestMultiple0, (IntPtr)smallestMultiple1 };
 
 
             // BackPropagate (2D) _________________________________________________________________________________
 
             // Local
-            this.backwardLocalWorkSizePtr = new IntPtr[] { (IntPtr)(optimalLocalWorkSize0), (IntPtr)miniBatchSize };
+            this.backwardLocalWorkSizePtr = new IntPtr[] { (IntPtr)OpenCLSpace.BASE_GROUP_SIZE, (IntPtr)optimalToBaseRatio };
             
             // Global
-            smallestMultiple = (int)(optimalLocalWorkSize0 * Math.Ceiling((double)(nInputUnits) / (double)optimalLocalWorkSize0)); // input this time!
-            this.backwardGlobalWorkSizePtr = new IntPtr[] { (IntPtr)smallestMultiple, (IntPtr)miniBatchSize };
+            smallestMultiple0 = (int)(OpenCLSpace.BASE_GROUP_SIZE * Math.Ceiling((double)(nInputUnits) / (double)OpenCLSpace.BASE_GROUP_SIZE)); // input this time!
+            this.backwardGlobalWorkSizePtr = new IntPtr[] { (IntPtr)smallestMultiple0, (IntPtr)smallestMultiple1 };
 
 
             // UpdateSpeeds and UpdateParameters (2D) ________________________________________________________________
 
             // Local
-            optimalLocalWorkSize0 = OpenCLSpace.OPTIMAL_GROUP_SIZE / OpenCLSpace.BASE_GROUP_SIZE;
-            this.updateLocalWorkSizePtr = new IntPtr[] { (IntPtr)optimalLocalWorkSize0, (IntPtr)OpenCLSpace.BASE_GROUP_SIZE }; // product is OPTIMAL_WORK_SIZE
+            this.updateLocalWorkSizePtr = new IntPtr[] { (IntPtr)optimalToBaseRatio, (IntPtr)OpenCLSpace.BASE_GROUP_SIZE }; // product is OPTIMAL_WORK_SIZE
 
             // Global
-            int smallestMultiple0 = (int)(optimalLocalWorkSize0 * Math.Ceiling((double)(nOutputUnits) / (double)optimalLocalWorkSize0));
-            int smallestMultiple1 = (int)(OpenCLSpace.BASE_GROUP_SIZE * Math.Ceiling((double)(nInputUnits) / (double)OpenCLSpace.BASE_GROUP_SIZE));
+            smallestMultiple0 = (int)(optimalToBaseRatio * Math.Ceiling((double)(nOutputUnits) / (double)optimalToBaseRatio));
+            smallestMultiple1 = (int)(OpenCLSpace.BASE_GROUP_SIZE * Math.Ceiling((double)(nInputUnits) / (double)OpenCLSpace.BASE_GROUP_SIZE));
             this.updateGlobalWorkSizePtr = new IntPtr[] { (IntPtr)smallestMultiple0, (IntPtr)smallestMultiple1 };
 
 
@@ -620,34 +625,35 @@ namespace JaNet
 #endif
 
 #if OPENCL_ENABLED
-                // Set kernel arguments
-                OpenCLSpace.ClError = Cl.SetKernelArg(OpenCLSpace.FCUpdateParameters, 0, weightsGPU);
-                OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.FCUpdateParameters, 1, biasesGPU);
-                OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.FCUpdateParameters, 2, weightsSpeedGPU);
-                OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.FCUpdateParameters, 3, biasesSpeedGPU);
-                OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.FCUpdateParameters, 4, (IntPtr)sizeof(int), nInputUnits);
-                OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.FCUpdateParameters, 5, (IntPtr)sizeof(int), nOutputUnits);
-                OpenCLSpace.CheckErr(OpenCLSpace.ClError, "FullyConnected.UpdateParameters(): Cl.SetKernelArg");
+            // Set kernel arguments
+            OpenCLSpace.ClError = Cl.SetKernelArg(OpenCLSpace.FCUpdateParameters, 0, weightsGPU);
+            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.FCUpdateParameters, 1, biasesGPU);
+            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.FCUpdateParameters, 2, weightsSpeedGPU);
+            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.FCUpdateParameters, 3, biasesSpeedGPU);
+            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.FCUpdateParameters, 4, (IntPtr)sizeof(int), nInputUnits);
+            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.FCUpdateParameters, 5, (IntPtr)sizeof(int), nOutputUnits);
+            OpenCLSpace.CheckErr(OpenCLSpace.ClError, "FullyConnected.UpdateParameters(): Cl.SetKernelArg");
 
-                // Run kernel
-                OpenCLSpace.ClError = Cl.EnqueueNDRangeKernel(  OpenCLSpace.Queue,
-                                                                OpenCLSpace.FCUpdateParameters,
-                                                                2,
-                                                                null,
-                                                                updateGlobalWorkSizePtr,
-                                                                updateLocalWorkSizePtr,
-                                                                0,
-                                                                null,
-                                                                out OpenCLSpace.ClEvent);
-                OpenCLSpace.CheckErr(OpenCLSpace.ClError, "FullyConnected.UpdateParameters(): Cl.EnqueueNDRangeKernel");
-
-
-                OpenCLSpace.ClError = Cl.ReleaseEvent(OpenCLSpace.ClEvent);
-                OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.ReleaseEvent");
+            // Run kernel
+            OpenCLSpace.ClError = Cl.EnqueueNDRangeKernel(  OpenCLSpace.Queue,
+                                                            OpenCLSpace.FCUpdateParameters,
+                                                            2,
+                                                            null,
+                                                            updateGlobalWorkSizePtr,
+                                                            updateLocalWorkSizePtr,
+                                                            0,
+                                                            null,
+                                                            out OpenCLSpace.ClEvent);
+            OpenCLSpace.CheckErr(OpenCLSpace.ClError, "FullyConnected.UpdateParameters(): Cl.EnqueueNDRangeKernel");
 
 
-                // Now constrain norm of each weight vector
+            OpenCLSpace.ClError = Cl.ReleaseEvent(OpenCLSpace.ClEvent);
+            OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.ReleaseEvent");
 
+
+            // Now constrain norm of each weight vector
+            if (!double.IsInfinity(weightMaxNorm))
+            {
                 // Set kernel arguments
                 OpenCLSpace.ClError = Cl.SetKernelArg(OpenCLSpace.FCConstrainWeightNorm, 0, weightsGPU);
                 OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.FCConstrainWeightNorm, 1, (IntPtr)sizeof(int), nOutputUnits);
@@ -656,7 +662,7 @@ namespace JaNet
                 OpenCLSpace.CheckErr(OpenCLSpace.ClError, "FCConstrainWeightNorm(): Cl.SetKernelArg");
 
                 // Run kernel
-                OpenCLSpace.ClError = Cl.EnqueueNDRangeKernel(  OpenCLSpace.Queue,
+                OpenCLSpace.ClError = Cl.EnqueueNDRangeKernel(OpenCLSpace.Queue,
                                                                 OpenCLSpace.FCConstrainWeightNorm,
                                                                 1,
                                                                 null,
@@ -669,9 +675,9 @@ namespace JaNet
 
                 OpenCLSpace.ClError = Cl.ReleaseEvent(OpenCLSpace.ClEvent);
                 OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.ReleaseEvent");
-
-                OpenCLSpace.ClError = Cl.Finish(OpenCLSpace.Queue);
-                OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.Finish");
+            }
+            OpenCLSpace.ClError = Cl.Finish(OpenCLSpace.Queue);
+            OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.Finish");
 #else
                 
 

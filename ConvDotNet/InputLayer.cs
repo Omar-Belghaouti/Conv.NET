@@ -37,6 +37,7 @@ namespace JaNet
             set { this.dropoutParameter = value; }
         }
 
+
         #endregion
 
 
@@ -59,6 +60,7 @@ namespace JaNet
             this.imageHeight = DataHeight;
             this.imageWidth = DataWidth;
 
+            this.inputDepth = DataDepth;
         }
 
         public override void SetupOutput()

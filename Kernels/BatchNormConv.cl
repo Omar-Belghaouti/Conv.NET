@@ -224,8 +224,8 @@ BNConvUpdateSpeeds(	__global float * gammaSpeed,
 		}
 		
 		// EXPERIMENTAL
-		gammaGrad /= miniBatchSize;
-		betaGrad /= miniBatchSize;
+		//gammaGrad /= miniBatchSize;
+		//betaGrad /= miniBatchSize;
 		
 		// Save gradients
 		deltaGamma[iFeatureMap] = gammaGrad;

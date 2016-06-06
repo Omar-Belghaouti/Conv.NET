@@ -26,6 +26,8 @@ namespace JaNet
         private double dropoutConv;
         private double dropoutInput;
 
+        private int inputChannels;
+
         #endregion
 
 
@@ -76,6 +78,13 @@ namespace JaNet
             get { return dropoutInput; }
             set { throw new InvalidOperationException("Use method Set(''DropoutInput'', <value>) to set field 'dropoutInput'"); }
         }
+
+        public int InputChannels
+        {
+            get { return inputChannels; }
+            set { this.inputChannels = value; }
+        }
+
         #endregion
 
 
@@ -126,6 +135,7 @@ namespace JaNet
                             {
                                 newLayer.ID = 0;
                                 this.inputLayer = (InputLayer)newLayer;
+                                this.inputChannels = newLayer.InputDepth;
                             }
                             else // list is not empty
                             {
@@ -591,6 +601,103 @@ namespace JaNet
         #endregion
 
 
-        
+        #region SaveWeights
+
+        public void SaveWeights(string whichLayer, string outputDirPath)
+        {
+            int n;
+            if (whichLayer == "all")
+                n = nLayers;
+            else if (whichLayer == "first")
+                n = 1;
+            else
+                throw new ArgumentException("First argument must be either ''first'' or ''all''");
+
+
+            for (int iLayer = 1; iLayer <= n; ++iLayer)
+            {
+                if (layers[iLayer].Type == "Convolutional")
+                {
+                    string outputFilePath = outputDirPath + name + "_layer" + iLayer.ToString() + "_convolutional_filters.txt";
+
+                    Mem filtersGPU = layers[iLayer].WeightsGPU;
+
+                    int nFilters = layers[iLayer].OutputDepth;
+                    int inputDepth = layers[iLayer].InputDepth;
+                    int filterSize = layers[iLayer].FilterSize;
+
+                    int nParameters = nFilters * inputDepth * filterSize * filterSize;
+
+                    float[] filters = new float[nParameters];
+
+                    OpenCLSpace.ClError = Cl.EnqueueReadBuffer(OpenCLSpace.Queue,
+                                                                filtersGPU, // source
+                                                                Bool.True,
+                                                                (IntPtr)0,
+                                                                (IntPtr)(sizeof(float) * nParameters),
+                                                                filters,  // destination
+                                                                0,
+                                                                null,
+                                                                out OpenCLSpace.ClEvent);
+                    OpenCLSpace.CheckErr(OpenCLSpace.ClError, "clEnqueueReadBuffer filtersGPU");
+
+                    OpenCLSpace.ClError = Cl.ReleaseEvent(OpenCLSpace.ClEvent);
+                    OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.ReleaseEvent");
+
+                    OpenCLSpace.ClError = Cl.Finish(OpenCLSpace.Queue);
+                    OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.Finish");
+
+                    using (System.IO.StreamWriter outputFile = new System.IO.StreamWriter(outputFilePath))
+                    {
+                        foreach (float filterValue in filters)
+                        {
+                            outputFile.WriteLine(filterValue.ToString());
+                        }
+                        Console.WriteLine("Weights of layer " + iLayer.ToString() + " (convolutional) saved to file" + outputFilePath);
+                    }
+                }
+                else if (layers[iLayer].Type == "FullyConnected")
+                {
+                    string outputFilePath = outputDirPath + name + "_layer" + iLayer.ToString() + "_fullyConnected_weights.txt";
+
+                    Mem weightsGPU = layers[iLayer].WeightsGPU;
+
+                    int nOutputUnits = layers[iLayer].NOutputUnits;
+                    int nInputUnits = layers[iLayer].NInputUnits;
+
+                    int nParameters = nOutputUnits * nInputUnits;
+
+                    float[] weights = new float[nParameters];
+
+                    OpenCLSpace.ClError = Cl.EnqueueReadBuffer(OpenCLSpace.Queue,
+                                                                weightsGPU, // source
+                                                                Bool.True,
+                                                                (IntPtr)0,
+                                                                (IntPtr)(sizeof(float) * nParameters),
+                                                                weights,  // destination
+                                                                0,
+                                                                null,
+                                                                out OpenCLSpace.ClEvent);
+                    OpenCLSpace.CheckErr(OpenCLSpace.ClError, "clEnqueueReadBuffer weightsGPU");
+
+                    OpenCLSpace.ClError = Cl.ReleaseEvent(OpenCLSpace.ClEvent);
+                    OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.ReleaseEvent");
+
+                    OpenCLSpace.ClError = Cl.Finish(OpenCLSpace.Queue);
+                    OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.Finish");
+
+                    using (System.IO.StreamWriter outputFile = new System.IO.StreamWriter(outputFilePath))
+                    {
+                        foreach (float weightValue in weights)
+                        {
+                            outputFile.WriteLine(weightValue.ToString());
+                        }
+                        Console.WriteLine("Weights of layer " + iLayer.ToString() + " (fully connected) saved to file" + outputFilePath);
+                    }
+                }
+                
+            }
+        }
+        #endregion
     } 
 }

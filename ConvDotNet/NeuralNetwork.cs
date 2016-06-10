@@ -10,7 +10,7 @@ using OpenCL.Net;
 namespace JaNet
 {
     [Serializable]
-    class NeuralNetwork
+    public class NeuralNetwork
     {
         #region Fields
 

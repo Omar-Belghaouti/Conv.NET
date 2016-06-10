@@ -8,7 +8,7 @@ using OpenCL.Net;
 namespace JaNet
 {
     [Serializable]
-    class AveragePooling : Layer
+    public class AveragePooling : Layer
     {
         #region Fields
 

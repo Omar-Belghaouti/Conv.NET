@@ -8,7 +8,7 @@ using OpenCL.Net;
 namespace JaNet
 {
     [Serializable]
-    class Tanh : Layer
+    public class Tanh : Layer
     {
         #region Fields
 

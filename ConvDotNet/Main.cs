@@ -30,7 +30,7 @@ namespace JaNet
             * (1) Load data
             ******************************************************/
 
-            string imageColor = "none";
+            string imageColor = "GS2";
 
             #region DataImport
 
@@ -42,7 +42,7 @@ namespace JaNet
             DataSet validationSet = new DataSet(43);
             DataSet testSet = new DataSet(43);
 
-            if (imageColor == "GS")
+            if (imageColor == "GS1")
             {
                 // GTSRB training set (grayscale)
                 string GTSRBtrainingDataGS = dirPath + "/GTSRB/Preprocessed/14_training_images.dat";
@@ -72,7 +72,38 @@ namespace JaNet
                 testSet.ReadData(GTSRBtestDataGS);
                 testSet.ReadLabels(GTSRBtestLabelsGS);
             }
-            else if (imageColor == "RGB")
+            else if (imageColor == "GS2")
+            {
+                // GTSRB training set (RGB)
+                string GTSRBtrainingDataRGB = dirPath + "/GTSRB/Preprocessed/18_training_images.dat";
+                string GTSRBtrainingLabelsRGB = dirPath + "/GTSRB/Preprocessed/18_training_classes.dat";
+
+
+                // GTSRB validation set (RGB)
+                string GTSRBvalidationDataRGB = dirPath + "/GTSRB/Preprocessed/18_validation_images.dat";
+                string GTSRBvalidationLabelsRGB = dirPath + "/GTSRB/Preprocessed/18_validation_classes.dat";
+
+
+                // GTSRB test set (RGB)
+                string GTSRBtestDataRGB = dirPath + "/GTSRB/Preprocessed/18_test_images.dat";
+                string GTSRBtestLabelsRGB = dirPath + "/GTSRB/Preprocessed/test_labels_full.dat";
+
+                Console.WriteLine("Importing training set...");
+                trainingSet.ReadData(GTSRBtrainingDataRGB);
+                trainingSet.ReadLabels(GTSRBtrainingLabelsRGB);
+
+
+                Console.WriteLine("Importing validation set...");
+                validationSet.ReadData(GTSRBvalidationDataRGB);
+                validationSet.ReadLabels(GTSRBvalidationLabelsRGB);
+
+
+                Console.WriteLine("Importing test set...");
+                testSet.ReadData(GTSRBtestDataRGB);
+                testSet.ReadLabels(GTSRBtestLabelsRGB);
+
+            }
+            else if (imageColor == "RGB1")
             {
                 // GTSRB training set (RGB)
                 string GTSRBtrainingDataRGB = dirPath + "/GTSRB/Preprocessed/16_training_images.dat";
@@ -86,6 +117,37 @@ namespace JaNet
 
                 // GTSRB test set (RGB)
                 string GTSRBtestDataRGB = dirPath + "/GTSRB/Preprocessed/16_test_images.dat";
+                string GTSRBtestLabelsRGB = dirPath + "/GTSRB/Preprocessed/test_labels_full.dat";
+
+                Console.WriteLine("Importing training set...");
+                trainingSet.ReadData(GTSRBtrainingDataRGB);
+                trainingSet.ReadLabels(GTSRBtrainingLabelsRGB);
+
+
+                Console.WriteLine("Importing validation set...");
+                validationSet.ReadData(GTSRBvalidationDataRGB);
+                validationSet.ReadLabels(GTSRBvalidationLabelsRGB);
+
+
+                Console.WriteLine("Importing test set...");
+                testSet.ReadData(GTSRBtestDataRGB);
+                testSet.ReadLabels(GTSRBtestLabelsRGB);
+
+            }
+            else if (imageColor == "RGB2")
+            {
+                // GTSRB training set (RGB)
+                string GTSRBtrainingDataRGB = dirPath + "/GTSRB/Preprocessed/20_training_images.dat";
+                string GTSRBtrainingLabelsRGB = dirPath + "/GTSRB/Preprocessed/20_training_classes.dat";
+
+
+                // GTSRB validation set (RGB)
+                string GTSRBvalidationDataRGB = dirPath + "/GTSRB/Preprocessed/20_validation_images.dat";
+                string GTSRBvalidationLabelsRGB = dirPath + "/GTSRB/Preprocessed/20_validation_classes.dat";
+
+
+                // GTSRB test set (RGB)
+                string GTSRBtestDataRGB = dirPath + "/GTSRB/Preprocessed/20_test_images.dat";
                 string GTSRBtestLabelsRGB = dirPath + "/GTSRB/Preprocessed/test_labels_full.dat";
 
                 Console.WriteLine("Importing training set...");
@@ -157,17 +219,17 @@ namespace JaNet
             Console.WriteLine("=========================================\n");
 
             // OPTION 1: Create a new network
-            /*
-            NeuralNetwork network = new NeuralNetwork("LeNet_C64-C128-F100-F100_RGB16_Dropout");
+            
+            NeuralNetwork network = new NeuralNetwork("SimplerLeNet_WD1e-4");
 
-            network.AddLayer(new InputLayer(3, 16, 16));
-
-            network.AddLayer(new ConvolutionalLayer(3, 64, 1, 1));
+            network.AddLayer(new InputLayer(1, 32, 32));
+            
+            network.AddLayer(new ConvolutionalLayer(5, 32, 1, 0));
             network.AddLayer(new ELU(1.0f));
 
             network.AddLayer(new MaxPooling(2, 2));
 
-            network.AddLayer(new ConvolutionalLayer(3, 128, 1, 1));
+            network.AddLayer(new ConvolutionalLayer(5, 64, 1, 0));
             network.AddLayer(new ELU(1.0f));
 
             network.AddLayer(new MaxPooling(2, 2));
@@ -182,15 +244,15 @@ namespace JaNet
             network.AddLayer(new SoftMax());
 
             NetworkTrainer.TrainingMode = "new";
-           */
+           
 
             // OPTION 2: Load a network from file
-
-            NeuralNetwork network = Utils.LoadNetworkFromFile(dirPath + "/Results/Networks/", "FIXED_LeNet_RGB_DropoutFC+WD");
+            /*
+            NeuralNetwork network = Utils.LoadNetworkFromFile(dirPath + "/Results/Networks/", "FIXED_VGGv2_RGB_DropoutFC");
             //network.Set("MiniBatchSize", 64); // this SHOULDN'T matter!
             //network.InitializeParameters("load");
             //NetworkTrainer.TrainingMode = "resume";
-            
+            */
 
 
 
@@ -205,7 +267,7 @@ namespace JaNet
             
             /*****************************************************
             * (4) Train network
-            ******************************************************
+            ******************************************************/
             Console.WriteLine("\n=========================================");
             Console.WriteLine("    Network training");
             Console.WriteLine("=========================================\n");
@@ -219,10 +281,10 @@ namespace JaNet
             NetworkTrainer.NetworkOutputFilePath = dirPath + "/Results/Networks/";
 
             NetworkTrainer.MomentumCoefficient = 0.9;
-            NetworkTrainer.WeightDecayCoeff = 0.0;
+            NetworkTrainer.WeightDecayCoeff = 0.0001;
             NetworkTrainer.MaxTrainingEpochs = 200;
             NetworkTrainer.EpochsBeforeRegularization = 0;
-            NetworkTrainer.MiniBatchSize = 128;
+            NetworkTrainer.MiniBatchSize = 64;
             NetworkTrainer.ConsoleOutputLag = 1; // 1 = print every epoch, N = print every N epochs
             NetworkTrainer.EvaluateBeforeTraining = true;
             NetworkTrainer.DropoutFullyConnected = 0.5;
@@ -233,7 +295,7 @@ namespace JaNet
             NetworkTrainer.MaxConsecutiveAnnealings = 3;
             NetworkTrainer.WeightMaxNorm = Double.PositiveInfinity;
 
-            NetworkTrainer.LearningRate = 0.00001;
+            NetworkTrainer.LearningRate = 0.00002;
             NetworkTrainer.Train(network, trainingSet, validationSet);
 
             #endregion
@@ -261,8 +323,8 @@ namespace JaNet
             //NetworkEvaluator.EvaluateNetwork(bestNetwork, validationSet, out loss, out error);
             //Console.WriteLine("\nValidation set:\n\tLoss = {0}\n\tError = {1}\n\tAccuracy = {2}", loss, error, 100*(1-error));
 
-            //NetworkEvaluator.EvaluateNetwork(bestNetwork, testSet, out loss, out error);
-            //Console.WriteLine("\nTest set:\n\tLoss = {0}\n\tError = {1}\n\tAccuracy = {2}", loss, error, 100 * (1 - error));
+            NetworkEvaluator.EvaluateNetwork(bestNetwork, testSet, out loss, out error);
+            Console.WriteLine("\nTest set:\n\tLoss = {0}\n\tError = {1}\n\tAccuracy = {2}", loss, error, 100 * (1 - error));
             
             // Save misclassified examples
             //NetworkEvaluator.SaveMisclassifiedExamples(bestNetwork, trainingSet, "../../../../Results/MisclassifiedExamples/" + network.Name + "_training.txt");
@@ -270,7 +332,7 @@ namespace JaNet
             //NetworkEvaluator.SaveMisclassifiedExamples(bestNetwork, testSet, "../../../../Results/MisclassifiedExamples/" + network.Name + "_test.txt");
 
             // Save filters to file
-            bestNetwork.SaveWeights("first", "../../../../Results/Filters/");
+            //bestNetwork.SaveWeights("first", "../../../../Results/Filters/");
 
             
             

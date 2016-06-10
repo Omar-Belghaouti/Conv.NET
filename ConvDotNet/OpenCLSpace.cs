@@ -11,7 +11,7 @@ using OpenCL.Net.Extensions;
 namespace JaNet
 {
 
-    static class OpenCLSpace
+    public static class OpenCLSpace
     {
 
         #region Fields

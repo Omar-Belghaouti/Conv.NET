@@ -8,7 +8,7 @@ using OpenCL.Net;
 namespace JaNet
 {
     [Serializable]
-    class FullyConnectedLayer : Layer
+    public class FullyConnectedLayer : Layer
     {
 
         #region Fields

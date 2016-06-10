@@ -7,7 +7,7 @@ using OpenCL.Net;
 namespace JaNet
 {
     [Serializable]
-    class ResidualModule : Layer
+    public class ResidualModule : Layer
     {
         #region Fields
 

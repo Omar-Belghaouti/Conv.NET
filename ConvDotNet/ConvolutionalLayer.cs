@@ -9,7 +9,7 @@ using OpenCL.Net;
 namespace JaNet
 {
     [Serializable]
-    class ConvolutionalLayer : Layer
+    public class ConvolutionalLayer : Layer
     {
         
         #region Fields

@@ -9,7 +9,7 @@ namespace JaNet
 #if OPENCL_ENABLED
 
     [Serializable]
-    class BatchNormConv : Layer
+    public class BatchNormConv : Layer
     {
 
         #region Fields

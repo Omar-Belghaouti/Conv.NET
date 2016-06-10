@@ -10,7 +10,7 @@ using OpenCL.Net;
 namespace JaNet
 {
     [Serializable]
-    class DataSet
+    public class DataSet
     {
         // TODO: clean code
 

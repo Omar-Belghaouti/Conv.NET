@@ -8,7 +8,7 @@ using OpenCL.Net;
 namespace JaNet
 {
     [Serializable]
-    class ELU : Layer
+    public class ELU : Layer
     {
         #region Fields
 

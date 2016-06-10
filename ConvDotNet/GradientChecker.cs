@@ -7,7 +7,7 @@ using System.Diagnostics;
 
 namespace JaNet
 {
-    static class GradientChecker
+    public static class GradientChecker
     {
         const string typeToCheck = "Convolutional";
 

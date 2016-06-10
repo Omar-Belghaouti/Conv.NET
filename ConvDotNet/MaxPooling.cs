@@ -8,7 +8,7 @@ using OpenCL.Net;
 namespace JaNet
 {
     [Serializable]
-    class MaxPooling : Layer
+    public class MaxPooling : Layer
     {
         #region Fields
 

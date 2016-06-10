@@ -14,7 +14,7 @@ namespace JaNet
     /// It only contains output Neurons, which will be used to feed the data into the next layer.
     /// </summary>
     [Serializable]
-    class InputLayer : Layer
+    public class InputLayer : Layer
     {
         #region Fields
 

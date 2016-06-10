@@ -8,7 +8,7 @@ using OpenCL.Net;
 
 namespace JaNet
 { 
-    static class NetworkTrainer
+    public static class NetworkTrainer
     {
         #region Fields
 

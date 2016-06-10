@@ -7,7 +7,7 @@ using OpenCL.Net;
 
 namespace JaNet
 {
-    static class NetworkEvaluator
+    public static class NetworkEvaluator
     {
 
 

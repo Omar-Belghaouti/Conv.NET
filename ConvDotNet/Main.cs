@@ -5,9 +5,9 @@ using System.Text;
 using System.Threading.Tasks;
 using OpenCL.Net;
 
-namespace JaNet
+namespace Conv.NET
 {
-    class JaNetProgram
+    class MainProgram
     {
 
         static void Main(string[] args)
@@ -30,7 +30,7 @@ namespace JaNet
             * (1) Load data
             ******************************************************/
 
-            string imageColor = "GS2";
+            string imageColor = "none";
 
             #region DataImport
 
@@ -219,7 +219,7 @@ namespace JaNet
             Console.WriteLine("=========================================\n");
 
             // OPTION 1: Create a new network
-            
+            /*
             NeuralNetwork network = new NeuralNetwork("SimplerLeNet_WD1e-4");
 
             network.AddLayer(new InputLayer(1, 32, 32));
@@ -244,15 +244,15 @@ namespace JaNet
             network.AddLayer(new SoftMax());
 
             NetworkTrainer.TrainingMode = "new";
-           
+           */
 
             // OPTION 2: Load a network from file
-            /*
-            NeuralNetwork network = Utils.LoadNetworkFromFile(dirPath + "/Results/Networks/", "FIXED_VGGv2_RGB_DropoutFC");
+
+            NeuralNetwork network = Utils.LoadNetworkFromFile(dirPath + "/Results/Networks/", "LeNet_RGBb_Dropout");
             //network.Set("MiniBatchSize", 64); // this SHOULDN'T matter!
             //network.InitializeParameters("load");
             //NetworkTrainer.TrainingMode = "resume";
-            */
+            
 
 
 
@@ -267,7 +267,7 @@ namespace JaNet
             
             /*****************************************************
             * (4) Train network
-            ******************************************************/
+            ******************************************************
             Console.WriteLine("\n=========================================");
             Console.WriteLine("    Network training");
             Console.WriteLine("=========================================\n");
@@ -314,8 +314,8 @@ namespace JaNet
             bestNetwork.InitializeParameters("load");
             bestNetwork.Set("Inference", true);
 
-            double loss;
-            double error;
+            //double loss;
+            //double error;
             
             //NetworkEvaluator.EvaluateNetwork(bestNetwork, trainingSet, out loss, out error);
             //Console.WriteLine("\nTraining set:\n\tLoss = {0}\n\tError = {1}", loss, error);
@@ -323,8 +323,8 @@ namespace JaNet
             //NetworkEvaluator.EvaluateNetwork(bestNetwork, validationSet, out loss, out error);
             //Console.WriteLine("\nValidation set:\n\tLoss = {0}\n\tError = {1}\n\tAccuracy = {2}", loss, error, 100*(1-error));
 
-            NetworkEvaluator.EvaluateNetwork(bestNetwork, testSet, out loss, out error);
-            Console.WriteLine("\nTest set:\n\tLoss = {0}\n\tError = {1}\n\tAccuracy = {2}", loss, error, 100 * (1 - error));
+            //NetworkEvaluator.EvaluateNetwork(bestNetwork, testSet, out loss, out error);
+            //Console.WriteLine("\nTest set:\n\tLoss = {0}\n\tError = {1}\n\tAccuracy = {2}", loss, error, 100 * (1 - error));
             
             // Save misclassified examples
             //NetworkEvaluator.SaveMisclassifiedExamples(bestNetwork, trainingSet, "../../../../Results/MisclassifiedExamples/" + network.Name + "_training.txt");
@@ -332,7 +332,7 @@ namespace JaNet
             //NetworkEvaluator.SaveMisclassifiedExamples(bestNetwork, testSet, "../../../../Results/MisclassifiedExamples/" + network.Name + "_test.txt");
 
             // Save filters to file
-            //bestNetwork.SaveWeights("first", "../../../../Results/Filters/");
+            bestNetwork.SaveWeights("first", "../../../../Results/Filters/");
 
             
             

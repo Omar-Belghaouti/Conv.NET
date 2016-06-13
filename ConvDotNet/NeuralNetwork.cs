@@ -7,7 +7,7 @@ using System.Data;
 using System.Diagnostics;
 using OpenCL.Net;
 
-namespace JaNet
+namespace Conv.NET
 {
     [Serializable]
     public class NeuralNetwork
@@ -452,9 +452,6 @@ namespace JaNet
 
                 /* ------------------------- END DEBUGGING --------------------------------------------- */
 #endif
-
-                
-
             }
 
 

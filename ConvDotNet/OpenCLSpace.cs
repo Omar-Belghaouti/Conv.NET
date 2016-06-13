@@ -8,7 +8,7 @@ using OpenCL.Net;
 using OpenCL.Net.Extensions;
 
 
-namespace JaNet
+namespace Conv.NET
 {
 
     public static class OpenCLSpace

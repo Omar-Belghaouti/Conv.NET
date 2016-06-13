@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using OpenCL.Net;
 
-namespace JaNet
+namespace Conv.NET
 {
     [Serializable]
     public class ResidualModule : Layer

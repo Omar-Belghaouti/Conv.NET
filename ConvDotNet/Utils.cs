@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 using System.Diagnostics;
 using OpenCL.Net;
 
-namespace JaNet
+namespace Conv.NET
 {
 
     public static class Global
@@ -27,7 +27,7 @@ namespace JaNet
     }
 
 
-    static class Utils
+    public static class Utils
     {
         public static void SaveNetworkToFile(NeuralNetwork Network, string OutputFilePath)
         {

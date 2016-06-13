@@ -5,7 +5,7 @@ using System.Text;
 using System.Threading.Tasks;
 using OpenCL.Net;
 
-namespace JaNet
+namespace Conv.NET
 {
     //TODO: set input equal to output
 

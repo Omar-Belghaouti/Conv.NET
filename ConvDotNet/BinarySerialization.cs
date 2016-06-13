@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.IO;
 
-namespace JaNet
+namespace Conv.NET
 {
     /// <summary>
     /// Functions for performing common binary Serialization operations.

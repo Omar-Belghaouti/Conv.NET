@@ -6,7 +6,7 @@ using System.Diagnostics;
 using System.Threading.Tasks;
 using OpenCL.Net;
 
-namespace JaNet
+namespace Conv.NET
 { 
     public static class NetworkTrainer
     {

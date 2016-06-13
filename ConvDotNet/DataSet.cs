@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 using System.Globalization;
 using OpenCL.Net;
 
-namespace JaNet
+namespace Conv.NET
 {
     [Serializable]
     public class DataSet

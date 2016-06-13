@@ -1,0 +1,6 @@
+C:\Users\jacopo\Dropbox\Chalmers\MSc thesis\Conv.NET\Conv.NET\bin\Debug\Conv.NET.dll.config
+C:\Users\jacopo\Dropbox\Chalmers\MSc thesis\Conv.NET\Conv.NET\bin\Debug\Conv.NET.dll
+C:\Users\jacopo\Dropbox\Chalmers\MSc thesis\Conv.NET\Conv.NET\bin\Debug\Conv.NET.pdb
+C:\Users\jacopo\Dropbox\Chalmers\MSc thesis\Conv.NET\Conv.NET\bin\Debug\OpenCL.Net.dll
+C:\Users\jacopo\Dropbox\Chalmers\MSc thesis\Conv.NET\Conv.NET\obj\Debug\Conv.NET.dll
+C:\Users\jacopo\Dropbox\Chalmers\MSc thesis\Conv.NET\Conv.NET\obj\Debug\Conv.NET.pdb

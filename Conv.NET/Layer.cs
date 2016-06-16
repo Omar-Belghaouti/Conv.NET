@@ -28,11 +28,11 @@ namespace Conv.NET
         protected Neurons outputNeurons;
 
         protected int inputDepth;
-        protected int inputHeight; // assumed equal to inputWidth
+        protected int inputHeight;
         protected int inputWidth;
 
         protected int outputDepth;
-        protected int outputHeight; // assumed equal to outputWidth
+        protected int outputHeight;
         protected int outputWidth;
 
         #endregion
@@ -332,5 +332,6 @@ namespace Conv.NET
         }
 
         #endregion
+
     }
 }

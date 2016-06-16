@@ -2,7 +2,8 @@ __kernel void
 TanhForward(__global float * activations, 
 			__global float * preActivations, 
 			const float beta,
-			const int nActivations
+			const int nUnits,
+			const int miniBatchSize
 			) 		
 {
 	int iActivation = get_global_id(0);
@@ -12,10 +13,10 @@ TanhForward(__global float * activations,
 	// of this comparison is greatly compensated by the increased efficiency of using a local work size
 	// that is a multiple of WARP (Nvidia) / WAVEFRONT (AMD).
 	
-	if(iActivation < nActivations)
+	if(iActivation < nUnits*miniBatchSize)
 	{
 		float tmp = exp(2 * beta * preActivations[iActivation]);
-		activations[iActivation] = native_divide(tmp - 1, tmp + 1);
+		activations[iActivation] = (tmp - 1)/(tmp + 1);
 	}
 }
 
@@ -25,7 +26,8 @@ TanhBackward(	__global float * deltaX,
 				__global float * deltaY,
 				__global float * y,
 				const float beta,
-				const int nActivations
+				const int nUnits,
+				const int miniBatchSize
 				) 
 {
 	int iActivation = get_global_id(0);
@@ -35,8 +37,8 @@ TanhBackward(	__global float * deltaX,
 	// of this comparison is greatly compensated by the increased efficiency of using a local work size
 	// that is a multiple of WARP (Nvidia) / WAVEFRONT (AMD).
 	
-	if(iActivation < nActivations)
+	if(iActivation < nUnits*miniBatchSize)
 	{
-		deltaX[iActivation] = deltaY[iActivation] * (1 - pown(y[iActivation], 2) );
+		deltaX[iActivation] = deltaY[iActivation] * beta * (1 - (y[iActivation]*y[iActivation]) );
 	}
 }

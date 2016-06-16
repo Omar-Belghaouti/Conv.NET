@@ -113,8 +113,6 @@ namespace Conv.NET
         {
             this.type = "Convolutional";
 
-            //if (FilterSize % 2 != 1)
-            //    throw new ArgumentException("Only odd filter size is supported."); // ...why should it?
             this.filterSize = FilterSize;
             this.nFilters = nOfFilters;
             this.strideLength = StrideLength;
@@ -125,19 +123,26 @@ namespace Conv.NET
         public override void SetupOutput()
         {
             // Check that input is spatially square
-            if (inputHeight != inputWidth)
-                throw new ArgumentException("ConvolutionalLayer currently only supports square input (spatially).");
+            //if (inputHeight != inputWidth)
+            //    throw new ArgumentException("ConvolutionalLayer currently only supports square input (spatially).");
 
             // Setup output __________________________________________________________________________________________
 
             // Check if parameters fit
-            if (filterSize > inputWidth)
-                throw new System.ArgumentException("Filter size is larger than input spatial dimension!");
+            if (filterSize > inputWidth || filterSize > inputHeight)
+                throw new System.ArgumentException("Filter size is larger than an input spatial dimension!");
+            
             double tmp = (double)(inputWidth - filterSize + 2 * zeroPadding) / (double)strideLength + 1;
-            //if (Math.Abs(tmp % 1) > Global.EPSILON) 
-            //    throw new System.ArgumentException("Output size is non-integer. Check input size, filter size, padding and stride.");
+            if (Math.Abs(tmp % 1) > Global.EPSILON)
+                Console.WriteLine("WARNING: input width, filter size, padding and stride do not fit. Part of the input will be cropped!\nPress any key to continue...");
+                //throw new System.ArgumentException("Output size is non-integer. Check input size, filter size, padding and stride.");
             this.outputWidth = (int)tmp;
+
+            tmp = (double)(inputHeight - filterSize + 2 * zeroPadding) / (double)strideLength + 1;
+            if (Math.Abs(tmp % 1) > Global.EPSILON)
+                Console.WriteLine("WARNING: input height, filter size, padding and stride do not fit. Part of the input will be cropped!\nPress any key to continue...");
             this.outputHeight = (int)tmp;
+
             this.outputDepth = nFilters;
 
             this.nReceptiveFields = outputHeight * outputWidth;
@@ -200,23 +205,17 @@ namespace Conv.NET
                 // Set kernel arguments
                 OpenCLSpace.ClError = Cl.SetKernelArg(OpenCLSpace.CreatePaddingLookupTable, 0, paddingLookupTableGPU);
                 OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.CreatePaddingLookupTable, 1, (IntPtr)sizeof(int), inputWidth);
-                OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.CreatePaddingLookupTable, 2, (IntPtr)sizeof(int), inputDepth);
-                OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.CreatePaddingLookupTable, 3, (IntPtr)sizeof(int), zeroPadding);
+                OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.CreatePaddingLookupTable, 2, (IntPtr)sizeof(int), inputHeight);
+                OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.CreatePaddingLookupTable, 3, (IntPtr)sizeof(int), inputDepth);
+                OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.CreatePaddingLookupTable, 4, (IntPtr)sizeof(int), zeroPadding);
                 OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.SetKernelArg CreatePaddingLookupTable");
-
-                // These work group sizes have a limited scope and therefore they are not class fields
-                //IntPtr[] tmp1DLocalWorkSizePtr = new IntPtr[] { (IntPtr)OpenCLSpace.OPTIMAL_GROUP_SIZE };
-                //int smallestMultiple = (int)(OpenCLSpace.OPTIMAL_GROUP_SIZE *
-                //    Math.Ceiling((double)(inputDepth * inputHeight * inputWidth) / (double)OpenCLSpace.OPTIMAL_GROUP_SIZE));
-                //IntPtr[] tmp1DGlobalWorkSizePtr = new IntPtr[] { (IntPtr)smallestMultiple };
-                IntPtr[] tmp1DGlobalWorkSizePtr = new IntPtr[] { (IntPtr)nInputUnits };
 
                 // Run kernel
                 OpenCLSpace.ClError = Cl.EnqueueNDRangeKernel(OpenCLSpace.Queue,
                                                                 OpenCLSpace.CreatePaddingLookupTable,
                                                                 1,
                                                                 null,
-                                                                tmp1DGlobalWorkSizePtr,
+                                                                new IntPtr[] { (IntPtr)nInputUnits },
                                                                 null,
                                                                 0,
                                                                 null,
@@ -232,26 +231,20 @@ namespace Conv.NET
             // Set kernel arguments
             OpenCLSpace.ClError = Cl.SetKernelArg(OpenCLSpace.CreateRecFieldsLookupTable, 0, recFieldsLookupTableGPU);
             OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.CreateRecFieldsLookupTable, 1, (IntPtr)sizeof(int), inputWidth + 2 * zeroPadding);
-            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.CreateRecFieldsLookupTable, 2, (IntPtr)sizeof(int), outputWidth);
-            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.CreateRecFieldsLookupTable, 3, (IntPtr)sizeof(int), filterSize);
-            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.CreateRecFieldsLookupTable, 4, (IntPtr)sizeof(int), receptiveFieldSize);
-            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.CreateRecFieldsLookupTable, 5, (IntPtr)sizeof(int), strideLength);
+            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.CreateRecFieldsLookupTable, 2, (IntPtr)sizeof(int), inputHeight + 2 * zeroPadding);
+            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.CreateRecFieldsLookupTable, 3, (IntPtr)sizeof(int), outputWidth);
+            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.CreateRecFieldsLookupTable, 4, (IntPtr)sizeof(int), outputHeight);
+            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.CreateRecFieldsLookupTable, 5, (IntPtr)sizeof(int), filterSize);
+            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.CreateRecFieldsLookupTable, 6, (IntPtr)sizeof(int), receptiveFieldSize);
+            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.CreateRecFieldsLookupTable, 7, (IntPtr)sizeof(int), strideLength);
             OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.SetKernelArg CreateRecFieldsLookupTable");
-
-            // These work sizes have a limited scope and therefore they are not class fields
-            //int baseToOptimalFactor = OpenCLSpace.OPTIMAL_GROUP_SIZE / OpenCLSpace.BASE_GROUP_SIZE;
-            //IntPtr[] tmp2DLocalWorkSizePtr = new IntPtr[] { (IntPtr)baseToOptimalFactor, (IntPtr)OpenCLSpace.BASE_GROUP_SIZE };
-            //int smallestMultipleReceptiveFieldSize = (int)(baseToOptimalFactor * Math.Ceiling((double)receptiveFieldSize / (double)baseToOptimalFactor));
-            //int smallestMultipleNReceptiveFields = (int)(OpenCLSpace.BASE_GROUP_SIZE * Math.Ceiling((double)nReceptiveFields / (double)OpenCLSpace.BASE_GROUP_SIZE));
-            //IntPtr[] tmp2DGlobalWorkSizePtr = new IntPtr[] { (IntPtr)smallestMultipleReceptiveFieldSize, (IntPtr)smallestMultipleNReceptiveFields };
-            IntPtr[] tmp2DGlobalWorkSizePtr = new IntPtr[] { (IntPtr)receptiveFieldSize, (IntPtr)nReceptiveFields };
 
             // Run kernel
             OpenCLSpace.ClError = Cl.EnqueueNDRangeKernel(  OpenCLSpace.Queue,
                                                             OpenCLSpace.CreateRecFieldsLookupTable,
                                                             2,
                                                             null,
-                                                            tmp2DGlobalWorkSizePtr,
+                                                            new IntPtr[] { (IntPtr)receptiveFieldSize, (IntPtr)nReceptiveFields },
                                                             null,
                                                             0,
                                                             null,
@@ -466,8 +459,6 @@ namespace Conv.NET
         public override void FeedForward()
         {
 
-#if OPENCL_ENABLED
-
             // 1. Zero-pad input tensor (if necessary) _________________________________________________________
 #if TIMING_LAYERS
             Utils.ConvPadUnpadTimer.Start();
@@ -542,17 +533,6 @@ namespace Conv.NET
 
             OpenCLSpace.ClError = Cl.Finish(OpenCLSpace.Queue);
             OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.Finish");
-#else
-            for (int m = 0; m < inputNeurons.MiniBatchSize; m++)
-            {
-                if (zeroPadding > 0)
-                    paddedInput[m] = ZeroPadCPU(inputNeurons.GetHost()[m], zeroPadding, inputDepth, inputHeight, inputWidth);
-                else
-                    paddedInput[m] = inputNeurons.GetHost()[m];
-
-                outputNeurons.SetHost(m, ConvForwardCPU(paddedInput[m]));
-            }
-#endif
 
 #if TIMING_LAYERS
             Utils.ConvForwardTimer.Stop();
@@ -565,8 +545,6 @@ namespace Conv.NET
 #if TIMING_LAYERS
             Utils.ConvBackpropTimer.Start();
 #endif
-
-#if OPENCL_ENABLED
             // 1. Wipe out the buffer where we are going to write gradients wrt input
             // (this is important because gradients wrt different locations in receptive field will be cumulated!)
 
@@ -654,25 +632,6 @@ namespace Conv.NET
 
 
             }
-#else
-            for (int m = 0; m < inputNeurons.MiniBatchSize; m++)
-            {
-                // 1. Wipe out deltaX buffer (will be cumulated!)
-
-                //Array.Clear(paddedInput[m], 0, paddedInputSize); // no longer needed
-                
-                // 2. Backpropagate error
-
-                paddedInput[m] = ConvBackwardCPU(outputNeurons.DeltaHost[m]);
-
-                // 3. Unpad (if necessary)
-
-                if (zeroPadding > 0)
-                    inputNeurons.DeltaHost[m] = ZeroUnpadCPU(paddedInput[m]);
-                else
-                    inputNeurons.DeltaHost[m] = paddedInput[m];
-            } // end of loop over mini-batch
-#endif
 #if TIMING_LAYERS
             Utils.ConvPadUnpadTimer.Stop();
 #endif
@@ -687,8 +646,6 @@ namespace Conv.NET
 #if TIMING_LAYERS
             Utils.ConvUpdateSpeedsTimer.Start();
 #endif
-
-#if OPENCL_ENABLED
             // Set kernel arguments
             OpenCLSpace.ClError  = Cl.SetKernelArg(OpenCLSpace.ConvUpdateSpeeds, 0, weightsSpeedGPU);
             OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.ConvUpdateSpeeds, 1, biasesSpeedGPU);
@@ -735,37 +692,6 @@ namespace Conv.NET
             OpenCLSpace.ClError = Cl.Finish(OpenCLSpace.Queue);
             OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.Finish");
 
-#else
-
-            for (int m = 0; m < inputNeurons.MiniBatchSize; m++)
-            {
-                ConvGradientsCPU(ref weightsGradients, ref biasesGradients, outputNeurons.DeltaHost[m], paddedInput[m]);
-
-                //double gradientNorm = 0;
-
-                for (int iFilter = 0; iFilter < nFilters; iFilter++)
-                {
-                    for (int iElement = 0; iElement < receptiveFieldSize; iElement++)
-                    {
-                        weightsUpdateSpeed[iFilter, iElement] *= momentumCoefficient;
-                        weightsUpdateSpeed[iFilter, iElement] -= (learningRate * weightsGradients[iFilter, iElement]);
-                        //gradientNorm += Math.Pow(weightsGradients[iFilter, iElement], 2);
-                    }
-
-                    // update biases
-                    biasesUpdateSpeed[iFilter] *= momentumCoefficient;
-                    biasesUpdateSpeed[iFilter] -= (learningRate * biasesGradients[iFilter]);
-                }
-
-                //gradientNorm = Math.Sqrt(gradientNorm);
-
-                //Console.WriteLine("Layer {0}\n\tGradient norm: {1}", this.ID, gradientNorm);
-                //if (gradientNorm < Global.EPSILON)
-                    //Console.WriteLine("BUSTED");
-                    //System.Diagnostics.Debugger.Launch();
-            }
-#endif
-
 #if TIMING_LAYERS
             Utils.ConvUpdateSpeedsTimer.Stop();
 #endif
@@ -778,7 +704,6 @@ namespace Conv.NET
             Utils.ConvUpdateParametersTimer.Start();
 #endif
 
-#if OPENCL_ENABLED
             // Set kernel arguments
             OpenCLSpace.ClError  = Cl.SetKernelArg(OpenCLSpace.ConvUpdateParameters, 0, weightsGPU);
             OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.ConvUpdateParameters, 1, biasesGPU);
@@ -879,41 +804,10 @@ namespace Conv.NET
             OpenCLSpace.ClError = Cl.Finish(OpenCLSpace.Queue);
             OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.Finish");
 
-
-#else
-            //double weightNorm = 0;
-            //double updateNorm = 0;
-
-            for (int iFilter = 0; iFilter < nFilters; iFilter++)
-            {
-                // weights update
-
-                for (int iElement = 0; iElement < receptiveFieldSize; iElement++)
-                {
-                    //weightNorm += Math.Pow(weights[iFilter, iElement], 2);
-                    //updateNorm += Math.Pow(weightsUpdateSpeed[iFilter, iElement], 2);
-
-                    weights[iFilter, iElement] += weightsUpdateSpeed[iFilter, iElement];
-                    
-                }   
-
-                // update biases
-                biases[iFilter] += biasesUpdateSpeed[iFilter];
-            }
-
-            //weightNorm = Math.Sqrt(weightNorm);
-            //updateNorm = Math.Sqrt(updateNorm);
-
-            //Console.WriteLine("\tWeight norm: {0}\n\tSpeed norm: {1}\n\tRatio: {2}", weightNorm, updateNorm, updateNorm / weightNorm );
-            //Console.WriteLine("Speed/weight ratio: {0}", updateNorm / weightNorm);
-            //Console.ReadKey();
-#endif
-
 #if TIMING_LAYERS
             Utils.ConvUpdateParametersTimer.Stop();
 #endif
         }
-
         #endregion
 
 
@@ -1074,223 +968,6 @@ namespace Conv.NET
 
         #endregion
 
-
-        #region CPU private methods
-
-#if !OPENCL_ENABLED
-        private static double[] ZeroPadCPU(double[] array, int padding, int depth, int height, int width)
-        {
-            int area = height * width;
-            int volume = depth * height * width;
-            int nZerosTopRows = padding * (2 * padding + width);
-            int zerosPerSlice = 2 * padding * (height + width + 2 * padding);
-
-            double[] paddedArray = new double[depth * (height + 2 * padding) * (width + 2 * padding)];
-
-            // auxiliary variables
-            int iRow, iSlice, iOutput;
-
-            for (int iInput = 0; iInput < array.Length; iInput++)
-            {
-                iSlice = (iInput % volume) / area; // find index of channel within an input volume
-                iRow = (iInput % area) / width; // find index of row within an input channel
-                iOutput = zerosPerSlice * iSlice + nZerosTopRows + padding * (2 * iRow + 1) + iInput;
-
-                paddedArray[iOutput] = array[iInput];
-            }
-
-            return paddedArray;
-        }
-
-
-        private double[] ZeroUnpadCPU(double[] paddedArray)
-        {
-            int area = inputHeight * inputWidth;
-            int volume = inputDepth * inputHeight * inputWidth;
-            int nZerosTopRows = zeroPadding * (2 * zeroPadding + inputWidth);
-            int zerosPerSlice = 2 * zeroPadding * (inputHeight + inputWidth + 2 * zeroPadding);
-
-            double[] unpaddedArray = new double[volume];
-
-            // auxiliary variables
-            int iRow, iSlice, iPadded;
-
-            for (int iUnpadded = 0; iUnpadded < volume; iUnpadded++)
-            {
-                iSlice = (iUnpadded % volume) / area; // find index of channel within an input volume
-                iRow = (iUnpadded % area) / inputWidth; // find index of row within an input channel
-                iPadded = zerosPerSlice * iSlice + nZerosTopRows + zeroPadding * (2 * iRow + 1) + iUnpadded;
-
-                unpaddedArray[iUnpadded] = paddedArray[iPadded];
-            }
-
-            return unpaddedArray;
-        }
-
-        private int[,] CreateLookupTableCPU()
-        {
-            int nReceptiveFields = outputWidth * outputWidth;
-            int[,] lookupTable = new int[receptiveFieldSize, nReceptiveFields];
-
-            for (int i = 0; i < receptiveFieldSize; i++)
-            {
-                int iReceptiveFieldElement = i;
-
-                // 1. move to the beginning of channel that we are working on (using i)
-                int iChannel = i / (filterSize * filterSize);
-                int elementsPerChannel = inputWidth * inputWidth;
-                int iBeginningOfChannel = elementsPerChannel * iChannel;
-
-                // 3. now move to the correct position within the current receptive field (again, using i)
-                // (remember that we are already in the correct channel and receptive field!)
-                int iFilterRow = (i % (filterSize * filterSize)) / filterSize;
-                int iReceptiveFieldCol = i % filterSize;
-                int iWithinReceptiveField = inputWidth * iFilterRow + iReceptiveFieldCol;
-
-                for (int j = 0; j < nReceptiveFields; j++)
-                {
-                    int iReceptiveField = j;
-
-                    int iInput = 0; // will be incremented as we "zoom in" step by step
-
-                    // 0. move to the beginning of the example that we are working on (using j)
-                    // COMMENTED OUT: not parallelizing over mini-batches now
-                    //const int iExample = j / nReceptiveFields;
-                    //const int elementsPerExample = inputDepth * inputWidth * inputWidth;
-                    //const int iBeginningOfExample = iExample * elementsPerExample;
-                    //iInput += iBeginningOfExample;
-
-                    iInput += iBeginningOfChannel;
-
-                    iInput += iWithinReceptiveField;
-
-                    // 2. now move to the beginning of the receptive field that we are working on (using j)
-                    // (remember that we are already at the beginning of the correct channel!) 
-                    int iOutputRow = j / outputWidth;
-                    int iOutputCol = j % outputWidth;
-                    int iBeginningOfReceptiveField = iOutputRow * strideLength * inputWidth + strideLength * iOutputCol;
-
-                    iInput += iBeginningOfReceptiveField;
-
-                    lookupTable[iReceptiveFieldElement, iReceptiveField] = iInput;
-                }
-
-            }
-
-            return lookupTable;
-        }
-
-
-        private double[] ConvForwardCPU(double[] input)
-        {
-            double[] output = new double[nFilters * nReceptiveFields];
-
-            for (int iFilter = 0; iFilter < nFilters; iFilter++)
-            {
-                for (int iReceptiveField = 0; iReceptiveField < nReceptiveFields; iReceptiveField++)
-                {
-                    double sum = 0.0F;
-
-                    for (int iElement = 0; iElement < receptiveFieldSize; iElement++)
-                    {
-                        // Get filter element needed 
-                        double filterElement = weights[iFilter, iElement];
-
-                        // Get receptive field element needed, reading it from 
-                        // inputPadded indexed using the receptive field lookup table
-                        double receptiveFieldElement = input[lookupTable[iElement, iReceptiveField]];
-
-                        // Multiply & cumulate in sum
-                        sum += filterElement * receptiveFieldElement;
-                    }
-
-                    // Add bias
-                    sum += biases[iFilter];
-
-                    // Finally, write output buffer
-                    output[iFilter * nReceptiveFields + iReceptiveField] = sum;
-                }
-            }
-
-            return output;
-        }
-
-        private double[] ConvBackwardCPU(double[] deltaY)
-        {
-            double[] deltaX = new double[paddedInputSize];
-
-            for (int iElement = 0; iElement < receptiveFieldSize; iElement++)
-            {
-                for (int iReceptiveField = 0; iReceptiveField < nReceptiveFields; iReceptiveField++)
-                {
-                    double tmpDeltaX = 0.0F;
-
-                    for (int iFilter = 0; iFilter < nFilters; iFilter++)
-                    {
-                        // Get filter element from transpose of wSpeeds
-                        double filterElement = weights[iFilter, iElement];
-
-                        // Get error signal corresponding to this filter and this receptiveField
-                        double deltaElement = deltaY[iFilter * nReceptiveFields + iReceptiveField];
-
-                        // Multiply & cumulate in gradW
-                        tmpDeltaX += filterElement * deltaElement;
-                    }
-
-                    // Now cumulate this in correct place of deltaX (using lookup table)
-                    int inputLocation = lookupTable[iElement, iReceptiveField];
-                    deltaX[inputLocation] += tmpDeltaX;
-                }
-            }
-
-            return deltaX;
-        }
-
-        
-        private void ConvGradientsCPU(ref double[,] weightsGradients, ref double[] biasesGradients, double[] deltaY, double[] input)
-        {
-
-            for (int iFilter = 0; iFilter < nFilters; iFilter++)
-            {
-                for (int iElement = 0; iElement < receptiveFieldSize; iElement++)
-                {
-                    double tmpGradW = 0.0F;
-                    double tmpGradB = 0.0F;
-
-                    for(int iReceptiveField = 0; iReceptiveField < nReceptiveFields; iReceptiveField++)
-		            {
-			            // Get error signal corresponding to this filter and this receptiveField
-                        double deltaElement = deltaY[iFilter * nReceptiveFields + iReceptiveField];
-			
-			            // Get input value needed, reading it from transpose(input) indexed using the receptive field lookup table
-                        double inputElement = input[lookupTable[iElement, iReceptiveField]];
-			
-			            // Multiply & cumulate in gradW
-                        tmpGradW += deltaElement * inputElement;
-			
-			            // Once per filter, cumulate error signals in gradB
-			            if (iElement == 0)
-			            {
-                            tmpGradB += deltaElement;
-			            }
-		            }
-
-                    weightsGradients[iFilter, iElement] = tmpGradW;
-
-                    if (iElement == 0)
-                    {
-                        biasesGradients[iFilter] = tmpGradB;
-                    }
-
-                }
-            }
-
-
-        }
-        
-#endif
-
-        #endregion
 
 
     }

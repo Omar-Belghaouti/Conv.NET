@@ -73,7 +73,7 @@ namespace Conv.NET
             // Set kernel arguments
             OpenCLSpace.ClError = Cl.SetKernelArg(OpenCLSpace.TanhForward, 0, OutputNeurons.ActivationsGPU);
             OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.TanhForward, 1, InputNeurons.ActivationsGPU);
-            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.TanhForward, 2, (IntPtr)sizeof(float), beta);
+            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.TanhForward, 2, (IntPtr)sizeof(float), (float)beta);
             OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.TanhForward, 3, (IntPtr)sizeof(int), nInputUnits);
             OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.TanhForward, 4, (IntPtr)sizeof(int), inputNeurons.MiniBatchSize);
             OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Tanh.FeedForward(): Cl.SetKernelArg");
@@ -106,10 +106,10 @@ namespace Conv.NET
             OpenCLSpace.ClError  = Cl.SetKernelArg(OpenCLSpace.TanhBackward, 0, inputNeurons.DeltaGPU);
             OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.TanhBackward, 1, outputNeurons.DeltaGPU);
             OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.TanhBackward, 2, outputNeurons.ActivationsGPU);
-            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.TanhBackward, 3, (IntPtr)sizeof(float), beta);
+            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.TanhBackward, 3, (IntPtr)sizeof(float), (float)beta);
             OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.TanhBackward, 4, (IntPtr)sizeof(int), nInputUnits);
             OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.TanhBackward, 5, (IntPtr)sizeof(int), inputNeurons.MiniBatchSize);
-            OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Tanh.BackPropagate(): Cl.SetKernelArg");
+            OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Tanh.BackPropagate(): Cl.SetKernelArg"); 
 
             // Run kernel
             OpenCLSpace.ClError = Cl.EnqueueNDRangeKernel(  OpenCLSpace.Queue,

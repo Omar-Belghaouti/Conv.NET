@@ -15,7 +15,6 @@ namespace Conv.NET
         private int poolWidth;
         private int stride;
 
-#if OPENCL_ENABLED
         [NonSerialized]
         private Mem poolingTableGPU;
         [NonSerialized]
@@ -23,10 +22,6 @@ namespace Conv.NET
 
         private IntPtr[] globalWorkSizePtr;
         private IntPtr[] localWorkSizePtr;
-#else
-        private int[,] poolingTable;
-        private bool[] switches;
-#endif
 
         #endregion
 
@@ -56,11 +51,16 @@ namespace Conv.NET
         {
             // Check arguments _______________________________________________________________________________________
 
-            if (inputHeight != inputWidth)
-                throw new ArgumentException("MaxPooling currently only supports spatially square input.");
+            //if (inputHeight != inputWidth)
+            //    throw new ArgumentException("MaxPooling currently only supports spatially square input.");
 
             if (inputWidth % poolWidth != 0)
-                throw new ArgumentException("Cannot apply max pooling to input: pooling width and stride do not fit input width!");
+                Console.WriteLine("WARNING: Input width does not divide pooling width. Part of the input will be cropped!\nPress any key to continue...");
+
+            if (inputHeight % poolWidth != 0)
+                Console.WriteLine("WARNING: Input height does not divide pooling width. Part of the input will be cropped!\nPress any key to continue...");
+
+                //throw new ArgumentException("Cannot apply max pooling to input: pooling width and stride do not fit input width!");
 
 
             // Setup output __________________________________________________________________________________________
@@ -87,8 +87,12 @@ namespace Conv.NET
             OpenCLSpace.ClError = Cl.SetKernelArg(OpenCLSpace.CreateMaxPoolingTable, 0, poolingTableGPU);
             OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.CreateMaxPoolingTable, 1, (IntPtr)sizeof(int), stride);
             OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.CreateMaxPoolingTable, 2, (IntPtr)sizeof(int), inputWidth);
-            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.CreateMaxPoolingTable, 3, (IntPtr)sizeof(int), outputWidth);
+            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.CreateMaxPoolingTable, 3, (IntPtr)sizeof(int), inputHeight);
+            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.CreateMaxPoolingTable, 4, (IntPtr)sizeof(int), outputWidth);
+            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.CreateMaxPoolingTable, 5, (IntPtr)sizeof(int), outputHeight);
+            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.CreateMaxPoolingTable, 6, (IntPtr)sizeof(int), outputWidth*outputHeight);
             OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.SetKernelArg CreatePoolingTable");
+
 
             OpenCLSpace.ClError = Cl.EnqueueNDRangeKernel(  OpenCLSpace.Queue,
                                                             OpenCLSpace.CreateMaxPoolingTable,
@@ -124,8 +128,6 @@ namespace Conv.NET
         public override void SetWorkGroups()
         {
 
-            // TODO: method
-
             
 #if OPENCL_ENABLED
             // Work group sizes will be set as follows:
@@ -141,8 +143,7 @@ namespace Conv.NET
             this.localWorkSizePtr = new IntPtr[] { (IntPtr)OpenCLSpace.OPTIMAL_GROUP_SIZE };
 
             // Global
-            int totalWorkItemsNeeded = nOutputUnits * outputNeurons.MiniBatchSize;
-            int smallestMultipleOfLocal = (int)(OpenCLSpace.OPTIMAL_GROUP_SIZE * Math.Ceiling((double)(totalWorkItemsNeeded) / (double)OpenCLSpace.OPTIMAL_GROUP_SIZE));
+            int smallestMultipleOfLocal = (int)(OpenCLSpace.OPTIMAL_GROUP_SIZE * Math.Ceiling((double)(nOutputUnits * outputNeurons.MiniBatchSize) / (double)OpenCLSpace.OPTIMAL_GROUP_SIZE));
             this.globalWorkSizePtr = new IntPtr[] { (IntPtr)(smallestMultipleOfLocal) };
 #endif
              
@@ -152,7 +153,7 @@ namespace Conv.NET
         #endregion
 
 
-#region Methods
+        #region Methods
 
         public override void FeedForward()
         {
@@ -166,9 +167,9 @@ namespace Conv.NET
             OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.MaxPoolingForward, 2, switchesGPU);
             OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.MaxPoolingForward, 3, poolingTableGPU);
             OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.MaxPoolingForward, 4, (IntPtr)sizeof(int), nInputUnits);
-            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.MaxPoolingForward, 5, (IntPtr)sizeof(int), inputWidth * inputWidth);
+            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.MaxPoolingForward, 5, (IntPtr)sizeof(int), inputWidth * inputHeight);
             OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.MaxPoolingForward, 6, (IntPtr)sizeof(int), nOutputUnits);
-            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.MaxPoolingForward, 7, (IntPtr)sizeof(int), outputWidth * outputWidth);
+            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.MaxPoolingForward, 7, (IntPtr)sizeof(int), outputWidth * outputHeight);
             OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.MaxPoolingForward, 8, (IntPtr)sizeof(int), inputNeurons.MiniBatchSize);
             OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.SetKernelArg PoolingForward");
 
@@ -209,9 +210,9 @@ namespace Conv.NET
             OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.MaxPoolingBackward, 2, switchesGPU);
             OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.MaxPoolingBackward, 3, poolingTableGPU);
             OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.MaxPoolingBackward, 4, (IntPtr)sizeof(int), nInputUnits);
-            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.MaxPoolingBackward, 5, (IntPtr)sizeof(int), inputWidth * inputWidth);
+            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.MaxPoolingBackward, 5, (IntPtr)sizeof(int), inputWidth * inputHeight);
             OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.MaxPoolingBackward, 6, (IntPtr)sizeof(int), nOutputUnits);
-            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.MaxPoolingBackward, 7, (IntPtr)sizeof(int), outputWidth * outputWidth);
+            OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.MaxPoolingBackward, 7, (IntPtr)sizeof(int), outputWidth * outputHeight);
             OpenCLSpace.ClError |= Cl.SetKernelArg(OpenCLSpace.MaxPoolingBackward, 8, (IntPtr)sizeof(int), inputNeurons.MiniBatchSize);
             OpenCLSpace.CheckErr(OpenCLSpace.ClError, "Cl.SetKernelArg PoolingBackward");
 

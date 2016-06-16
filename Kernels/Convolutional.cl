@@ -19,7 +19,9 @@
 __kernel void 
 CreateRecFieldsLookupTable (__global int* recFieldLookupTable, // OUTPUT memory buffer. Size (in bytes): sizeof(int) * outputHeight * outputWidth * inputDepth * filterSize^2
 							const int inputWidth,  // width of input tensor, INCLUDING padding (i.e. originalInputWidth + 2 * zeroPadding) 
+							const int inputHeight, // height of input tensor, INCLUDING padding (i.e. originalInputHeight + 2 * zeroPadding)
 							const int outputWidth, // width of output tensor, i.e. (inputWidth - filterSize + 2 * zeroPadding) / (strideLength + 1) <--- make sure this is integer!
+							const int outputHeight, // height of output tensor, i.e. (inputWidth - filterSize + 2 * zeroPadding) / (strideLength + 1) <--- make sure this is integer!
 							const int filterSize,
 							const int receptiveFieldSize, // inputDepth * filterSize^2
 							const int stride
@@ -28,7 +30,7 @@ CreateRecFieldsLookupTable (__global int* recFieldLookupTable, // OUTPUT memory 
     int i = get_global_id(0);
     int j = get_global_id(1);
 	
-	const int nReceptiveFields = outputWidth * outputWidth;
+	const int nReceptiveFields = outputWidth * outputHeight;
 	
 	if (i < receptiveFieldSize && j < nReceptiveFields) // check if we are inside the matrix
 	{
@@ -40,14 +42,14 @@ CreateRecFieldsLookupTable (__global int* recFieldLookupTable, // OUTPUT memory 
 		
 		// 1, move to the beginning of channel that we are working on (using i)
 		const int iChannel = i / (filterSize * filterSize);
-		const int elementsPerChannel = inputWidth*inputWidth;
+		const int elementsPerChannel = inputWidth*inputHeight;
 		const int iBeginningOfChannel = elementsPerChannel * iChannel;
 		
 		iInput += iBeginningOfChannel;
 		
 		// 2, now move to the beginning of the receptive field that we are working on (using j)
 		// (remember that we are already at the beginning of the correct channel!) 
-		const int iOutputRow = j / outputWidth;
+		const int iOutputRow = j / outputHeight;
 		const int iOutputCol = j % outputWidth;
 		const int iBeginningOfReceptiveField = iOutputRow * stride * inputWidth + stride * iOutputCol;
 		
@@ -75,7 +77,8 @@ CreateRecFieldsLookupTable (__global int* recFieldLookupTable, // OUTPUT memory 
  */
 __kernel void 
 CreatePaddingLookupTable (	__global int* paddingLookupTable, // OUTPUT buffer. Size (in bytes): sizeof(int) * inputDepth * inputHeight * inputWidth 
-							const int unpaddedWidth, // inputWidth (only Height equal to Width is supported)
+							const int unpaddedWidth, // inputWidth
+							const int unpaddedHeight, // inputHeight
 							const int unpaddedDepth, // inputDepth
 							const int padding
 						)
@@ -83,10 +86,10 @@ CreatePaddingLookupTable (	__global int* paddingLookupTable, // OUTPUT buffer. S
 	const int iUnpadded = get_global_id(0); // index of input element within current example
 	
 	// 0, Compute some useful quantities
-		const int unpaddedArea = unpaddedWidth * unpaddedWidth;
+		const int unpaddedArea = unpaddedWidth * unpaddedHeight;
 		const int unpaddedVolume = unpaddedDepth * unpaddedArea;
 		const int nZerosTopRows = padding * (2 * padding + unpaddedWidth);
-		const int nZerosPerChannel = 4 * padding * (unpaddedWidth + padding);
+		const int nZerosPerChannel = 2 * padding * (unpaddedWidth + unpaddedHeight + 2 * padding);
 		
 	if (iUnpadded < unpaddedVolume) // this is important because of how local/global work sizes are set (more efficient)
 	{	
@@ -99,7 +102,7 @@ CreatePaddingLookupTable (	__global int* paddingLookupTable, // OUTPUT buffer. S
 		iPadded += nZerosPerChannel * iChannel;
 		
 		// 3, Find index of row that we are working on...
-		int iRow = (iUnpadded % unpaddedArea) / unpaddedWidth;
+		int iRow = (iUnpadded % unpaddedArea) / unpaddedHeight;
 		// ...and add the number of zeros padding all rows before this one
 		iPadded += nZerosTopRows + padding * (2*iRow + 1);
 		

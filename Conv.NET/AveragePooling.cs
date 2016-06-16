@@ -38,6 +38,8 @@ namespace Conv.NET
 
         public override void SetupOutput()
         {
+            if (inputHeight != inputWidth)
+                throw new ArgumentException("AveragePooling layer does not support non-square input yet.");
             this.inputArea = inputHeight * inputWidth; 
 
             // Setup output __________________________________________________________________________________________
@@ -92,7 +94,7 @@ namespace Conv.NET
         #endregion
 
 
-#region Methods
+        #region Methods
 
         public override void FeedForward()
         {

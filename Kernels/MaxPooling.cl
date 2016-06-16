@@ -2,8 +2,11 @@ __kernel void
 CreateMaxPoolingTable(	__global int * poolingTable,		
 					const int stride,
 					const int inputWidth,
-					const int outputWidth
-			)
+					const int inputHeight,
+					const int outputWidth,
+					const int outputHeight,
+					const int outputArea
+					)
 {
 
 	const int i = get_global_id(0); // index of output activation
@@ -13,11 +16,9 @@ CreateMaxPoolingTable(	__global int * poolingTable,
 	// of this comparison is greatly compensated by the increased efficiency of using a local work size
 	// that is a multiple of WARP (Nvidia) / WAVEFRONT (AMD),
 	
-	const int outputArea = outputWidth * outputWidth;
-	
 	if(i < outputArea)
 	{
-		int iOutputRow = i / outputWidth;
+		int iOutputRow = i / outputHeight;
 		int iOutputCol = i % outputWidth;
 		
 		int iInputTopLeft = iOutputRow * stride * inputWidth + iOutputCol * stride;

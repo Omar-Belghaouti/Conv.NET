@@ -37,6 +37,24 @@ namespace Conv.NET
             set { this.dropoutParameter = value; }
         }
 
+        public int DataDepth
+        {
+            set 
+            { 
+                this.imageChannels = value; 
+                inputDepth = value; 
+            }
+        }
+
+        public int DataHeight
+        {
+            set { this.imageHeight = value; }
+        }
+
+        public int DataWidth
+        {
+            set { this.imageWidth = value; }
+        }
 
         #endregion
 
@@ -49,12 +67,12 @@ namespace Conv.NET
         /// <param name="DataDepth"></param>
         /// <param name="DataHeight"></param>
         /// <param name="DataWidth"></param>
-        public InputLayer(int DataDepth, int DataHeight, int DataWidth)
+        public InputLayer(int DataDepth, int DataWidth, int DataHeight)
         {
             this.type = "Input";
 
-            if (DataHeight != DataWidth)
-                throw new ArgumentException("Non-square input images are currently not supported.");
+            //if (DataHeight != DataWidth)
+            //    throw new ArgumentException("Non-square input images are currently not supported.");
 
             this.imageChannels = DataDepth;
             this.imageHeight = DataHeight;

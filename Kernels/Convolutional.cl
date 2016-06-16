@@ -27,6 +27,8 @@ CreateRecFieldsLookupTable (__global int* recFieldLookupTable, // OUTPUT memory 
 							const int stride
 							)
 {
+	// Global work size should be >= {receptiveFieldSize, nReceptiveFields}
+	// i.e. {inputDepth * filterSize^2, outputWidth * outputHeight}
     int i = get_global_id(0);
     int j = get_global_id(1);
 	
@@ -82,7 +84,9 @@ CreatePaddingLookupTable (	__global int* paddingLookupTable, // OUTPUT buffer. S
 							const int unpaddedDepth, // inputDepth
 							const int padding
 						)
-{
+						
+	// Global work size should be >= unpaddedVolume, i.e. inputDepth*inputWidth*inputHeight
+	
 	const int iUnpadded = get_global_id(0); // index of input element within current example
 	
 	// 0, Compute some useful quantities
@@ -128,6 +132,8 @@ CreatePaddingLookupTable (	__global int* paddingLookupTable, // OUTPUT buffer. S
 			const int miniBatchSize
 			)
 {	
+	// Global work size should be >= unpaddedVolume*miniBatchSize, i.e. inputDepth*inputWidth*inputHeight*miniBatchSize
+
 	const int iUnpadded = get_global_id(0);
 	
 	if (iUnpadded < unpaddedVolume * miniBatchSize) // this is important because of how local/global work sizes are set (more efficient)
@@ -163,6 +169,8 @@ CreatePaddingLookupTable (	__global int* paddingLookupTable, // OUTPUT buffer. S
 			const int miniBatchSize
 			)
 {	
+	// Global work size should be >= unpaddedVolume*miniBatchSize, i.e. inputDepth*inputWidth*inputHeight*miniBatchSize
+	
 	const int iUnpadded = get_global_id(0);
 		
 	if (iUnpadded < unpaddedVolume * miniBatchSize) // this is important because of how local/global work sizes are set (more efficient)
@@ -206,6 +214,8 @@ ConvForward(__global float * outputBatch, // OUTPUT: tensor of output activation
 				)
 {
 
+	// Global work size should be >= {nFilters * miniBatchSize, outputHeight * outputWidth}
+	
 	const int iRow = get_global_id(0); // index of output row (corresponds to one filter)
 	const int iReceptiveField = get_global_id(1); // index of output col (corresponds to a receptive field)
 	
@@ -318,7 +328,8 @@ ConvBackPropagate(	__global float * deltaInputBatch, 	// OUTPUT: tensor of gradi
 					__global bool * dropoutMask			// Dropout mask generated in ConvForward()
 					)
 {
-
+	// Global group size should be >= {inputDepth * filterSize^2 * miniBatchSize, outputHeight * outputWidth}
+	
 	const int iRow = get_global_id(0); // index of output row
 	const int iReceptiveField = get_global_id(1); // index of output col (corresponds to a receptive field)
 	
@@ -396,6 +407,8 @@ __kernel void ConvUpdateSpeeds(	__global float * wSpeeds, 			// OUTPUT: weights 
 								)
 {
 
+	// Global group size should be >= {nFilters, outputHeight * outputWidth, inputDepth * filterSize^2}
+	
 	const int iFilter = get_global_id(0); // index of output row (corresponds to one filter)
 	const int iElement = get_global_id(1); // index of output col (corresponds to an element of receptive field of filter iFilter)
 	
@@ -504,6 +517,8 @@ ConvUpdateParameters(	__global float * w,				// arg 0
 					)
 					
 {
+	// Global group size should be >= {nFilters, outputHeight * outputWidth, inputDepth * filterSize^2}
+	
 	const int iFilter = get_global_id(0); // index of output row (corresponds to one filter)
 	const int iElement = get_global_id(1); // index of output col (corresponds to an element of receptive field iFilter)
 	

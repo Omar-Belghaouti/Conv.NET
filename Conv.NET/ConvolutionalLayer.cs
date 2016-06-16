@@ -14,33 +14,32 @@ namespace Conv.NET
         
         #region Fields
 
-        private int filterSize; // F
-        private int nFilters; // K
-        private int strideLength; // S
-        private int zeroPadding; // P
+        // Layer's hyperparameters
+        private int filterSize;
+        private int nFilters;
+        private int strideLength;
+        private int zeroPadding;
 
-        private int receptiveFieldSize; // i.e. [outputDepth * filterSize^2]
-        private int nReceptiveFields; // i.e. output depth
 
         private double dropoutParameter;
 
-        // aux
-        private int unpaddedVolume;
-        private int paddedVolume;
+        // Auxiliary variables
+        private int unpaddedVolume; // i.e. inputDepth * inputHeight * inputWidth
+        private int paddedVolume; // i.e.  inputDepth * (inputHeight + 2 * zeroPadding) * (inputWidth + 2 * zeroPadding);
+        private int receptiveFieldSize; // i.e. outputDepth * filterSize^2
+        private int nReceptiveFields; // i.e. outputHeight * outputWidth
 
-        // Host
-
+        // Host parameters (needed to save and load network)
         private float[] weightsHost;
         private float[] biasesHost;
 
-        // Device
-
+        // Device fields
         [NonSerialized]
-        private Mem paddedInputBatchGPU;
+        private Mem paddedInputBatchGPU; // padded tensor of input activations
         [NonSerialized]
-        private Mem paddingLookupTableGPU;
+        private Mem paddingLookupTableGPU; // mapping table for zero-padding
         [NonSerialized]
-        private Mem recFieldsLookupTableGPU;
+        private Mem recFieldsLookupTableGPU;  // mapping table from input tensor to matrix of receptive fields
 
         [NonSerialized]
         private Mem weightsGPU;

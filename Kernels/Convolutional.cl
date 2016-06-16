@@ -1,9 +1,27 @@
+/********************************************************************************************
+* NOTE: 
+* In comments, the word OUTPUT denotes that the kernel argument is actually an output argument
+* for the kernel. Attention: this does not necessarily mean that the argument is an output
+* object for the layer!
+*
+**********************************************************************************************/
+
+
+
+
+/*
+ * CreateRecFieldsLookupTable()
+ * Creates a lookup table for accessing the array of input activations "inputNeurons.ActivationsGPU"
+ * AS IF it was reshaped into a set of matrix of unrolled receptive fields.
+ * This table is needed in kernels ConvForward, ConvBackPropagate, ConvUpdateSpeeds.
+ * To be called ONCE, when the layer is initialised.
+ */
 __kernel void 
-CreateRecFieldsLookupTable (__global int* recFieldLookupTable,
-							const int inputWidth,  // already takes the padding into account
-							const int outputWidth, // already takes the stride into account
+CreateRecFieldsLookupTable (__global int* recFieldLookupTable, // OUTPUT memory buffer. Size (in bytes): sizeof(int) * outputHeight * outputWidth * inputDepth * filterSize^2
+							const int inputWidth,  // width of input tensor, INCLUDING padding (i.e. originalInputWidth + 2 * zeroPadding) 
+							const int outputWidth, // width of output tensor, i.e. (inputWidth - filterSize + 2 * zeroPadding) / (strideLength + 1) <--- make sure this is integer!
 							const int filterSize,
-							const int receptiveFieldSize,
+							const int receptiveFieldSize, // inputDepth * filterSize^2
 							const int stride
 							)
 {
@@ -49,10 +67,16 @@ CreateRecFieldsLookupTable (__global int* recFieldLookupTable,
 }
 
 
+/*
+ * CreatePaddingLookupTable()
+ * Creates a lookup table for padding the input tensor with a frame of zeros.
+ * This table is needed in kernels ZeroPad and ZeroUnpad.
+ * To be called ONCE, when the layer is initialised.
+ */
 __kernel void 
-CreatePaddingLookupTable (	__global int* paddingLookupTable,
-							const int unpaddedWidth, // only Height equal to Width is supported
-							const int unpaddedDepth,
+CreatePaddingLookupTable (	__global int* paddingLookupTable, // OUTPUT buffer. Size (in bytes): sizeof(int) * inputDepth * inputHeight * inputWidth 
+							const int unpaddedWidth, // inputWidth (only Height equal to Width is supported)
+							const int unpaddedDepth, // inputDepth
 							const int padding
 						)
 {
@@ -69,14 +93,14 @@ CreatePaddingLookupTable (	__global int* paddingLookupTable,
 		// 1, Initialize iPadded equal to iUnpadded
 		int iPadded = iUnpadded;
 		
-		// 2, Find index of unpadded slice/channel that we are working on,,,
+		// 2, Find index of unpadded slice/channel that we are working on...
 		int iChannel = (iUnpadded % unpaddedVolume) / unpaddedArea;
-		/// ,,,and add the number of zeros padding all channels before this one
+		/// ...and add the number of zeros padding all channels before this one
 		iPadded += nZerosPerChannel * iChannel;
 		
-		// 3, Find index of row that we are working on,,,
+		// 3, Find index of row that we are working on...
 		int iRow = (iUnpadded % unpaddedArea) / unpaddedWidth;
-		// ,,,and add the number of zeros padding all rows before this one
+		// ...and add the number of zeros padding all rows before this one
 		iPadded += nZerosTopRows + padding * (2*iRow + 1);
 		
 		// 4, Finally, write the resulting index in the lookup table
@@ -87,16 +111,17 @@ CreatePaddingLookupTable (	__global int* paddingLookupTable,
 
 
 /* 
- * OpenCL kernel for zero-padding an input vector containing a mini-batch
- * Entries of the input arrays are rewritten to a new position, accounting for padding,
+ * ZeroPad()
+ * Pads the input tensor (unrolled in array inputBatch) with zeros, around its spatial dimensions.
+ * To be called in the forward pass, before kernel ConvForward.
  */
  
  __kernel void 
- ZeroPad(	__global float* paddedInputBatch,
-			__global float* inputBatch,
-			__global int* paddingLookupTable,
-			const int unpaddedVolume,
-			const int paddedVolume,
+ ZeroPad(	__global float* paddedInputBatch, // OUTPUT tensor of activations
+			__global float* inputBatch, // Input tensor of activations
+			__global int* paddingLookupTable, // Lookup table created with CreatePaddingLookupTable
+			const int unpaddedVolume, // inputDepth * inputHeight * inputWidth
+			const int paddedVolume, // inputDepth * (inputHeight + 2 * zeroPadding) * (inputWidth + 2 * zeroPadding)
 			const int miniBatchSize
 			)
 {	
@@ -121,15 +146,17 @@ CreatePaddingLookupTable (	__global int* paddingLookupTable,
 
 
 /* 
- * OpenCL kernel for UNpadding vector "paddedArrayBatch",
+ * ZeroUnpad()
+ * Un-pads the (padded) tensor of gradients with respect to the input units.
+ * To be called in the backward pass, before kernel ConvBackPropagate.
  */
  
  __kernel void 
- ZeroUnpad(__global float* unpaddedArrayBatch,
-			__global float* paddedArrayBatch,
-			__global int* paddingLookupTable,
-			const int unpaddedVolume,
-			const int paddedVolume,
+ ZeroUnpad(__global float* unpaddedArrayBatch, // OUTPUT: array of gradients with respect to the input units, unpadded
+			__global float* paddedArrayBatch, // Array of gradients with respect to the input units, padded
+			__global int* paddingLookupTable, // Lookup table created with CreatePaddingLookupTable
+			const int unpaddedVolume, // inputDepth * inputHeight * inputWidth
+			const int paddedVolume, // inputDepth * (inputHeight + 2 * zeroPadding) * (inputWidth + 2 * zeroPadding)
 			const int miniBatchSize
 			)
 {	
@@ -154,26 +181,25 @@ CreatePaddingLookupTable (	__global int* paddingLookupTable,
 
 
 /* 
- * OpenCL kernel for forward pass of ConvolutionalLayer class,
- * implemented as a matrix multiplication between a filter matrix and a matrix of input receptive fields,
- * constructed on-the-fly using a pre-constructed "lookup table", Then biases are added, 
- * Input/output arrays actually contain a mini-batch of i/o examples,
+ * ConvForward()
+ * Forward pass of the ConvolutionalLayer class, implemented as set of matrix multiplications between a filter matrix 
+ * and matrices of unrolled input receptive fields constructed on-the-fly using a pre-constructed lookup table.
  */
 
 __kernel void 
-ConvForward(__global float * outputBatch,
-			__global float * inputBatch, // already padded (if necessary)
-			__global int * lookupTable, 
-			__global float * weights,
-			__global float * biases,
+ConvForward(__global float * outputBatch, // OUTPUT: tensor of output activations
+			__global float * inputBatch, // Tensor of input activation (possibly PADDED)
+			__global int * lookupTable, // Lookup table created by CreateRecFieldsLookupTable
+			__global float * weights, // weight matrix (GPU buffer)
+			__global float * biases, // biases (GPU buffer)
 			const int nFilters, 		
-			const int receptiveFieldSize,
-			const int nReceptiveFields,
-			const int inputVolume,
+			const int receptiveFieldSize, // inputDepth * filterSize * filterSize
+			const int nReceptiveFields, // outputHeight * outputWidth
+			const int inputVolume, // PADDED input volume, i.e. inputDepth * (inputHeight + 2 * zeroPadding) * (inputWidth + 2 * zeroPadding)
 			const int miniBatchSize,
-			__global bool * dropoutMask,
-			const float dropoutParameter,
-			const ulong randomSeed
+			__global bool * dropoutMask, // OUTPUT dropout mask, created by sampling a pseudo-random number on the GPU (this is bad, but works well)
+			const float dropoutParameter, 
+			const ulong randomSeed // global seed for the pseudo-random umber generator
 				)
 {
 
@@ -204,11 +230,12 @@ ConvForward(__global float * outputBatch,
 		if (dropoutParameter < 1.0F)
 		{
 			// generate a pseudo-random number here, mimicking Java RNG
-			ulong thisSeed = randomSeed + iOutput;
+			ulong thisSeed = randomSeed + iOutput; // every unit will use a slightly different seed...
 			thisSeed = (thisSeed * 0x5DEECE66DL + 0xBL) & ((1L << 48) - 1);
 			uint pseudoRandomInt = thisSeed >> 16;
 			for (int j = 0; j < 6; ++j)
 			{
+				// ...but this slight difference will then be amplified, by repeating this a few times
 				thisSeed = pseudoRandomInt;
 				thisSeed = (thisSeed * 0x5DEECE66DL + 0xBL) & ((1L << 48) - 1);
 				pseudoRandomInt = thisSeed >> 16;
@@ -249,17 +276,8 @@ ConvForward(__global float * outputBatch,
 	}
 }
 
-
-/* 
- * OpenCL kernel for gradient backpropagation in convolutional layers (deltaY to deltaX)
- * implemented as a matrix multiplication between transpose(weights) and deltaY, Results 
- * are written directly into deltaX (and not into a deltaReceptiveFields matrix), using
- * the pre-computed lookup table, For this reason, it is IMPORTANT to remember to wipe off
- * deltaX (write zeros) before calling this kernel, 
- * All of this is done in parallel across a mini-batch of output gradients,
- */
-
- // Atomic addition for floats (needed in kernel)
+ // Atomic addition for floats,needed in kernel ConvBackPropagate()
+ // NOTE: This is a bit slow, but I didn't found any other solution yet.
 inline void AtomicAdd(volatile __global float *addr, float val)
    {
        union{
@@ -275,17 +293,26 @@ inline void AtomicAdd(volatile __global float *addr, float val)
        } while( current.u32 != expected.u32 );
    }
    
+   
+/* 
+ * ConvBackPropagate()
+ * Gradient backpropagation in convolutional layers (deltaY to deltaX),
+ * implemented as a matrix multiplication between transpose(weights) and deltaY, Results 
+ * are written directly into deltaX (and not into a deltaReceptiveFields matrix), using
+ * the pre-computed lookup table, For this reason, it is important to wipe deltaX (writing zeros) 
+ * in the host code before calling this kernel.
+ */
 __kernel void 
-ConvBackPropagate(	__global float * deltaInputBatch,
-					const int inputVolume,				// this already includes padding, if any!!
-					__global float * deltaOutputBatch,
-					__global float * weights,
-					__global int * recFieldslookupTable,
-					const int nFilters, 		
-					const int receptiveFieldSize,
-					const int nReceptiveFields,
+ConvBackPropagate(	__global float * deltaInputBatch, 	// OUTPUT: tensor of gradients with respect to input units 
+					const int inputVolume,				// PADDED input volume, i.e. inputDepth * (inputHeight + 2 * zeroPadding) * (inputWidth + 2 * zeroPadding)
+					__global float * deltaOutputBatch,	// Tensor of gradients with respect to output units 
+					__global float * weights,			// weight matrix (GPU buffer)
+					__global int * recFieldslookupTable,// Lookup table created by CreateRecFieldsLookupTable
+					const int nFilters, 				// i.e. number of of feature maps
+					const int receptiveFieldSize,		// inputDepth * filterSize * filterSize
+					const int nReceptiveFields,			// outputHeight * outputWidth
 					const int miniBatchSize,
-					__global bool * dropoutMask
+					__global bool * dropoutMask			// Dropout mask generated in ConvForward()
 					)
 {
 
@@ -341,27 +368,27 @@ ConvBackPropagate(	__global float * deltaInputBatch,
 
 
 /* 
- * OpenCL kernel for updating weights/biases speed in Convolutional layers
- * using the gradient computed with backpropagation, for a mini-batch
- * of inputs / delta signals,
+ * ConvUpdateSpeeds()
+ * Updates weights and biases speed in convolutional layers. These speeds will be then used to update
+ * parameters in kernel ConvUpdateSpeeds(), using the momentum update rule
  */
 
-__kernel void ConvUpdateSpeeds(	__global float * wSpeeds,
-								__global float * bSpeeds,
-								__global float * wGrad,
-								__global float * bGrad,
-								__global float * deltaOutputBatch,
-								__global float * inputBatch,		// either padded or unpadded! Set argument accordingly
-								const int inputVolume, 				// either padded or unpadded! Set argument accordingly
-								__global int * recFieldsLookupTable,
+__kernel void ConvUpdateSpeeds(	__global float * wSpeeds, 			// OUTPUT: weights update speeds
+								__global float * bSpeeds,			// OUTPUT: biases update speeds
+								__global float * wGrad,				// OUTPUT: gradient wrt weights
+								__global float * bGrad,				// OUTPUT: gradient wrt biases
+								__global float * deltaOutputBatch,	// Tensor of gradients with respect to output units 
+								__global float * inputBatch,		// Tensor of input activation (possibly PADDED)
+								const int inputVolume, 				// PADDED input volume, i.e. inputDepth * (inputHeight + 2 * zeroPadding) * (inputWidth + 2 * zeroPadding)
+								__global int * recFieldsLookupTable,// Lookup table created by CreateRecFieldsLookupTable
 								const int nFilters, 		
-								const int receptiveFieldSize,
-								const int nReceptiveFields,
+								const int receptiveFieldSize,		// inputDepth * filterSize * filterSize
+								const int nReceptiveFields,			// outputHeight * outputWidth
 								const float momCoeff,
 								const float learningRate,
 								const int miniBatchSize,
-								__global bool * dropoutMask,
-								__global float * weights,
+								__global bool * dropoutMask,		// Dropout mask generated in ConvForward()
+								__global float * weights,			// weight matrix (GPU buffer)
 								const float weightDecayCoeff
 								)
 {
@@ -458,6 +485,11 @@ __kernel void ConvUpdateSpeeds(	__global float * wSpeeds,
 	}
 }
 
+
+/* 
+ * ConvUpdateParameters()
+ * Updates weights and biases using pre-calculated update speeds (momentum update rule).
+ */
 
 __kernel void 
 ConvUpdateParameters(	__global float * w,				// arg 0

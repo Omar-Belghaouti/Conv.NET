@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 using OpenCL.Net;
 
 namespace Conv.NET
-{ 
+{
     public static class NetworkTrainer
     {
         #region Fields
@@ -38,7 +38,7 @@ namespace Conv.NET
         private static double errorTraining;
         private static double errorValidation;
         private static double newErrorValidation;
-        
+
         // auxiliary fields
         private static string trainingMode;
 
@@ -91,13 +91,13 @@ namespace Conv.NET
         public static int MiniBatchSize
         {
             get { return miniBatchSize; }
-            set 
+            set
             {
 #if OPENCL_ENABLED
                 if (OpenCLSpace.OPTIMAL_GROUP_SIZE % value != 0)
                     throw new ArgumentException("OPTIMAL_GROUP_SIZE should divide miniBatchSize.");
 #endif
-                miniBatchSize = value; 
+                miniBatchSize = value;
             }
         }
 
@@ -191,7 +191,7 @@ namespace Conv.NET
         {
             set { maxConsecutiveAnnealings = value; }
         }
-        
+
         public static string TrainingMode
         {
             set { trainingMode = value; }
@@ -202,7 +202,7 @@ namespace Conv.NET
 
         public static void Train(NeuralNetwork network, DataSet trainingSet, DataSet validationSet)
         {
-            
+
 
             // Initialize parameters or load them
             if (trainingMode == "new" || trainingMode == "New")
@@ -215,13 +215,13 @@ namespace Conv.NET
                 network.InitializeParameters("load");
             else
                 throw new InvalidOperationException("Please set TrainingMode to either ''New'' or ''Resume''.");
-            
+
             // Set dropout
             network.Set("DropoutFC", dropoutFC);
             network.Set("DropoutConv", dropoutConv);
             network.Set("DropoutInput", dropoutInput);
 
-            Sequence indicesSequence = new Sequence(trainingSet.Size);
+            Sequence indicesSequence = new Sequence(trainingSet.DataContainer.Count);
             int[] miniBatch = new int[miniBatchSize];
 
             // Timers
@@ -235,11 +235,11 @@ namespace Conv.NET
             int consecutiveAnnealingCounter = 0;
             bool stopFlag = false;
             int epochsRemainingToOutput = (evaluateBeforeTraining == true) ? 0 : consoleOutputLag;
-            
+
 
             while (!stopFlag) // begin loop over training epochs
             {
-                
+
                 if (epochsRemainingToOutput == 0)
                 {
                     /**************
@@ -306,13 +306,13 @@ namespace Conv.NET
                                 // Decrease learning rate
                                 Console.WriteLine("...and I've run out of patience!");
 
-                                if (consecutiveAnnealingCounter  > maxConsecutiveAnnealings)
+                                if (consecutiveAnnealingCounter > maxConsecutiveAnnealings)
                                 {
                                     Console.WriteLine("\nReached the numner of maximum consecutive annealings without progress. \nTraining ends here.");
-                                    break;        
+                                    break;
                                 }
 
-                                Console.WriteLine("\nI'm annealing the learning rate:\n\tWas {0}\n\tSetting it to {1}.", learningRate, learningRate/learningRateDecayFactor);
+                                Console.WriteLine("\nI'm annealing the learning rate:\n\tWas {0}\n\tSetting it to {1}.", learningRate, learningRate / learningRateDecayFactor);
                                 learningRate /= learningRateDecayFactor;
                                 consecutiveAnnealingCounter++;
 
@@ -364,7 +364,7 @@ namespace Conv.NET
 
                 int iMiniBatch = 0;
                 // Run over mini-batches 
-                for (int iStartMiniBatch = 0; iStartMiniBatch < trainingSet.Size; iStartMiniBatch += miniBatchSize)
+                for (int iStartMiniBatch = 0; iStartMiniBatch < trainingSet.DataContainer.Count; iStartMiniBatch += miniBatchSize)
                 {
                     // Feed a mini-batch to the network
                     miniBatch = indicesSequence.GetMiniBatchIndices(iStartMiniBatch, miniBatchSize);
@@ -427,15 +427,15 @@ namespace Conv.NET
 
                 Utils.ResetTimers();
 #endif
-                
 
-                
+
+
 
             }
 
             stopwatch.Stop();
 
-        
+
         }
 
 

@@ -1,135 +1,53 @@
-﻿using System;
+﻿using OpenCL.Net;
+using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.IO;
-using System.Threading.Tasks;
+using System.Drawing;
+using System.Drawing.Imaging;
 using System.Globalization;
-using OpenCL.Net;
+using System.IO;
 
 namespace Conv.NET
 {
     [Serializable]
     public class DataSet
     {
-        // TODO: clean code
+        #region Publicly accessible data
+        public int DataDimension { get; private set; }
 
-        #region Fields
+        public int NumberOfClasses { get; private set; }
 
-        private int size;
-        private int nClasses;
-        private int dataDimension;
-
-#if OPENCL_ENABLED
-        private List<Mem> dataGPU;
-        //private List<Mem> labelsGPU;
-        //private List<Mem> labelArraysGPU;
-#else
-        private List<double[]> data;
-        //private List<int[]> labelArrays;
-#endif
-
-        private List<int> labels;
-
+        public List<DataItem> DataContainer { get; private set; }
         #endregion
-
-
-        #region Properties
-
-        public int Size
-        {
-            get { return size; }
-        }
-
-        public int NumberOfClasses
-        {
-            get { return nClasses; }
-        }
-
-        public int DataDimension
-        {
-            get { return dataDimension; }
-        }
-
-        public List<int> Labels
-        {
-            get { return this.labels; }
-        }
-
-#if OPENCL_ENABLED
-
-        public List<Mem> DataGPU
-        {
-            get{ return this.dataGPU; }
-        }
-
-        /*
-        public List<Mem> LabelsGPU
-        {
-            get { return this.labelsGPU; }
-        }
-
-        public Mem LabelArraysGPU(int iExample)
-        {
-            return labelArraysGPU[iExample];
-        }
-        */
-#else
-        public List<double[]> Data
-        {
-            get{ return this.data; }
-        }
-
-        /*
-        public int[] GetLabelArray(int Index)
-        {
-            return this.labelArrays[Index];
-        }
-        */
-#endif
-
-        #endregion
-
 
         #region Constructor
-
         /// <summary>
-        /// Constructor of DataSet class. Data and labels in two separate text files.
+        /// A class for storing Data and Labels
         /// </summary>
-        /// <param name="nClasses"></param>
-        /// <param name="dataPath"></param>
+        /// <param name="nClasses">The number of classes in the network</param>
         public DataSet(int nClasses)
         {
-            new System.Globalization.CultureInfo("en-US");
-
-            this.nClasses = nClasses;
-            this.size = 0;
-
-            // Initialize empty lists
-
-#if OPENCL_ENABLED
-            this.dataGPU = new List<Mem>();
-#else
-            this.data = new List<double[]>();
-            //this.labelArrays = new List<int[]>();
-#endif
-            this.labels = new List<int>();
+            NumberOfClasses = nClasses;
+            DataContainer = new List<DataItem>();
         }
-
         #endregion
 
-
         #region Methods
-
-        public void ReadData(string dataPath)
+        public void ReadData(string dataPath, string labelsPath)
         {
-            // Read images
-            foreach (var line in System.IO.File.ReadAllLines(dataPath))
-            {
-                this.size += 1;
+            string[] dataArray = File.ReadAllLines(dataPath);
+            string[] labelsArray = File.ReadAllLines(labelsPath);
 
-                var columns = line.Split('\t');
-                this.dataDimension = columns.Length;
+            if (dataArray.Length != labelsArray.Length)
+            {
+                throw new Exception("The amount of data does not match the amount of labels");
+            }
+
+            // Read images and their labels
+            for (int index = 0; index < dataArray.Length; index++)
+            {
+                string[] columns = dataArray[index].Split('\t');
+
+                DataDimension = columns.Length;
 
 #if OPENCL_ENABLED
                 float[] dataPoint = new float[columns.Length];
@@ -137,62 +55,103 @@ namespace Conv.NET
                 {
                     dataPoint[i] = float.Parse(columns[i], CultureInfo.InvariantCulture.NumberFormat);
                 }
+
                 int datumBytesSize = sizeof(float) * dataPoint.Length;
-                Mem tmpBuffer = (Mem)Cl.CreateBuffer(  OpenCLSpace.Context,
+                Mem tmpBuffer = (Mem)Cl.CreateBuffer(OpenCLSpace.Context,
                                                             MemFlags.ReadOnly | MemFlags.CopyHostPtr | MemFlags.AllocHostPtr,
                                                             (IntPtr)datumBytesSize,
                                                             dataPoint,
                                                             out OpenCLSpace.ClError);
                 OpenCLSpace.CheckErr(OpenCLSpace.ClError, "DataSet(): Cl.CreateBuffer tmpBuffer");
-                this.dataGPU.Add(tmpBuffer);
 #else
-                double[] image = new double[columns.Length];
+                double[] tmpBuffer = new double[columns.Length];
                 for (int i = 0; i < columns.Length; i++)
                 {
-                    image[i] = double.Parse(columns[i], CultureInfo.InvariantCulture.NumberFormat);
+                    tmpBuffer[i] = double.Parse(columns[i], CultureInfo.InvariantCulture.NumberFormat);
                 }
-                this.data.Add(image);
 #endif
+
+                DataContainer.Add(new DataItem(tmpBuffer, Convert.ToInt32(labelsArray[index])));
             }
         }
 
-        public void ReadLabels(string labelsPath)
+        public void ReadImage(Image input, int label)
         {
-            // Read labels
-            foreach (var line in System.IO.File.ReadAllLines(labelsPath))
+            unsafe
             {
-                int label = Convert.ToInt16(line);
-                //int[] labelArray = new int[nClasses];
-                //labelArray[label] = 1;
-
-                this.labels.Add(label);
-                /*
+                using (Bitmap bmp = new Bitmap(input))
+                {
+                    int offSet = bmp.Width * bmp.Height;
+                    DataDimension = offSet * 3;
 #if OPENCL_ENABLED
-                
-                Mem tmpBufferLabel = (Mem)Cl.CreateBuffer(  OpenCLSpace.Context,
-                                                            MemFlags.ReadWrite | MemFlags.CopyHostPtr,
-                                                            (IntPtr)sizeof(int),
-                                                            label,
-                                                            out OpenCLSpace.ClError);
-                OpenCLSpace.CheckErr(OpenCLSpace.ClError, "DataSet(): Cl.CreateBuffer tmpBufferLabel");
-                this.labelsGPU.Add(tmpBufferLabel);
-                
-                Mem tmpBufferLabelArray = (Mem)Cl.CreateBuffer( OpenCLSpace.Context,
-                                                                MemFlags.ReadWrite | MemFlags.CopyHostPtr,
-                                                                (IntPtr)(sizeof(int) * nClasses),
-                                                                labelArray,
-                                                                out OpenCLSpace.ClError);
-                OpenCLSpace.CheckErr(OpenCLSpace.ClError, "DataSet(): Cl.CreateBuffer tmpBufferLabelArray");
-                this.labelArraysGPU.Add(tmpBufferLabelArray);
+                    float[] dataPoint = new float[DataDimension];
 #else
-                this.labelArrays.Add(labelArray);
+                    double[] dataPoint = new double[DataDimension];
 #endif
-                */
+                    #region Copy RGB values directly from memory to the array
+                    BitmapData bitmapData = bmp.LockBits(new Rectangle(0, 0, bmp.Width, bmp.Height), ImageLockMode.ReadOnly, bmp.PixelFormat);
+                    int bytesPerPixel = Image.GetPixelFormatSize(bmp.PixelFormat) / 8;
+                    int heightInPixels = bitmapData.Height;
+                    int widthInBytes = bitmapData.Width * bytesPerPixel;
+                    byte* ptrFirstPixel = (byte*)bitmapData.Scan0;
+
+                    int index = 0;
+                    for (int y = 0; y < heightInPixels; y++)
+                    {
+                        byte* currentLine = ptrFirstPixel + (y * bitmapData.Stride);
+                        for (int x = 0; x < widthInBytes; x = x + bytesPerPixel)
+                        {
+                            dataPoint[index] = currentLine[x + 2]; // Red
+                            dataPoint[index + offSet] = currentLine[x + 1]; // Green
+                            dataPoint[index + offSet + offSet] = currentLine[x]; // Blue
+                            index++;
+                        }
+                    }
+
+                    bmp.UnlockBits(bitmapData);
+                    #endregion
+
+#if OPENCL_ENABLED
+                    int datumBytesSize = sizeof(float) * dataPoint.Length;
+                    Mem tmpBuffer = (Mem)Cl.CreateBuffer(OpenCLSpace.Context,
+                                                                MemFlags.ReadOnly | MemFlags.CopyHostPtr | MemFlags.AllocHostPtr,
+                                                                (IntPtr)datumBytesSize,
+                                                                dataPoint,
+                                                                out OpenCLSpace.ClError);
+                    OpenCLSpace.CheckErr(OpenCLSpace.ClError, "DataSet(): Cl.CreateBuffer tmpBuffer");
+
+                    DataContainer.Add(new DataItem(tmpBuffer, label));
+#else
+                    DataContainer.Add(new DataItem(dataPoint, label));
+#endif
+                }
             }
-
-            Console.WriteLine("\tImported {0} images. \n\tImage dimension: {1}.\n", size, dataDimension);
         }
-
         #endregion
     }
+
+    #region DataItem
+    public class DataItem
+    {
+        public int Label { get; private set; }
+
+#if OPENCL_ENABLED
+        public Mem Data { get; private set; }
+
+        public DataItem(Mem dataInput, int label)
+        {
+            Data = dataInput;
+            Label = label;
+        }
+#else
+        public double[] Data { get; private set; }
+
+        public DataItem(double[] dataInput, int label)
+        {
+            Data = dataInput;
+            Label = label;
+        }
+#endif
+    }
+    #endregion
 }

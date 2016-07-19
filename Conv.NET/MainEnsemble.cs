@@ -40,8 +40,7 @@ namespace Conv.NET
             string GTSRBtestDataGS1 = dirPath + "/GTSRB/Preprocessed/14_test_images.dat";
             string GTSRBtestLabelsGS1 = dirPath + "/GTSRB/Preprocessed/test_labels_full.dat";
             Console.WriteLine("Importing test set (grayscale 1)...");
-            testSetGS1.ReadData(GTSRBtestDataGS1);
-            testSetGS1.ReadLabels(GTSRBtestLabelsGS1);
+            testSetGS1.ReadData(GTSRBtestDataGS1, GTSRBtestLabelsGS1);
             
             /*
             // GTSRB greyscale test set 2
@@ -58,8 +57,7 @@ namespace Conv.NET
             string GTSRBtestDataRGB1 = dirPath + "/GTSRB/Preprocessed/16_test_images.dat";
             string GTSRBtestLabelsRGB1 = dirPath + "/GTSRB/Preprocessed/test_labels_full.dat";
             Console.WriteLine("Importing test set (RGB 1)...");
-            testSetRGB1.ReadData(GTSRBtestDataRGB1);
-            testSetRGB1.ReadLabels(GTSRBtestLabelsRGB1);
+            testSetRGB1.ReadData(GTSRBtestDataRGB1, GTSRBtestLabelsRGB1);
             
             /*
             // GTSRB RGB test set 2

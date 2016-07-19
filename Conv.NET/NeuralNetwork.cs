@@ -559,7 +559,7 @@ namespace Conv.NET
             for (int m = 0; m < iMiniBatch.Length; m++)
             {
                 int iDataPoint = iMiniBatch[m];
-                int trueLabel = DataSet.Labels[iDataPoint];
+                int trueLabel = DataSet.DataContainer[iDataPoint].Label;
 
                 double[] crossEntropyGradient = new double[nClasses];
                 Array.Copy(outputLayer.OutputClassScores[m], crossEntropyGradient, nClasses);
@@ -575,14 +575,14 @@ namespace Conv.NET
             // now write gradient to input neurons of softmax layer (i.e. to output neurons of classifier)
 
 
-            OpenCLSpace.ClError = Cl.EnqueueWriteBuffer(OpenCLSpace.Queue, 
-                                                        layers.Last().InputNeurons.DeltaGPU, 
-                                                        OpenCL.Net.Bool.True,
-                                                        (IntPtr) 0, 
-                                                        (IntPtr) (sizeof(float) * crossEntropyGradientBatch.Length),
-                                                        crossEntropyGradientBatch, 
-                                                        0, 
-                                                        null, 
+            OpenCLSpace.ClError = Cl.EnqueueWriteBuffer(OpenCLSpace.Queue,
+                                                        layers.Last().InputNeurons.DeltaGPU,
+                                                        Bool.True,
+                                                        (IntPtr)0,
+                                                        (IntPtr)(sizeof(float) * crossEntropyGradientBatch.Length),
+                                                        crossEntropyGradientBatch,
+                                                        0,
+                                                        null,
                                                         out OpenCLSpace.ClEvent);
             OpenCLSpace.CheckErr(OpenCLSpace.ClError, "NetworkTrainer.CrossEntropyGradient(): Cl.EnqueueWriteBuffer");
 
@@ -692,9 +692,9 @@ namespace Conv.NET
                         Console.WriteLine("Weights of layer " + iLayer.ToString() + " (fully connected) saved to file" + outputFilePath);
                     }
                 }
-                
+
             }
         }
         #endregion
-    } 
+    }
 }

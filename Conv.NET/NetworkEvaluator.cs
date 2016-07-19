@@ -28,11 +28,11 @@ namespace Conv.NET
             network.Set("DropoutInput", 1.0);
 
             int miniBatchSize = network.Layers[0].OutputNeurons.MiniBatchSize;
-            
-            Sequence indicesSequence = new Sequence(dataSet.Size);
+
+            Sequence indicesSequence = new Sequence(dataSet.DataContainer.Count);
 
             // Run over mini-batches (in order, no shuffling)
-            for (int iStartMiniBatch = 0; iStartMiniBatch < dataSet.Size; iStartMiniBatch += miniBatchSize)  
+            for (int iStartMiniBatch = 0; iStartMiniBatch < dataSet.DataContainer.Count; iStartMiniBatch += miniBatchSize)
             {
                 // Feed a mini-batch to the network
                 int[] miniBatch = indicesSequence.GetMiniBatchIndices(iStartMiniBatch, miniBatchSize);
@@ -42,7 +42,7 @@ namespace Conv.NET
                 network.ForwardPass("beginning", "end");
 
                 // Do not compute loss or error
-                
+
             }
         }
 
@@ -60,11 +60,11 @@ namespace Conv.NET
             network.Set("DropoutInput", 1.0);
 
             int miniBatchSize = network.Layers[0].OutputNeurons.MiniBatchSize;
-            
-            Sequence indicesSequence = new Sequence(dataSet.Size);
+
+            Sequence indicesSequence = new Sequence(dataSet.DataContainer.Count);
 
             // Run over mini-batches (in order, no shuffling here)
-            for (int iStartMiniBatch = 0; iStartMiniBatch < dataSet.Size; iStartMiniBatch += miniBatchSize)  
+            for (int iStartMiniBatch = 0; iStartMiniBatch < dataSet.DataContainer.Count; iStartMiniBatch += miniBatchSize)
             {
                 // Feed a mini-batch to the network
                 int[] miniBatch = indicesSequence.GetMiniBatchIndices(iStartMiniBatch, miniBatchSize);
@@ -74,23 +74,23 @@ namespace Conv.NET
                 network.ForwardPass("beginning", "end");
 
 
-                for (int m = 0; m < Math.Min(miniBatchSize,dataSet.Size-iStartMiniBatch) ; m++) // In case dataSet.Size doesn't divide miniBatchSize, the last miniBatch contains copies! Don't want to re-evaluate them
+                for (int m = 0; m < Math.Min(miniBatchSize, dataSet.DataContainer.Count - iStartMiniBatch); m++) // In case dataSet.Size doesn't divide miniBatchSize, the last miniBatch contains copies! Don't want to re-evaluate them
                 {
                     double[] outputScores = network.OutputLayer.OutputClassScores[m];
 
                     int assignedLabel = Utils.IndexOfMax(outputScores);
-                    int trueLabel = dataSet.Labels[miniBatch[m]];
+                    int trueLabel = dataSet.DataContainer[miniBatch[m]].Label;
 
                     // Cumulate loss and error
                     loss -= Math.Log(outputScores[trueLabel]);
                     error += (assignedLabel == trueLabel) ? 0 : 1;
 
                 } // end loop within a mini-batch
-                
+
             } // end loop over mini-batches
-             
-            error /= dataSet.Size;
-            loss /= dataSet.Size;
+
+            error /= dataSet.DataContainer.Count;
+            loss /= dataSet.DataContainer.Count;
         }
 
 
@@ -105,7 +105,7 @@ namespace Conv.NET
                 double[] outputScores = network.OutputLayer.OutputClassScores[m];
 
                 int assignedLabel = Utils.IndexOfMax(outputScores);
-                int trueLabel = dataSet.Labels[miniBatch[m]];
+                int trueLabel = dataSet.DataContainer[miniBatch[m]].Label;
 
                 // Cumulate loss and error
                 loss -= Math.Log(outputScores[trueLabel]);
@@ -136,7 +136,7 @@ namespace Conv.NET
             error = 0.0;
 
             int nModels = NetworkEnsemble.Count;
-            int nExamples = GrayscaleDataset.Size;
+            int nExamples = GrayscaleDataset.DataContainer.Count;
             int nClasses = GrayscaleDataset.NumberOfClasses;
 
             // Prepare networks for evaluation
@@ -186,7 +186,7 @@ namespace Conv.NET
                         double[] thisOutputScores = network.OutputLayer.OutputClassScores[m];
 
                         // cumulate the outputScores array of this netowrk on the m-th entry of the list
-                        miniBatchClassScores[m] = Utils.AddArrays(miniBatchClassScores[m], thisOutputScores); 
+                        miniBatchClassScores[m] = Utils.AddArrays(miniBatchClassScores[m], thisOutputScores);
                     }
                 } // end loop over networks
 
@@ -196,11 +196,11 @@ namespace Conv.NET
                 for (int m = 0; m < Math.Min(miniBatchSize, nExamples - iStartMiniBatch); m++) // In case dataSet.Size doesn't divide miniBatchSize, the last miniBatch contains copies! Don't want to re-evaluate them
                 {
                     int assignedLabel = Utils.IndexOfMax(miniBatchClassScores[m]);
-                    int trueLabel = GrayscaleDataset.Labels[miniBatch[m]];
+                    int trueLabel = GrayscaleDataset.DataContainer[miniBatch[m]].Label;
 
                     // Cumulate loss and error
                     error += (assignedLabel == trueLabel) ? 0 : 1;
-                } 
+                }
             } // end loop over mini-batches
 
             error /= nExamples;
@@ -224,10 +224,10 @@ namespace Conv.NET
 
             int miniBatchSize = network.Layers[0].OutputNeurons.MiniBatchSize;
 
-            Sequence indicesSequence = new Sequence(dataSet.Size);
+            Sequence indicesSequence = new Sequence(dataSet.DataContainer.Count);
 
             // Run over mini-batches (in order, no shuffling here)
-            for (int iStartMiniBatch = 0; iStartMiniBatch < dataSet.Size; iStartMiniBatch += miniBatchSize)
+            for (int iStartMiniBatch = 0; iStartMiniBatch < dataSet.DataContainer.Count; iStartMiniBatch += miniBatchSize)
             {
                 // Feed a mini-batch to the network
                 int[] miniBatch = indicesSequence.GetMiniBatchIndices(iStartMiniBatch, miniBatchSize);
@@ -236,12 +236,12 @@ namespace Conv.NET
                 // Run network forward
                 network.ForwardPass("beginning", "end");
 
-                for (int m = 0; m < Math.Min(miniBatchSize, dataSet.Size - iStartMiniBatch); m++) // In case dataSet.Size doesn't divide miniBatchSize, the last miniBatch contains copies! Don't want to re-evaluate them
+                for (int m = 0; m < Math.Min(miniBatchSize, dataSet.DataContainer.Count - iStartMiniBatch); m++) // In case dataSet.Size doesn't divide miniBatchSize, the last miniBatch contains copies! Don't want to re-evaluate them
                 {
                     double[] outputScores = network.OutputLayer.OutputClassScores[m];
 
                     int assignedLabel = Utils.IndexOfMax(outputScores);
-                    int trueLabel = dataSet.Labels[miniBatch[m]];
+                    int trueLabel = dataSet.DataContainer[miniBatch[m]].Label;
 
                     if (assignedLabel != trueLabel)
                     {

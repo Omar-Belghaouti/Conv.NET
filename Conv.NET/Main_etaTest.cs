@@ -51,20 +51,15 @@ namespace Conv.NET
 
             Console.WriteLine("Importing training set...");
             DataSet trainingSet = new DataSet(43);
-            trainingSet.ReadData(GTSRBtrainingDataGS);
-            trainingSet.ReadLabels(GTSRBtrainingLabelsGS);
-
+            trainingSet.ReadData(GTSRBtrainingDataGS, GTSRBtrainingLabelsGS);
 
             Console.WriteLine("Importing validation set...");
             DataSet validationSet = new DataSet(43);
-            validationSet.ReadData(GTSRBvalidationDataGS);
-            validationSet.ReadLabels(GTSRBvalidationLabelsGS);
-
+            validationSet.ReadData(GTSRBvalidationDataGS, GTSRBvalidationLabelsGS);
 
             Console.WriteLine("Importing test set...");
             DataSet testSet = new DataSet(43);
-            testSet.ReadData(GTSRBtestDataGS);
-            testSet.ReadLabels(GTSRBtestLabelsGS);
+            testSet.ReadData(GTSRBtestDataGS, GTSRBtestLabelsGS);
 
             /*****************************************************
              * (1) Instantiate a neural network and add layers

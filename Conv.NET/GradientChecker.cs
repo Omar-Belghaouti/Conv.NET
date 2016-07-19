@@ -29,7 +29,7 @@ namespace Conv.NET
 
             // Get a mini-batch of data
 
-            Sequence indicesSequence = new Sequence(dataSet.Size);
+            Sequence indicesSequence = new Sequence(dataSet.DataContainer.Count);
             indicesSequence.Shuffle();
             int[] miniBatch = indicesSequence.GetMiniBatchIndices(0, miniBatchSize);
 
@@ -39,7 +39,7 @@ namespace Conv.NET
             network.ForwardPass("beginning", "end");
             List<int> trueLabels = new List<int>();
             for (int m = 0; m < miniBatchSize; m++)
-                trueLabels.Add(dataSet.Labels[miniBatch[m]]);
+                trueLabels.Add(dataSet.DataContainer[miniBatch[m]].Label);
             network.CrossEntropyGradient(dataSet, miniBatch);
             network.BackwardPass(0.0, 0.0, 0.0, 1e10); // no momentum, no learning rate, no weight decay
 
@@ -54,7 +54,7 @@ namespace Conv.NET
                 //    network.Layers[iLayer].Type != "SoftMax" && network.Layers[iLayer].Type != "Convolutional" && network.Layers[iLayer].Type != "FullyConnected" 
                 //    && network.Layers[iLayer].Type != "ELU")
                 if (network.Layers[iLayer].Type == typeToCheck)
-                {   
+                {
                     Console.WriteLine("\nChecking gradients in layer {0} ({1})...", iLayer, network.Layers[iLayer].Type);
                     int nChecks = 0;
                     int nErrors = 0;
@@ -105,7 +105,7 @@ namespace Conv.NET
                         //double orderOfMagnitude = Math.Floor(Math.Log10(lossPlus));
                         //lossPlus *= Math.Pow(10, -orderOfMagnitude);
                         //lossMinus *= Math.Pow(10, -orderOfMagnitude);
-                        double gradientNumerical = (lossPlus - lossMinus) / (2*EPSILON);
+                        double gradientNumerical = (lossPlus - lossMinus) / (2 * EPSILON);
                         //gradientNumerical *= Math.Pow(10, orderOfMagnitude);
 
                         // retrieve gradient computed with backprop
@@ -113,28 +113,28 @@ namespace Conv.NET
 
                         //if (Math.Abs(gradientNumerical) > EPSILON || Math.Abs(gradientBackprop) > EPSILON) // when the gradient is very small, finite arithmetics effects are too large => don't check
                         //{
-                            nChecks++;
+                        nChecks++;
 
-                            // compare the gradients, again trying to limit loss of significance!
-                            //orderOfMagnitude = Math.Floor(Math.Log10(Math.Abs(gradientNumerical)));
-                            //double gradientNumericalRescaled = gradientNumerical * Math.Pow(10, -orderOfMagnitude);
-                            //double gradientBackpropRescaled = gradientBackprop * Math.Pow(10, -orderOfMagnitude);
-                            //double error = Math.Abs(gradientNumericalRescaled - gradientBackpropRescaled) * Math.Pow(10, orderOfMagnitude);
-                            double error = Math.Abs(gradientNumerical - gradientBackprop);
-                            double relativeError = error / Math.Max(Math.Abs(gradientNumerical), Math.Abs(gradientBackprop));
-                            if (relativeError > MAX_RELATIVE_ERROR)
-                            {
-                                
-                                Console.Write("\nGradient check failed for parameter {0}\n", j);
-                                Console.WriteLine("\tBackpropagation gradient: {0}", gradientBackprop);
-                                Console.WriteLine("\tFinite difference gradient: {0}", gradientNumerical);
-                                Console.WriteLine("\tRelative error: {0}", relativeError);
-                                
-                                nErrors++;
-                            }
-                            cumulativeError = (relativeError + (nChecks - 1) * cumulativeError) / nChecks;
+                        // compare the gradients, again trying to limit loss of significance!
+                        //orderOfMagnitude = Math.Floor(Math.Log10(Math.Abs(gradientNumerical)));
+                        //double gradientNumericalRescaled = gradientNumerical * Math.Pow(10, -orderOfMagnitude);
+                        //double gradientBackpropRescaled = gradientBackprop * Math.Pow(10, -orderOfMagnitude);
+                        //double error = Math.Abs(gradientNumericalRescaled - gradientBackpropRescaled) * Math.Pow(10, orderOfMagnitude);
+                        double error = Math.Abs(gradientNumerical - gradientBackprop);
+                        double relativeError = error / Math.Max(Math.Abs(gradientNumerical), Math.Abs(gradientBackprop));
+                        if (relativeError > MAX_RELATIVE_ERROR)
+                        {
+
+                            Console.Write("\nGradient check failed for parameter {0}\n", j);
+                            Console.WriteLine("\tBackpropagation gradient: {0}", gradientBackprop);
+                            Console.WriteLine("\tFinite difference gradient: {0}", gradientNumerical);
+                            Console.WriteLine("\tRelative error: {0}", relativeError);
+
+                            nErrors++;
+                        }
+                        cumulativeError = (relativeError + (nChecks - 1) * cumulativeError) / nChecks;
                         //}
-                        
+
                         // restore original weights before checking next gradient
                         network.Layers[iLayer].SetParameters(parametersBackup);
 
@@ -158,7 +158,7 @@ namespace Conv.NET
                     Console.ReadKey();
 
                     // Now inputs
-                    
+
                     nChecks = 0;
                     nErrors = 0;
                     cumulativeError = 0.0;
@@ -203,30 +203,30 @@ namespace Conv.NET
                         lossPlus /= miniBatchSize;
 
                         // compute gradient numerically
-                        double gradientNumerical = (lossPlus - lossMinus) / (2*EPSILON);
+                        double gradientNumerical = (lossPlus - lossMinus) / (2 * EPSILON);
 
 
                         // retrieve gradient computed with backprop
-                        double gradientBackprop = inputGradients[j]/miniBatchSize;
+                        double gradientBackprop = inputGradients[j] / miniBatchSize;
                         // NOTE: it is divided by miniBatchSize because HERE the loss is defined as Loss / miniBatchSize
 
                         //if (Math.Abs(gradientNumerical) > EPSILON || Math.Abs(gradientBackprop) > EPSILON) // when the gradient is very small, finite arithmetics effects are too large => don't check
                         //{
-                            nChecks++;
+                        nChecks++;
 
-                            // compare the gradients
-                            double relativeError = Math.Abs(gradientNumerical - gradientBackprop) / Math.Max(Math.Abs(gradientNumerical), Math.Abs(gradientBackprop));
-                            if (relativeError > MAX_RELATIVE_ERROR)
-                            {
-                                
-                                Console.Write("\nGradient check failed for input {0}\n", j);
-                                Console.WriteLine("\tBackpropagation gradient: {0}", gradientBackprop);
-                                Console.WriteLine("\tFinite difference gradient: {0}", gradientNumerical);
-                                Console.WriteLine("\tRelative error: {0}", relativeError);
-                                
-                                nErrors++;
-                            }
-                            cumulativeError = (relativeError + (nChecks - 1) * cumulativeError) / nChecks;
+                        // compare the gradients
+                        double relativeError = Math.Abs(gradientNumerical - gradientBackprop) / Math.Max(Math.Abs(gradientNumerical), Math.Abs(gradientBackprop));
+                        if (relativeError > MAX_RELATIVE_ERROR)
+                        {
+
+                            Console.Write("\nGradient check failed for input {0}\n", j);
+                            Console.WriteLine("\tBackpropagation gradient: {0}", gradientBackprop);
+                            Console.WriteLine("\tFinite difference gradient: {0}", gradientNumerical);
+                            Console.WriteLine("\tRelative error: {0}", relativeError);
+
+                            nErrors++;
+                        }
+                        cumulativeError = (relativeError + (nChecks - 1) * cumulativeError) / nChecks;
                         //}
 
                         // restore original input before checking next gradient
@@ -250,7 +250,7 @@ namespace Conv.NET
                     Console.Write("Press any key to continue...");
                     Console.Write("\n\n");
                     Console.ReadKey();
-                    
+
                 }
             }
         }

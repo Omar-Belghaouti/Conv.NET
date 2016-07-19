@@ -59,18 +59,13 @@ namespace Conv.NET
                 string GTSRBtestLabelsGS = dirPath + "/GTSRB/Preprocessed/test_labels_full.dat";
 
                 Console.WriteLine("Importing training set...");
-                trainingSet.ReadData(GTSRBtrainingDataGS);
-                trainingSet.ReadLabels(GTSRBtrainingLabelsGS);
-
+                trainingSet.ReadData(GTSRBtrainingDataGS, GTSRBtrainingLabelsGS);
 
                 Console.WriteLine("Importing validation set...");
-                validationSet.ReadData(GTSRBvalidationDataGS);
-                validationSet.ReadLabels(GTSRBvalidationLabelsGS);
-
+                validationSet.ReadData(GTSRBvalidationDataGS, GTSRBvalidationLabelsGS);
 
                 Console.WriteLine("Importing test set...");
-                testSet.ReadData(GTSRBtestDataGS);
-                testSet.ReadLabels(GTSRBtestLabelsGS);
+                testSet.ReadData(GTSRBtestDataGS, GTSRBtestLabelsGS);
             }
             else if (imageColor == "GS2")
             {
@@ -120,18 +115,13 @@ namespace Conv.NET
                 string GTSRBtestLabelsRGB = dirPath + "/GTSRB/Preprocessed/test_labels_full.dat";
 
                 Console.WriteLine("Importing training set...");
-                trainingSet.ReadData(GTSRBtrainingDataRGB);
-                trainingSet.ReadLabels(GTSRBtrainingLabelsRGB);
-
+                trainingSet.ReadData(GTSRBtrainingDataRGB, GTSRBtrainingLabelsRGB);
 
                 Console.WriteLine("Importing validation set...");
-                validationSet.ReadData(GTSRBvalidationDataRGB);
-                validationSet.ReadLabels(GTSRBvalidationLabelsRGB);
-
+                validationSet.ReadData(GTSRBvalidationDataRGB, GTSRBvalidationLabelsRGB);
 
                 Console.WriteLine("Importing test set...");
-                testSet.ReadData(GTSRBtestDataRGB);
-                testSet.ReadLabels(GTSRBtestLabelsRGB);
+                testSet.ReadData(GTSRBtestDataRGB, GTSRBtestLabelsRGB);
 
             }
             else if (imageColor == "RGB2")
@@ -151,19 +141,13 @@ namespace Conv.NET
                 string GTSRBtestLabelsRGB = dirPath + "/GTSRB/Preprocessed/test_labels_full.dat";
 
                 Console.WriteLine("Importing training set...");
-                trainingSet.ReadData(GTSRBtrainingDataRGB);
-                trainingSet.ReadLabels(GTSRBtrainingLabelsRGB);
-
+                trainingSet.ReadData(GTSRBtrainingDataRGB, GTSRBtrainingLabelsRGB);
 
                 Console.WriteLine("Importing validation set...");
-                validationSet.ReadData(GTSRBvalidationDataRGB);
-                validationSet.ReadLabels(GTSRBvalidationLabelsRGB);
-
+                validationSet.ReadData(GTSRBvalidationDataRGB, GTSRBvalidationLabelsRGB);
 
                 Console.WriteLine("Importing test set...");
-                testSet.ReadData(GTSRBtestDataRGB);
-                testSet.ReadLabels(GTSRBtestLabelsRGB);
-
+                testSet.ReadData(GTSRBtestDataRGB, GTSRBtestLabelsRGB);
             }
             else if (imageColor == "RGB_16")
             {
@@ -182,19 +166,13 @@ namespace Conv.NET
                 string GTSRBtestLabelsRGB = dirPath + "/GTSRB/Preprocessed/test_labels_full.dat";
 
                 Console.WriteLine("Importing training set...");
-                trainingSet.ReadData(GTSRBtrainingDataRGB);
-                trainingSet.ReadLabels(GTSRBtrainingLabelsRGB);
-
+                trainingSet.ReadData(GTSRBtrainingDataRGB, GTSRBtrainingLabelsRGB);
 
                 Console.WriteLine("Importing validation set...");
-                validationSet.ReadData(GTSRBvalidationDataRGB);
-                validationSet.ReadLabels(GTSRBvalidationLabelsRGB);
-
+                validationSet.ReadData(GTSRBvalidationDataRGB, GTSRBvalidationLabelsRGB);
 
                 Console.WriteLine("Importing test set...");
-                testSet.ReadData(GTSRBtestDataRGB);
-                testSet.ReadLabels(GTSRBtestLabelsRGB);
-
+                testSet.ReadData(GTSRBtestDataRGB, GTSRBtestLabelsRGB);
             }
             #endregion
 
@@ -252,7 +230,7 @@ namespace Conv.NET
             //network.Set("MiniBatchSize", 64); // this SHOULDN'T matter!
             //network.InitializeParameters("load");
             //NetworkTrainer.TrainingMode = "resume";
-            
+
 
 
 
@@ -263,8 +241,8 @@ namespace Conv.NET
             * (3) Gradient check
             ******************************************************/
             //GradientChecker.Check(network, validationSet);
-            
-            
+
+
             /*****************************************************
             * (4) Train network
             ******************************************************
@@ -304,8 +282,8 @@ namespace Conv.NET
              * (5) Test network
              *****************************************************/
 
-            # region Testing
-            
+            #region Testing
+
             Console.WriteLine("\nFINAL EVALUATION:");
 
             // Load best network from file
@@ -316,16 +294,16 @@ namespace Conv.NET
 
             //double loss;
             //double error;
-            
+
             //NetworkEvaluator.EvaluateNetwork(bestNetwork, trainingSet, out loss, out error);
             //Console.WriteLine("\nTraining set:\n\tLoss = {0}\n\tError = {1}", loss, error);
-            
+
             //NetworkEvaluator.EvaluateNetwork(bestNetwork, validationSet, out loss, out error);
             //Console.WriteLine("\nValidation set:\n\tLoss = {0}\n\tError = {1}\n\tAccuracy = {2}", loss, error, 100*(1-error));
 
             //NetworkEvaluator.EvaluateNetwork(bestNetwork, testSet, out loss, out error);
             //Console.WriteLine("\nTest set:\n\tLoss = {0}\n\tError = {1}\n\tAccuracy = {2}", loss, error, 100 * (1 - error));
-            
+
             // Save misclassified examples
             //NetworkEvaluator.SaveMisclassifiedExamples(bestNetwork, trainingSet, "../../../../Results/MisclassifiedExamples/" + network.Name + "_training.txt");
             //NetworkEvaluator.SaveMisclassifiedExamples(bestNetwork, validationSet, "../../../../Results/MisclassifiedExamples/" + network.Name + "_validation.txt");
@@ -334,8 +312,8 @@ namespace Conv.NET
             // Save filters to file
             bestNetwork.SaveWeights("first", "../../../../Results/Filters/");
 
-            
-            
+
+
             #endregion
             /*****************************************************/
         }

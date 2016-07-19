@@ -76,9 +76,9 @@ namespace Conv.NET
 
         public override void SetWorkGroups()
         {
-            
+
             int miniBatchSize = outputNeurons.MiniBatchSize;
-            
+
             // Dropout (1D) ________________________________________________________________________________
 
             // Local
@@ -107,7 +107,7 @@ namespace Conv.NET
                 int iDataPoint = iExamples[m];
 
                 OpenCLSpace.ClError = Cl.EnqueueCopyBuffer(OpenCLSpace.Queue,
-                                                            dataSet.DataGPU[iDataPoint], // source
+                                                            dataSet.DataContainer[iDataPoint].Data, // source
                                                             outputNeurons.ActivationsGPU, // destination
                                                             (IntPtr)0, // source offset (in bytes)
                                                             (IntPtr)(sizeof(float) * m * dataPointSize), // destination offset (in bytes)
